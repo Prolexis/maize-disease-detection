@@ -30,45 +30,100 @@ st.set_page_config(
 # Estilos CSS personalizados
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Configuración global de fuentes en elementos personalizados */
+    .main-header, .model-card, .prediction-result {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
     .main-header {
-        font-size: 3rem;
-        color: #2E8B57;
+        font-size: 2.8rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         text-align: center;
         margin-bottom: 2rem;
+        letter-spacing: -0.5px;
     }
+    
     .model-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-        border-left: 5px solid #2E8B57;
+        background-color: var(--secondary-background-color);
+        color: var(--text-color);
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin: 1.2rem 0;
+        border-left: 6px solid #10b981;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
     }
+    
+    .model-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .model-card h3 {
+        margin-top: 0;
+        margin-bottom: 0.8rem;
+        font-size: 1.3rem;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+    }
+    
     .prediction-result {
-        font-size: 1.2rem;
-        font-weight: bold;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 0.5rem 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        padding: 0.8rem 1.2rem;
+        border-radius: 8px;
+        margin-top: 0.5rem;
+        display: inline-block;
+        width: 100%;
+        box-sizing: border-box;
     }
+    
+    /* Colores por defecto para Modo Claro */
     .healthy {
-        background-color: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
+        background-color: rgba(16, 185, 129, 0.12);
+        color: #047857;
+        border: 1px solid rgba(16, 185, 129, 0.25);
     }
+    
     .diseased {
-        background-color: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f5c6cb;
+        background-color: rgba(239, 68, 68, 0.12);
+        color: #b91c1c;
+        border: 1px solid rgba(239, 68, 68, 0.25);
     }
+    
+    /* Adaptación automática para Modo Oscuro en sistema o navegador */
+    @media (prefers-color-scheme: dark) {
+        .healthy {
+            background-color: rgba(52, 211, 153, 0.18);
+            color: #34d399;
+            border: 1px solid rgba(52, 211, 153, 0.35);
+        }
+        
+        .diseased {
+            background-color: rgba(248, 113, 113, 0.18);
+            color: #f87171;
+            border: 1px solid rgba(248, 113, 113, 0.35);
+        }
+    }
+    
     .nav-tab {
-        background-color: #f8f9fa;
+        background-color: var(--secondary-background-color);
+        color: var(--text-color);
         padding: 0.5rem 1rem;
-        border-radius: 5px;
+        border-radius: 6px;
         margin: 0.2rem;
         cursor: pointer;
+        font-weight: 500;
+        transition: background-color 0.2s ease;
     }
+    
     .nav-tab:hover {
-        background-color: #e9ecef;
+        background-color: rgba(16, 185, 129, 0.1);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -635,10 +690,14 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
 
     # Generar PDF final
     try:
-        pdf_output = pdf.output(dest='S')
-        return pdf_output.encode('latin-1') if isinstance(pdf_output, str) else pdf_output
+        # En fpdf2, llamar a output() sin argumentos devuelve un bytearray
+        pdf_output = pdf.output()
+        if isinstance(pdf_output, str):
+            pdf_bytes = pdf_output.encode('latin-1')
+        else:
+            pdf_bytes = bytes(pdf_output)
     except Exception as e:
-        # Método alternativo para versiones más nuevas
+        # Método alternativo guardando en un archivo temporal si falla
         temp_pdf_path = f"temp_report_{int(peru_time.timestamp())}.pdf"
         pdf.output(temp_pdf_path)
 
@@ -650,7 +709,8 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
         except:
             pass
 
-        return pdf_bytes
+    return bytes(pdf_bytes)
+
 
 
 def plot_predictions(predictions):
