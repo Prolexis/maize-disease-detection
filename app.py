@@ -36,8 +36,25 @@ st.markdown("""
     .main-header {
         font-family: 'Outfit', -apple-system, sans-serif;
     }
-    .model-card, .prediction-result, .nav-tab, button, [data-baseweb="tab"], p, li, h2, h3 {
+    .model-card, .prediction-result, .nav-tab, button, [data-baseweb="tab"], p, li, h2, h3, [data-testid="metric-container"] {
         font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    }
+
+    /* Animación de carga progresiva (fadeInUp) */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Aplicar animación suave a componentes clave al cargarse */
+    .stMarkdown, .model-card, [data-testid="stFileUploader"], [data-testid="stDataFrame"], .stAlert, [data-testid="metric-container"] {
+        animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
     /* Título Animado Estilo 2026 */
@@ -60,32 +77,25 @@ st.markdown("""
         letter-spacing: -1.5px;
         text-shadow: 0 10px 30px rgba(16, 185, 129, 0.1);
     }
-    
-    /* Animación flotante para Tarjetas */
-    @keyframes float {
-        0% { transform: translateY(0px); }
-        50% { transform: translateY(-5px); }
-        100% { transform: translateY(0px); }
-    }
 
     /* Tarjetas de Modelos con Glassmorphism */
     .model-card {
-        background: rgba(255, 255, 255, 0.7);
+        background: color-mix(in srgb, var(--secondary-background-color) 75%, transparent) !important;
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         color: var(--text-color);
         padding: 1.8rem;
         border-radius: 16px;
         margin: 1.5rem 0;
         border-left: 6px solid #10b981;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04);
         transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
     }
     
     .model-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
         border-left-color: #06b6d4;
     }
 
@@ -95,7 +105,7 @@ st.markdown("""
         font-size: 1.35rem;
         font-weight: 700;
         letter-spacing: -0.5px;
-        color: #1f2937;
+        color: var(--text-color) !important;
     }
     
     .prediction-result {
@@ -110,18 +120,18 @@ st.markdown("""
         letter-spacing: -0.2px;
     }
     
-    /* Alertas de Diagnóstico - Adaptadas a modo Claro */
+    /* Alertas de Diagnóstico - Adaptadas con color-mix dinámico */
     .healthy {
-        background-color: rgba(16, 185, 129, 0.08);
-        color: #047857;
-        border: 1px solid rgba(16, 185, 129, 0.2);
+        background-color: rgba(16, 185, 129, 0.1) !important;
+        color: color-mix(in srgb, #10b981 85%, var(--text-color)) !important;
+        border: 1px solid rgba(16, 185, 129, 0.25) !important;
         box-shadow: inset 0 0 10px rgba(16, 185, 129, 0.05);
     }
     
     .diseased {
-        background-color: rgba(244, 63, 94, 0.08);
-        color: #be123c;
-        border: 1px solid rgba(244, 63, 94, 0.2);
+        background-color: rgba(244, 63, 94, 0.1) !important;
+        color: color-mix(in srgb, #f43f5e 85%, var(--text-color)) !important;
+        border: 1px solid rgba(244, 63, 94, 0.25) !important;
         box-shadow: inset 0 0 10px rgba(244, 63, 94, 0.05);
         animation: pulse-glow 2s infinite alternate;
     }
@@ -131,27 +141,13 @@ st.markdown("""
         100% { box-shadow: 0 0 15px rgba(244, 63, 94, 0.25); }
     }
     
-    /* Adaptaciones automáticas en Modo Oscuro */
+    /* Adaptaciones automáticas en Modo Oscuro (Si se prefiere por sistema) */
     @media (prefers-color-scheme: dark) {
         .model-card {
-            background: rgba(17, 25, 40, 0.75);
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
         }
-        .model-card h3 {
-            color: #f3f4f6;
-        }
-        .healthy {
-            background-color: rgba(52, 211, 153, 0.12);
-            color: #34d399;
-            border: 1px solid rgba(52, 211, 153, 0.3);
-            box-shadow: 0 0 12px rgba(52, 211, 153, 0.1);
-        }
-        
         .diseased {
-            background-color: rgba(248, 113, 113, 0.12);
-            color: #f87171;
-            border: 1px solid rgba(248, 113, 113, 0.3);
             animation: pulse-glow-dark 2s infinite alternate;
         }
     }
@@ -240,18 +236,73 @@ st.markdown("""
         color: #10b981 !important;
     }
 
-    /* Frosted glass para la barra lateral */
-    section[data-testid="stSidebar"] {
-        background: rgba(248, 250, 252, 0.8) !important;
-        backdrop-filter: blur(10px) !important;
-        border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
+    /* Ocultar barra de selección y borde de pestañas nativas de Streamlit */
+    div[data-baseweb="tab-highlight"] {
+        background-color: transparent !important;
+        height: 0px !important;
+    }
+    
+    div[data-baseweb="tab-border"] {
+        background-color: transparent !important;
     }
 
-    @media (prefers-color-scheme: dark) {
-        section[data-testid="stSidebar"] {
-            background: rgba(15, 23, 42, 0.85) !important;
-            border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
-        }
+    /* Frosted glass universal para la barra lateral basado en color-mix */
+    section[data-testid="stSidebar"] {
+        background-color: color-mix(in srgb, var(--secondary-background-color) 88%, transparent) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        border-right: 1px solid rgba(16, 185, 129, 0.15) !important;
+    }
+
+    /* Estilización de los botones del Sidebar */
+    section[data-testid="stSidebar"] button {
+        background: rgba(255, 255, 255, 0.03) !important;
+        color: var(--text-color) !important;
+        border: 1px solid rgba(16, 185, 129, 0.2) !important;
+        border-radius: 20px !important;
+        font-weight: 600 !important;
+        transition: all 0.25s ease !important;
+        box-shadow: none !important;
+        padding: 0.4rem 1.2rem !important;
+        width: 100% !important;
+    }
+    
+    section[data-testid="stSidebar"] button:hover {
+        background: rgba(16, 185, 129, 0.08) !important;
+        border-color: #10b981 !important;
+        color: #10b981 !important;
+        transform: translateY(-1px) !important;
+    }
+
+    /* Estilización de las tarjetas de métricas */
+    [data-testid="metric-container"] {
+        background: color-mix(in srgb, var(--secondary-background-color) 75%, transparent) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        padding: 1.2rem 1.6rem !important;
+        border-radius: 16px !important;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.03) !important;
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease !important;
+    }
+    
+    [data-testid="metric-container"]:hover {
+        transform: translateY(-3px) !important;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08) !important;
+        border-color: rgba(16, 185, 129, 0.25) !important;
+    }
+
+    /* Estilos sutiles y bordes suaves para las alertas de Streamlit */
+    div.stAlert, [data-testid="stNotification"] {
+        border-radius: 12px !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.01) !important;
+    }
+
+    /* Esquinas redondeadas y estética limpia para el contenedor de tablas de datos */
+    [data-testid="stDataFrame"] {
+        border-radius: 12px !important;
+        overflow: hidden !important;
     }
 </style>
 """, unsafe_allow_html=True)
