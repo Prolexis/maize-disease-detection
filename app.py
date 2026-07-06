@@ -74,8 +74,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Configuración de rutas - AJUSTA ESTAS RUTAS SEGÚN TU ESTRUCTURA
-MODEL_PATH = "/content/drive/MyDrive/maize-leaf-disease/Models"  # Cambia por tu ruta de modelos
-REPORTS_PATH = "/content/drive/MyDrive/maize-leaf-disease/Reports2"  # Cambia por tu ruta de reportes
+MODEL_PATH = "models" if os.path.exists("models") else "/content/drive/MyDrive/maize-leaf-disease/Models"
+REPORTS_PATH = "reports" if os.path.exists("reports") else "/content/drive/MyDrive/maize-leaf-disease/Reports2"
+
 IMG_SIZE = 128
 
 # Nombres de clases (ajusta según tus clases reales)
