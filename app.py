@@ -30,100 +30,228 @@ st.set_page_config(
 # Estilos CSS personalizados
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
     
-    /* Configuración global de fuentes en elementos personalizados */
-    .main-header, .model-card, .prediction-result {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    /* Configuración de fuentes globales en elementos personalizados */
+    .main-header {
+        font-family: 'Outfit', -apple-system, sans-serif;
+    }
+    .model-card, .prediction-result, .nav-tab, button, [data-baseweb="tab"], p, li, h2, h3 {
+        font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    }
+
+    /* Título Animado Estilo 2026 */
+    @keyframes gradient-flow {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
     }
 
     .main-header {
-        font-size: 2.8rem;
-        font-weight: 800;
-        background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+        font-size: 3.2rem;
+        font-weight: 900;
+        background: linear-gradient(-45deg, #10b981, #06b6d4, #3b82f6, #059669);
+        background-size: 300% 300%;
+        animation: gradient-flow 10s ease infinite;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         text-align: center;
         margin-bottom: 2rem;
-        letter-spacing: -0.5px;
+        letter-spacing: -1.5px;
+        text-shadow: 0 10px 30px rgba(16, 185, 129, 0.1);
     }
     
+    /* Animación flotante para Tarjetas */
+    @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-5px); }
+        100% { transform: translateY(0px); }
+    }
+
+    /* Tarjetas de Modelos con Glassmorphism */
     .model-card {
-        background-color: var(--secondary-background-color);
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
         color: var(--text-color);
-        padding: 1.5rem;
-        border-radius: 12px;
-        margin: 1.2rem 0;
+        padding: 1.8rem;
+        border-radius: 16px;
+        margin: 1.5rem 0;
         border-left: 6px solid #10b981;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-        transition: transform 0.25s ease, box-shadow 0.25s ease;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
     }
     
     .model-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+        border-left-color: #06b6d4;
     }
 
     .model-card h3 {
         margin-top: 0;
         margin-bottom: 0.8rem;
-        font-size: 1.3rem;
-        font-weight: 600;
-        letter-spacing: -0.3px;
+        font-size: 1.35rem;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        color: #1f2937;
     }
     
     .prediction-result {
         font-size: 1.1rem;
-        font-weight: 600;
-        padding: 0.8rem 1.2rem;
-        border-radius: 8px;
+        font-weight: 700;
+        padding: 0.9rem 1.3rem;
+        border-radius: 10px;
         margin-top: 0.5rem;
         display: inline-block;
         width: 100%;
         box-sizing: border-box;
+        letter-spacing: -0.2px;
     }
     
-    /* Colores por defecto para Modo Claro */
+    /* Alertas de Diagnóstico - Adaptadas a modo Claro */
     .healthy {
-        background-color: rgba(16, 185, 129, 0.12);
+        background-color: rgba(16, 185, 129, 0.08);
         color: #047857;
-        border: 1px solid rgba(16, 185, 129, 0.25);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        box-shadow: inset 0 0 10px rgba(16, 185, 129, 0.05);
     }
     
     .diseased {
-        background-color: rgba(239, 68, 68, 0.12);
-        color: #b91c1c;
-        border: 1px solid rgba(239, 68, 68, 0.25);
+        background-color: rgba(244, 63, 94, 0.08);
+        color: #be123c;
+        border: 1px solid rgba(244, 63, 94, 0.2);
+        box-shadow: inset 0 0 10px rgba(244, 63, 94, 0.05);
+        animation: pulse-glow 2s infinite alternate;
     }
     
-    /* Adaptación automática para Modo Oscuro en sistema o navegador */
+    @keyframes pulse-glow {
+        0% { box-shadow: 0 0 5px rgba(244, 63, 94, 0.1); }
+        100% { box-shadow: 0 0 15px rgba(244, 63, 94, 0.25); }
+    }
+    
+    /* Adaptaciones automáticas en Modo Oscuro */
     @media (prefers-color-scheme: dark) {
+        .model-card {
+            background: rgba(17, 25, 40, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+        }
+        .model-card h3 {
+            color: #f3f4f6;
+        }
         .healthy {
-            background-color: rgba(52, 211, 153, 0.18);
+            background-color: rgba(52, 211, 153, 0.12);
             color: #34d399;
-            border: 1px solid rgba(52, 211, 153, 0.35);
+            border: 1px solid rgba(52, 211, 153, 0.3);
+            box-shadow: 0 0 12px rgba(52, 211, 153, 0.1);
         }
         
         .diseased {
-            background-color: rgba(248, 113, 113, 0.18);
+            background-color: rgba(248, 113, 113, 0.12);
             color: #f87171;
-            border: 1px solid rgba(248, 113, 113, 0.35);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            animation: pulse-glow-dark 2s infinite alternate;
         }
     }
     
-    .nav-tab {
-        background-color: var(--secondary-background-color);
-        color: var(--text-color);
-        padding: 0.5rem 1rem;
-        border-radius: 6px;
-        margin: 0.2rem;
-        cursor: pointer;
-        font-weight: 500;
-        transition: background-color 0.2s ease;
+    @keyframes pulse-glow-dark {
+        0% { box-shadow: 0 0 5px rgba(248, 113, 113, 0.1); }
+        100% { box-shadow: 0 0 20px rgba(248, 113, 113, 0.3); }
+    }
+
+    /* Rediseño de Botones de Streamlit a Cápsulas Modernas */
+    div.stButton > button {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 30px !important;
+        padding: 0.6rem 1.8rem !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.3px !important;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2) !important;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
     }
     
-    .nav-tab:hover {
-        background-color: rgba(16, 185, 129, 0.1);
+    div.stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.35) !important;
+        border-color: transparent !important;
+    }
+
+    div.stButton > button:active {
+        transform: translateY(0px) !important;
+    }
+
+    /* Estilización del Botón de Descarga */
+    div.stDownloadButton > button {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 30px !important;
+        padding: 0.6rem 1.8rem !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.3px !important;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2) !important;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        width: 100%;
+    }
+
+    div.stDownloadButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(59, 130, 246, 0.35) !important;
+        border-color: transparent !important;
+    }
+
+    /* Zona de Carga de Archivos (Uploader) */
+    [data-testid="stFileUploader"] {
+        border: 2px dashed rgba(16, 185, 129, 0.3) !important;
+        border-radius: 16px !important;
+        background-color: rgba(16, 185, 129, 0.02) !important;
+        padding: 1.5rem !important;
+        transition: all 0.3s ease !important;
+    }
+
+    [data-testid="stFileUploader"]:hover {
+        border-color: #10b981 !important;
+        background-color: rgba(16, 185, 129, 0.05) !important;
+    }
+
+    /* Pestañas de Navegación Estilo Pill Segmented */
+    button[data-baseweb="tab"] {
+        border-radius: 30px !important;
+        padding: 0.5rem 1.5rem !important;
+        margin: 0 0.3rem !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.3px !important;
+        transition: all 0.3s ease !important;
+        background-color: transparent !important;
+        border: 1px solid transparent !important;
+    }
+
+    button[data-baseweb="tab"][aria-selected="true"] {
+        background-color: rgba(16, 185, 129, 0.12) !important;
+        color: #10b981 !important;
+        border-color: rgba(16, 185, 129, 0.25) !important;
+    }
+
+    button[data-baseweb="tab"]:hover {
+        color: #10b981 !important;
+    }
+
+    /* Frosted glass para la barra lateral */
+    section[data-testid="stSidebar"] {
+        background: rgba(248, 250, 252, 0.8) !important;
+        backdrop-filter: blur(10px) !important;
+        border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        section[data-testid="stSidebar"] {
+            background: rgba(15, 23, 42, 0.85) !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
