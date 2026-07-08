@@ -9,3 +9,7 @@ pandas
 fpdf2
 pytz
 scikit-learn
+scipy
+openpyxl
+python-docx
+pyyaml

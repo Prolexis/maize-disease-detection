@@ -19,6 +19,15 @@ import io
 from datetime import datetime
 import pytz
 
+# Importar componentes de la plataforma AutoML tabular
+from src.config import set_seed
+from src.eda import clean_data, get_descriptive_stats, interpret_eda, plot_eda_charts
+from src.training import train_and_evaluate_all, plot_training_charts, interpret_training, save_best_model
+from src.cross_validation import run_cross_validation, plot_cv_dispersion, interpret_cv
+from src.tuning import run_hyperparameter_tuning, interpret_tuning
+from src.stats_tests import run_statistical_tests, interpret_stats
+from src.reporting import generate_xlsx_report, generate_docx_report, generate_pdf_report
+
 # Configuración de la página
 st.set_page_config(
     page_title="🌽 Detector de Enfermedades en Hojas de Maíz",
@@ -1400,11 +1409,45 @@ def show_model_comparison():
     plt.tight_layout()
     st.pyplot(fig)
 
-def main():
-    # Encabezado principal
-    st.markdown('<h1 class="main-header">🌽 Detector de Enfermedades en Hojas de Maíz</h1>',
-                unsafe_allow_html=True)
+def check_login():
+    """Valida credenciales e inyecta la pantalla de login si no está autenticado."""
+    if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
+        
+    if not st.session_state.authenticated:
+        # Mostrar pantalla de inicio de sesión con Estilo 2026
+        st.markdown('<h1 class="main-header">🔑 Acceso al Sistema Fitosanitario</h1>', unsafe_allow_html=True)
+        
+        # Centrar el formulario usando columnas
+        _, col, _ = st.columns([1, 2, 1])
+        with col:
+            st.markdown("""
+            <div class="model-card">
+                <h3 style="text-align: center; margin-bottom: 1.5rem;">Iniciar Sesión</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            username = st.text_input("Usuario", placeholder="admin")
+            password = st.text_input("Contraseña", type="password", placeholder="••••••••")
+            
+            if st.button("🚀 Ingresar", use_container_width=True):
+                if username == "admin" and password == "admin123":
+                    st.session_state.authenticated = True
+                    st.success("✅ ¡Ingreso exitoso!")
+                    st.rerun()
+                else:
+                    st.error("❌ Credenciales inválidas. Inténtelo de nuevo.")
+            
+            st.markdown("""
+            <div style="text-align: center; font-size: 0.85rem; color: #888; margin-top: 1.5rem;">
+                Usuario por defecto: <b>admin</b> | Contraseña: <b>admin123</b>
+            </div>
+            """, unsafe_allow_html=True)
+        return False
+    return True
 
+def show_fitosanitario_panel():
+    """Muestra el panel de diagnóstico fitosanitario por imágenes original."""
     # Navegación con tabs
     tab1, tab2, tab3 = st.tabs(["🔍 Predicción", "📊 Reportes de Entrenamiento", "🔬 Comparación de Modelos"])
 
@@ -1472,14 +1515,286 @@ def main():
     - Para mejores resultados, centra la hoja en la imagen
     """)
 
-    # Footer
+def show_automl_panel():
+    """Muestra la plataforma AutoML tabular modular."""
+    st.markdown("""
+    Esta plataforma permite cargar un dataset tabular de variables agrícolas y ejecutar de extremo a extremo un pipeline de Machine Learning (3 modelos clásicos + 2 híbridos).
+    """)
+    
+    # 1. Cargar datos
+    uploaded_file = st.file_uploader("Cargar archivo de datos (CSV)", type=["csv"])
+    df = None
+    
+    if uploaded_file is not None:
+        try:
+            df = pd.read_csv(uploaded_file)
+            st.success("✅ Archivo cargado exitosamente.")
+        except Exception as e:
+            st.error(f"Error al leer el archivo: {e}")
+    else:
+        # Ofrecer dataset de prueba
+        if os.path.exists("data/maize_crop_data.csv"):
+            st.info("💡 Se ha detectado el dataset de prueba pregenerado `maize_crop_data.csv` en el servidor local.")
+            if st.button("📊 Cargar Dataset de Prueba Fitosanitario", use_container_width=True):
+                df = pd.read_csv("data/maize_crop_data.csv")
+                st.success("✅ Dataset de prueba cargado correctamente.")
+                
+    if df is None:
+        st.warning("⚠️ Cargue un archivo CSV para iniciar el análisis.")
+        return
+        
+    # Mostrar vista previa
+    st.markdown("### 📋 Vista Previa del Dataset")
+    st.dataframe(df.head(5), use_container_width=True)
+    
+    # Seleccionar la columna objetivo (Target)
+    target_col = st.selectbox("Seleccione la variable objetivo (Target):", df.columns.tolist(), index=len(df.columns)-1)
+    
+    # Configuración de hiperparámetros
+    st.markdown("---")
+    st.markdown("### ⚙️ Configuración del Experimento")
+    
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        cv_folds = st.slider("Validación Cruzada (K-Folds)", 3, 10, 5)
+        split_ratio = st.slider("Porcentaje de Entrenamiento (%)", 60, 90, 80) / 100.0
+    with col_c2:
+        seed = st.number_input("Semilla de Reproducibilidad", value=42, step=1)
+        alpha = st.selectbox("Nivel de Significancia (α)", [0.01, 0.05, 0.10], index=1)
+        tuning_method = st.radio("Método de Búsqueda de Hiperparámetros", ["grid", "random"], index=0, horizontal=True)
+        
+    # Inicializar semillas
+    set_seed(seed)
+    
+    # Botón de ejecución
+    if st.button("🚀 Ejecutar Pipeline de Machine Learning", type="primary", use_container_width=True):
+        with st.spinner("Ejecutando Pipeline... por favor espere."):
+            # 1. EDA
+            df_cleaned, num_duplicates, imputed_nulls, outliers_detected = clean_data(df, target_col)
+            df_eda, class_stats = get_descriptive_stats(df_cleaned, target_col)
+            eda_charts = plot_eda_charts(df_cleaned, target_col)
+            eda_interpret = interpret_eda(df_cleaned, target_col, num_duplicates, imputed_nulls, outliers_detected, df_eda)
+            
+            # 2. Entrenamiento
+            results, X_train, X_test, y_train, y_test, classes = train_and_evaluate_all(
+                df_cleaned, target_col, split_ratio=split_ratio, seed=seed
+            )
+            roc_chart, learning_chart = plot_training_charts(results, X_test, y_test, classes)
+            training_interpret = interpret_training(results)
+            
+            # Convertir resultados de entrenamiento a dataframe
+            training_metrics = []
+            for model_name, res in results.items():
+                training_metrics.append({
+                    'Accuracy': res['accuracy'],
+                    'Precision': res['precision'],
+                    'Recall': res['recall'],
+                    'F1-Score': res['f1-score'],
+                    'AUC': res['auc'],
+                    'Tiempo de Entrenamiento (s)': res['train_time'],
+                    'Tiempo de Inferencia (s)': res['inference_time'],
+                    'No. Parámetros': res['param_count'],
+                    'Tamaño (KB)': res['model_size_kb']
+                })
+            df_training = pd.DataFrame(training_metrics, index=list(results.keys()))
+            
+            # Guardar mejor modelo
+            best_model_path, meta_path = save_best_model(results)
+            
+            # 3. Cross Validation
+            cv_results = run_cross_validation(df_cleaned, target_col, cv_folds=cv_folds, seed=seed)
+            cv_chart = plot_cv_dispersion(cv_results)
+            cv_interpret = interpret_cv(cv_results)
+            
+            # 4. Tuning
+            tuning_results = run_hyperparameter_tuning(df_cleaned, target_col, method=tuning_method, seed=seed)
+            tuning_interpret = interpret_tuning(tuning_results)
+            
+            # 5. Pruebas estadísticas
+            # Obtener predicciones del mejor clásico y mejor híbrido
+            classics_names = ['Regresión Logística (Clásico)', 'Random Forest (Clásico)', 'Red Neuronal MLP (Clásico)']
+            hybrids_names = ['Híbrido Votación (RF+MLP)', 'Híbrido Stacking (Meta-GB)']
+            best_classic = max(classics_names, key=lambda n: results[n]['accuracy'])
+            best_hybrid = max(hybrids_names, key=lambda n: results[n]['accuracy'])
+            y_pred_classic = results[best_classic]['y_pred']
+            y_pred_hybrid = results[best_hybrid]['y_pred']
+            
+            stats_results = run_statistical_tests(cv_results, y_test, y_pred_classic, y_pred_hybrid, alpha=alpha)
+            stats_interpret = interpret_stats(stats_results, alpha=alpha)
+            
+            # 6. Guardar interpretaciones agrupadas
+            interpretations = {
+                'eda': eda_interpret,
+                'training': training_interpret,
+                'cv': cv_interpret,
+                'tuning': tuning_interpret,
+                'stats': stats_interpret
+            }
+            
+            # 7. Generar reportes
+            image_paths = {
+                'balance': eda_charts['balance'],
+                'correlation': eda_charts.get('correlation', ''),
+                'distributions': eda_charts['distributions'],
+                'boxplots': eda_charts['boxplots'],
+                'roc': roc_chart,
+                'learning': learning_chart,
+                'cv': cv_chart,
+                'stats': stats_results['stats_chart']
+            }
+            
+            xlsx_report = generate_xlsx_report(df_eda, df_training, cv_results, tuning_results, stats_results)
+            docx_report = generate_docx_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths)
+            pdf_report = generate_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths)
+            
+            # Almacenar en session_state
+            st.session_state.pipeline_executed = True
+            st.session_state.df_eda = df_eda
+            st.session_state.df_training = df_training
+            st.session_state.cv_results = cv_results
+            st.session_state.tuning_results = tuning_results
+            st.session_state.stats_results = stats_results
+            st.session_state.interpretations = interpretations
+            st.session_state.image_paths = image_paths
+            st.session_state.xlsx_report = xlsx_report
+            st.session_state.docx_report = docx_report
+            st.session_state.pdf_report = pdf_report
+            
+            st.success("✅ ¡Pipeline completado con éxito! Revisa los resultados abajo.")
+
+    # 4. Mostrar resultados guardados en session_state
+    if st.session_state.get('pipeline_executed', False):
+        st.markdown("---")
+        st.markdown("## 📥 Descarga de Reportes Integrales")
+        
+        col_d1, col_d2, col_d3 = st.columns(3)
+        with col_d1:
+            with open(st.session_state.pdf_report, "rb") as f:
+                st.download_button("📥 Descargar Reporte PDF", f.read(), file_name="reporte_fitosanitario_automl.pdf", mime="application/pdf", use_container_width=True)
+        with col_d2:
+            with open(st.session_state.docx_report, "rb") as f:
+                st.download_button("📥 Descargar Reporte Word (.docx)", f.read(), file_name="reporte_fitosanitario_automl.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+        with col_d3:
+            with open(st.session_state.xlsx_report, "rb") as f:
+                st.download_button("📥 Descargar Reporte Excel (.xlsx)", f.read(), file_name="reporte_fitosanitario_automl.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                
+        # Mostrar fases con tabs
+        tab_eda, tab_train, tab_cv, tab_tuning, tab_stats = st.tabs([
+            "🔍 Análisis Exploratorio (EDA)", 
+            "🤖 Modelado y Entrenamiento", 
+            "🔁 Validación Cruzada", 
+            "🔧 Tuning de Hiperparámetros", 
+            "🔬 Pruebas Estadísticas"
+        ])
+        
+        with tab_eda:
+            st.markdown("### Estadísticos Descriptivos Globales")
+            st.dataframe(st.session_state.df_eda, use_container_width=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("#### Balance y Distribución de Clases")
+                st.image(st.session_state.image_paths['balance'])
+            with col2:
+                if st.session_state.image_paths.get('correlation'):
+                    st.markdown("#### Mapa de Calor de Correlación")
+                    st.image(st.session_state.image_paths['correlation'])
+                    
+            st.markdown("#### Distribución de Variables por Clase")
+            st.image(st.session_state.image_paths['distributions'])
+            st.image(st.session_state.image_paths['boxplots'])
+            
+            st.markdown("#### 💡 Interpretación del EDA")
+            st.info(st.session_state.interpretations['eda'])
+            
+        with tab_train:
+            st.markdown("### Tabla Comparativa de Rendimiento (Test Set)")
+            st.dataframe(st.session_state.df_training, use_container_width=True)
+            
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                st.markdown("#### Curvas ROC Comparativas")
+                st.image(st.session_state.image_paths['roc'])
+            with col_t2:
+                st.markdown("#### Curvas de Aprendizaje (Loss Evolution)")
+                st.image(st.session_state.image_paths['learning'])
+                
+            st.markdown("#### Matrices de Confusión por Modelo")
+            for model_name in st.session_state.df_training.index:
+                filename = os.path.join("reports", f"confusion_{model_name.replace(' ', '_').replace('(', '').replace(')', '')}.png")
+                if os.path.exists(filename):
+                    st.image(filename, caption=f"Matriz de Confusión - {model_name}", width=400)
+                    
+            st.markdown("#### 💡 Interpretación de Modelado")
+            st.info(st.session_state.interpretations['training'])
+            
+        with tab_cv:
+            st.markdown("### Resultados de Validación Cruzada")
+            cv_disp_data = []
+            for name, res in st.session_state.cv_results.items():
+                cv_disp_data.append({
+                    'Modelo': name,
+                    'Mean Accuracy': f"{res['mean_accuracy']:.4%}",
+                    'Std Accuracy': f"{res['std_accuracy']:.4%}",
+                    'Mean F1-Score': f"{res['mean_f1']:.4f}",
+                    'Std F1-Score': f"{res['std_f1']:.4f}"
+                })
+            st.dataframe(pd.DataFrame(cv_disp_data), use_container_width=True)
+            st.image(st.session_state.image_paths['cv'])
+            
+            st.markdown("#### 💡 Interpretación de Validación Cruzada")
+            st.info(st.session_state.interpretations['cv'])
+            
+        with tab_tuning:
+            st.markdown("### Resultados de Optimización (Random Forest)")
+            t_res = st.session_state.tuning_results
+            st.markdown(f"**Mejores Hiperparámetros:** `{t_res['best_params']}`")
+            st.metric("Precisión Antes del Tuning", f"{t_res['accuracy_before']:.2%}")
+            st.metric("Precisión Después del Tuning", f"{t_res['accuracy_after']:.2%}", delta=f"{t_res['accuracy_after'] - t_res['accuracy_before']:+.2%}")
+            
+            st.markdown("#### 💡 Interpretación del Tuning")
+            st.info(st.session_state.interpretations['tuning'])
+            
+        with tab_stats:
+            st.markdown("### Resultados de las Pruebas Estadísticas")
+            s_res = st.session_state.stats_results
+            st.markdown(f"**Prueba de Hipótesis Utilizada:** `{s_res['test_type']}`")
+            st.image(st.session_state.image_paths['stats'])
+            
+            st.markdown("#### 💡 Interpretación Estadística Avanzada")
+            st.info(st.session_state.interpretations['stats'])
+
+def main():
+    # Validar credenciales
+    if not check_login():
+        return
+
+    # Encabezado principal
+    st.markdown('<h1 class="main-header">🌽 Detector de Enfermedades en Hojas de Maíz</h1>',
+                unsafe_allow_html=True)
+
+    # Selector de Modo en el Sidebar
+    st.sidebar.markdown("# 🗺️ Selector de Panel")
+    app_mode = st.sidebar.selectbox(
+        "Seleccione el panel de trabajo:",
+        ["🌽 Diagnóstico Fitosanitario (Imágenes)", "📊 AutoML Pipeline Analítico (Tabular)"]
+    )
+    
+    st.sidebar.markdown("---")
+
+    if app_mode == "🌽 Diagnóstico Fitosanitario (Imágenes)":
+        show_fitosanitario_panel()
+    else:
+        show_automl_panel()
+
+    # Footer común
     st.markdown("---")
     st.markdown("""
     <div style='text-align: center; color: #666; margin-top: 2rem;'>
         🌽 Desarrollado para el análisis de enfermedades en cultivos de maíz<br>
-        Utiliza modelos de deep learning entrenados con transfer learning
+        Integración de diagnóstico de imágenes y pipeline analítico de Machine Learning
     </div>
     """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
-    main()  
+    main()
