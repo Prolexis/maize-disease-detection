@@ -40,17 +40,22 @@ div.block-container {
 div[data-testid="stHorizontalBlock"] {
     background-color: #ffffff;
     border-radius: 24px;
-    box-shadow: 0 20px 40px rgba(30, 41, 59, 0.08), 0 0 20px rgba(34, 197, 94, 0.03);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15) !important;
     overflow: hidden;
     border: 1px solid #e2e8f0;
     display: flex !important;
     flex-direction: row !important;
     height: 540px !important; /* Altura optimizada */
     transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    animation: card-entrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
 }
 div[data-testid="stHorizontalBlock"]:hover {
-    box-shadow: 0 30px 60px rgba(30, 41, 59, 0.12), 0 0 35px rgba(34, 197, 94, 0.08);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.22) !important;
     transform: translateY(-2px);
+}
+@keyframes card-entrance {
+    0% { opacity: 0; transform: scale(0.97); }
+    100% { opacity: 1; transform: scale(1); }
 }
 
 /* Estilización general de las columnas del horizontal block superior */
@@ -65,12 +70,41 @@ div[data-testid="stHorizontalBlock"]:not(div[data-testid="stHorizontalBlock"] *)
 /* Columna izquierda (Branding) - Primera columna del horizontal block superior */
 div[data-testid="stHorizontalBlock"]:not(div[data-testid="stHorizontalBlock"] *) > div[data-testid*="olumn"]:first-child,
 div[data-testid="stHorizontalBlock"]:not(div[data-testid="stHorizontalBlock"] *) > div[data-testid*="olumn"]:first-of-type {
-    background-image: linear-gradient(rgba(27, 94, 32, 0.85), rgba(27, 94, 32, 0.95)), url('data:image/png;base64,__BG_IMAGE_BASE64__') !important;
-    background-size: cover !important;
+    background-image: url('data:image/png;base64,__BG_IMAGE_BASE64__') !important;
+    background-size: 110% 110% !important;
     background-position: center !important;
     padding: 2.5rem 2.2rem !important;
     color: #ffffff !important;
     justify-content: space-between !important;
+    position: relative !important;
+    overflow: hidden !important;
+    animation: background-breath 12s ease-in-out infinite alternate !important;
+}
+@keyframes background-breath {
+    0% { background-position: 50% 50%; }
+    100% { background-position: 52% 48%; }
+}
+/* Overlay de oscurecimiento animado */
+div[data-testid="stHorizontalBlock"]:not(div[data-testid="stHorizontalBlock"] *) > div[data-testid*="olumn"]:first-child::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(rgba(0, 0, 0, 0.52), rgba(0, 0, 0, 0.58)) !important;
+    z-index: 1;
+    animation: overlay-glow 8s ease-in-out infinite alternate;
+    pointer-events: none;
+}
+@keyframes overlay-glow {
+    0% { opacity: 0.85; }
+    100% { opacity: 1; }
+}
+/* Forzar contenido sobre el overlay */
+div[data-testid="stHorizontalBlock"]:not(div[data-testid="stHorizontalBlock"] *) > div[data-testid*="olumn"]:first-child > * {
+    position: relative !important;
+    z-index: 2 !important;
 }
 
 /* Visor de escaneo en la imagen (Viewfinder) de menor tamaño */
@@ -96,7 +130,11 @@ div[data-testid="stHorizontalBlock"]:not(div[data-testid="stHorizontalBlock"] *)
     border-color: #4ADE80;
     border-style: solid;
     border-width: 0;
-    filter: drop-shadow(0 0 3px #4ADE80);
+    animation: corner-glow 3s ease-in-out infinite alternate;
+}
+@keyframes corner-glow {
+    0% { filter: drop-shadow(0 0 2px #4ADE80); }
+    100% { filter: drop-shadow(0 0 6px #4ADE80); }
 }
 .top-left {
     top: 0;
@@ -139,11 +177,24 @@ div[data-testid="stHorizontalBlock"]:not(div[data-testid="stHorizontalBlock"] *)
 }
 .viewfinder-circle-outer {
     position: absolute;
-    width: 22px;
-    height: 22px;
-    border: 1.5px solid rgba(74, 222, 128, 0.6);
+    width: 26px;
+    height: 26px;
+    border: 1.5px solid rgba(74, 222, 128, 0.8);
     border-radius: 50%;
-    animation: pulse 2s infinite;
+    animation: radar-pulse 2.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+}
+.viewfinder-circle-outer::after {
+    content: "";
+    position: absolute;
+    top: -1.5px;
+    left: -1.5px;
+    width: 100%;
+    height: 100%;
+    border: 1.5px solid rgba(74, 222, 128, 0.4);
+    border-radius: 50%;
+    animation: radar-pulse 2.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    animation-delay: 1.25s;
 }
 .viewfinder-circle-inner {
     position: absolute;
@@ -165,10 +216,16 @@ div[data-testid="stHorizontalBlock"]:not(div[data-testid="stHorizontalBlock"] *)
     height: 12px;
     background-color: rgba(74, 222, 128, 0.6);
 }
-@keyframes pulse {
-    0% { transform: scale(0.9); opacity: 0.5; }
-    50% { transform: scale(1.1); opacity: 1; }
-    100% { transform: scale(0.9); opacity: 0.5; }
+@keyframes radar-pulse {
+    0% {
+        transform: scale(0.6);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(2.2);
+        opacity: 0;
+        box-shadow: 0 0 20px rgba(74, 222, 128, 0);
+    }
 }
 
 /* Estilo para los inputs de Streamlit con iconos en el background */
@@ -208,11 +265,9 @@ div[data-baseweb="input"]:focus-within {
     transform: translateY(-2px);
 }
 
-/* Botón de ingreso */
-button[key="btn_login_submit"] {
-    background: linear-gradient(-45deg, #1B5E20, #22C55E, #15803D, #1B5E20) !important;
-    background-size: 300% 300% !important;
-    animation: button-gradient 8s ease infinite !important;
+/* Botón de ingreso (Primary button) */
+div.stButton button {
+    background-color: #1B5E20 !important;
     border: none !important;
     color: #ffffff !important;
     border-radius: 10px !important;
@@ -221,33 +276,42 @@ button[key="btn_login_submit"] {
     letter-spacing: 0.5px;
     font-size: 0.9rem !important;
     font-family: 'Poppins', sans-serif !important;
-    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.2) !important;
-    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 10px rgba(27, 94, 32, 0.15) !important;
+    transition: all 0.2s ease !important;
+    width: 100% !important;
 }
-button[key="btn_login_submit"]:hover {
-    box-shadow: 0 6px 20px rgba(34, 197, 94, 0.35) !important;
-    transform: scale(1.01);
-}
-@keyframes button-gradient {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+div.stButton button:hover {
+    background-color: #14532D !important;
+    box-shadow: 0 6px 14px rgba(20, 83, 45, 0.25) !important;
+    transform: translateY(-1px);
 }
 
-/* Botón secundario Outline */
-button[key="btn_login_info"] {
-    background-color: transparent !important;
+/* Botón secundario Outline (Secondary button) */
+div.st-key-btn_login_info button,
+button.ewrlt5x2,
+div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlock"] > div.element-container:nth-child(8) button,
+div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlock"] > div.element-container:nth-child(7) button,
+div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlock"] > div.element-container:nth-child(9) button,
+div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlock"] > div.element-container:nth-child(10) button {
+    background-color: #ffffff !important;
     border: 1.5px solid #CBD5E1 !important;
-    color: #475569 !important;
+    color: #1E293B !important;
     border-radius: 10px !important;
     font-weight: 700 !important;
     padding: 0.45rem 0 !important;
-    transition: all 0.2s !important;
+    transition: all 0.2s ease !important;
     font-size: 0.85rem !important;
+    box-shadow: none !important;
+    width: 100% !important;
 }
-button[key="btn_login_info"]:hover {
-    background-color: rgba(71, 85, 105, 0.05) !important;
-    border-color: #94A3B8 !important;
+div.st-key-btn_login_info button:hover,
+button.ewrlt5x2:hover,
+div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlock"] > div.element-container:nth-child(8) button:hover,
+div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlock"] > div.element-container:nth-child(7) button:hover,
+div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlock"] > div.element-container:nth-child(9) button:hover,
+div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlock"] > div.element-container:nth-child(10) button:hover {
+    background-color: #F8FAFC !important;
+    border-color: #CBD5E1 !important;
     color: #1E293B !important;
 }
 
@@ -363,4 +427,87 @@ div[data-testid="stCheckbox"] label {
 }
 .benefit-item:hover div h4 {
     color: #4ADE80 !important;
+}
+
+/* Entrada escalonada de elementos del panel derecho */
+.login-right-form,
+div[data-testid="stTextInput"],
+p.forgot-link,
+div.stButton,
+.login-divider,
+.login-footer {
+    opacity: 0;
+    animation: slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+.login-right-form { animation-delay: 0.1s !important; }
+div[data-testid="stTextInput"]:nth-of-type(1) { animation-delay: 0.2s !important; }
+div[data-testid="stTextInput"]:nth-of-type(2) { animation-delay: 0.3s !important; }
+p.forgot-link { animation-delay: 0.35s !important; }
+div.stButton:nth-of-type(1) { animation-delay: 0.4s !important; }
+.login-divider { animation-delay: 0.45s !important; }
+div.stButton:nth-of-type(2) { animation-delay: 0.5s !important; }
+.login-footer { animation-delay: 0.55s !important; }
+
+@keyframes slide-up-fade {
+    0% { opacity: 0; transform: translateY(12px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Transición de iconos del input al recibir foco */
+input[id^="login_username"]:focus {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2322C55E' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z'/%3E%3C/svg%3E") !important;
+}
+input[id^="login_password"]:focus {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2322C55E' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z'/%3E%3C/svg%3E") !important;
+}
+
+/* Transición suave y rotación leve en el ojo para ocultar/mostrar contraseña */
+div[data-testid="stTextInput"] button {
+    transition: all 0.2s ease-in-out !important;
+}
+div[data-testid="stTextInput"] button:hover {
+    transform: scale(1.1) !important;
+}
+div[data-testid="stTextInput"] button:active {
+    transform: scale(0.9) rotate(5deg) !important;
+}
+
+/* Bullets circulares hover scale y textos */
+.benefit-item div[style*="background-color: rgba(34, 197, 94, 0.15)"] {
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.benefit-item:hover div[style*="background-color: rgba(34, 197, 94, 0.15)"] {
+    background-color: rgba(34, 197, 94, 0.35) !important;
+    transform: scale(1.15) !important;
+}
+
+/* Overrides de botones active e interactividad */
+div.stButton:nth-of-type(1) button:active {
+    transform: scale(0.98) !important;
+}
+div.stButton:nth-of-type(1) button {
+    box-shadow: 0 4px 10px rgba(27, 94, 32, 0.15) !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+div.stButton:nth-of-type(1) button:hover {
+    background-color: #14532D !important;
+    box-shadow: 0 8px 20px rgba(27, 94, 32, 0.35) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* Pointers interactivos generales */
+button, a, select, input[type="submit"], input[type="button"], label, div[data-testid="stTextInput"] button {
+    cursor: pointer !important;
+}
+
+/* Soporte prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-delay: 0s !important;
+        animation-duration: 0s !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0s !important;
+        scroll-behavior: auto !important;
+        transform: none !important;
+    }
 }

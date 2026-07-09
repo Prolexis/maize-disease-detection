@@ -1473,10 +1473,10 @@ def check_login():
             st.markdown("""<div style="height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Poppins', sans-serif;">
 <div>
 <!-- Logo Circular -->
-<div style="width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center;">
-<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M12 3C6.5 3 2 7.5 2 13C2 18.5 6.5 23 12 23C17.5 23 22 18.5 22 13V3H12ZM12 21C7.6 21 4 17.4 4 13C4 8.6 7.6 5 12 5C16.4 5 20 8.6 20 13V21H12Z" fill="#ffffff"/>
-<path d="M12 7C9.8 7 8 8.8 8 11C8 13.2 9.8 15 12 15C14.2 15 16 13.2 16 11C16 8.8 14.2 7 12 7Z" fill="#4ADE80"/>
+<div style="width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid #4ADE80; display: flex; align-items: center; justify-content: center; background-color: rgba(74, 222, 128, 0.1);">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 3.58.1 8A7 7 0 0 1 11 20z" />
+<path d="M19 2c-2.26 4.33-5.27 7.14-8 10" />
 </svg>
 </div>
 <h1 style="color: #ffffff; font-size: 1.5rem; font-weight: 800; line-height: 1.25; margin-top: 1.2rem; margin-bottom: 0.5rem; font-family: 'Poppins', sans-serif; letter-spacing: -0.5px;">
@@ -1507,8 +1507,19 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
 <!-- Beneficios -->
 <div style="background-color: rgba(255, 255, 255, 0.08); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-radius: 12px; padding: 0.8rem 1rem; border: 1px solid rgba(255, 255, 255, 0.12); margin-top: auto;">
 <div class="benefit-item">
-<div style="width: 24px; height: 24px; border-radius: 50%; background-color: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.3); display: flex; align-items: center; justify-content: center; margin-right: 0.55rem; flex-shrink: 0;">
-<span style="font-size: 0.8rem;">🧠</span>
+<div style="width: 24px; height: 24px; border-radius: 50%; background-color: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); display: flex; align-items: center; justify-content: center; margin-right: 0.55rem; flex-shrink: 0;">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+  <rect x="9" y="9" width="6" height="6"></rect>
+  <line x1="9" y1="1" x2="9" y2="4"></line>
+  <line x1="15" y1="1" x2="15" y2="4"></line>
+  <line x1="9" y1="20" x2="9" y2="23"></line>
+  <line x1="15" y1="20" x2="15" y2="23"></line>
+  <line x1="20" y1="9" x2="23" y2="9"></line>
+  <line x1="20" y1="15" x2="23" y2="15"></line>
+  <line x1="1" y1="9" x2="4" y2="9"></line>
+  <line x1="1" y1="15" x2="4" y2="15"></line>
+</svg>
 </div>
 <div>
 <h4 style="color: #ffffff; margin: 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.3px;">IA AVANZADA</h4>
@@ -1516,8 +1527,11 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
 </div>
 </div>
 <div class="benefit-item">
-<div style="width: 24px; height: 24px; border-radius: 50%; background-color: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.3); display: flex; align-items: center; justify-content: center; margin-right: 0.55rem; flex-shrink: 0;">
-<span style="font-size: 0.8rem;">🛡️</span>
+<div style="width: 24px; height: 24px; border-radius: 50%; background-color: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); display: flex; align-items: center; justify-content: center; margin-right: 0.55rem; flex-shrink: 0;">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+  <path d="m9 11 2 2 4-4"></path>
+</svg>
 </div>
 <div>
 <h4 style="color: #ffffff; margin: 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.3px;">ANÁLISIS CONFIABLE</h4>
@@ -1525,8 +1539,12 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
 </div>
 </div>
 <div class="benefit-item">
-<div style="width: 24px; height: 24px; border-radius: 50%; background-color: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.3); display: flex; align-items: center; justify-content: center; margin-right: 0.55rem; flex-shrink: 0;">
-<span style="font-size: 0.8rem;">📊</span>
+<div style="width: 24px; height: 24px; border-radius: 50%; background-color: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); display: flex; align-items: center; justify-content: center; margin-right: 0.55rem; flex-shrink: 0;">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <line x1="18" y1="20" x2="18" y2="10"></line>
+  <line x1="12" y1="20" x2="12" y2="4"></line>
+  <line x1="6" y1="20" x2="6" y2="14"></line>
+</svg>
 </div>
 <div>
 <h4 style="color: #ffffff; margin: 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.3px;">MEJORES DECISIONES</h4>
@@ -1538,10 +1556,10 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
             
         with col2:
             st.markdown("""<div class="login-right-form" style="text-align: center; margin-bottom: 0.8rem; font-family: 'Poppins', sans-serif;">
-<div style="width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid rgba(34, 197, 94, 0.15); display: flex; align-items: center; justify-content: center; margin: 0 auto 0.4rem auto; background-color: rgba(34, 197, 94, 0.05);">
-<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M12 3C6.5 3 2 7.5 2 13C2 18.5 6.5 23 12 23C17.5 23 22 18.5 22 13V3H12ZM12 21C7.6 21 4 17.4 4 13C4 8.6 7.6 5 12 5C16.4 5 20 8.6 20 13V21H12Z" fill="#22C55E"/>
-<path d="M12 7C9.8 7 8 8.8 8 11C8 13.2 9.8 15 12 15C14.2 15 16 13.2 16 11C16 8.8 14.2 7 12 7Z" fill="#1B5E20"/>
+<div style="width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid #22C55E; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.4rem auto; background-color: rgba(34, 197, 94, 0.05);">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B5E20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 3.58.1 8A7 7 0 0 1 11 20z" />
+<path d="M19 2c-2.26 4.33-5.27 7.14-8 10" />
 </svg>
 </div>
 <h2 style="color: #1E293B; font-size: 1.4rem; font-weight: 700; margin: 0; font-family: 'Poppins', sans-serif; letter-spacing: -0.3px;">Bienvenido</h2>
@@ -1552,18 +1570,18 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
             username = st.text_input("Correo electrónico", placeholder="ejemplo@correo.com", key="login_username")
             password = st.text_input("Contraseña", type="password", placeholder="Ingresa tu contraseña", key="login_password")
             
-            col_opt1, col_opt2 = st.columns(2)
-            with col_opt1:
-                st.checkbox("Recordarme", value=True, key="login_remember")
-            with col_opt2:
-                st.markdown('<p class="forgot-link" style="text-align: right; margin: 0; padding-top: 2px;"><a href="#">¿Olvidaste tu contraseña?</a></p>', unsafe_allow_html=True)
+            st.markdown('<p class="forgot-link" style="text-align: right; margin: -5px 0 10px 0;"><a href="#">¿Olvidaste tu contraseña?</a></p>', unsafe_allow_html=True)
             
             st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
             
             if st.button("→  INICIAR SESIÓN", type="primary", use_container_width=True, key="btn_login_submit"):
                 if username in ["admin", "admin@maiz.com"] and password == "admin123":
-                    st.session_state.authenticated = True
+                    with st.spinner("Verificando credenciales..."):
+                        import time
+                        time.sleep(0.65)
                     st.success("✅ ¡Ingreso exitoso!")
+                    time.sleep(0.4)
+                    st.session_state.authenticated = True
                     st.rerun()
                 else:
                     st.error("❌ Correo o contraseña incorrectos")
@@ -1578,7 +1596,7 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
                 st.info("Sistema inteligente de diagnóstico fitosanitario y AutoML para la optimización de cultivos de maíz.")
                 
             st.markdown("""
-            <div style="text-align: center; color: #94A3B8; font-size: 0.65rem; margin-top: 1.2rem; font-family: 'Poppins', sans-serif; line-height: 1.5;">
+            <div class="login-footer" style="text-align: center; color: #94A3B8; font-size: 0.65rem; margin-top: 1.2rem; font-family: 'Poppins', sans-serif; line-height: 1.5;">
                 &copy; 2024 Detector de Enfermedades en Hojas de Maíz<br>
                 <span style="font-weight: 600; color: #64748B;">Versión 1.0.0</span>
             </div>
