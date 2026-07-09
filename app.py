@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import streamlit as st
 import numpy as np
 import cv2
@@ -26,7 +27,7 @@ from src.training import train_and_evaluate_all, plot_training_charts, interpret
 from src.cross_validation import run_cross_validation, plot_cv_dispersion, interpret_cv
 from src.tuning import run_hyperparameter_tuning, interpret_tuning
 from src.stats_tests import run_statistical_tests, interpret_stats
-from src.reporting import generate_xlsx_report, generate_docx_report, generate_pdf_report
+from src.reporting import generate_xlsx_report, generate_docx_report, generate_tabular_pdf_report, generate_image_docx_report, generate_image_xlsx_report
 
 # Configuración de la página
 st.set_page_config(
@@ -283,6 +284,19 @@ st.markdown("""
         transform: translateY(-1px) !important;
     }
 
+    /* Estilo del botón de logout en el sidebar */
+    button[key="btn_logout"] {
+        border: 1px solid rgba(220, 38, 38, 0.25) !important;
+        color: #ef4444 !important;
+        margin-top: 1rem !important;
+    }
+    button[key="btn_logout"]:hover {
+        background: rgba(220, 38, 38, 0.08) !important;
+        border-color: #dc2626 !important;
+        color: #b91c1c !important;
+        transform: translateY(-1px) !important;
+    }
+
     /* Estilización de las tarjetas de métricas */
     [data-testid="metric-container"] {
         background: color-mix(in srgb, var(--secondary-background-color) 75%, transparent) !important;
@@ -455,8 +469,7 @@ def clean_text_for_pdf(text):
 
 
 def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached, consensus_diagnosis):
-    """Genera un reporte PDF mejorado con gráficas y mejor estructura"""
-
+    """Genera un reporte PDF optimizado sin espacios vacíos innecesarios."""
     peru_time = get_peru_time()
 
     # Limpiar texto de entrada
@@ -470,19 +483,28 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
             self.set_auto_page_break(auto=True, margin=15)
 
         def header(self):
-            # Logo o símbolo (puedes personalizar)
-            self.set_font('Arial', 'B', 20)
-            self.set_text_color(46, 139, 87)  # Verde
-            self.cell(0, 15, 'DIAGNOSTICO FITOSANITARIO - MAIZ', 0, 1, 'C')
-
-            self.set_font('Arial', 'I', 12)
-            self.set_text_color(100, 100, 100)
-            self.cell(0, 8, 'Sistema de Deteccion Automatica de Enfermedades', 0, 1, 'C')
-
-            # Línea separadora
-            self.set_draw_color(46, 139, 87)
-            self.line(10, 35, 200, 35)
-            self.ln(10)
+            if self.page_no() == 1:
+                # Portada/Primera pagina header grande
+                self.set_font('Arial', 'B', 18)
+                self.set_text_color(46, 139, 87)
+                self.cell(0, 15, 'DIAGNOSTICO FITOSANITARIO - MAIZ', 0, 1, 'C')
+                self.set_font('Arial', 'I', 11)
+                self.set_text_color(100, 100, 100)
+                self.cell(0, 8, 'Sistema de Deteccion Automatica de Enfermedades', 0, 1, 'C')
+                self.set_draw_color(46, 139, 87)
+                self.line(10, 35, 200, 35)
+                self.ln(10)
+            else:
+                # Paginas siguientes header compacto para ahorrar espacio
+                self.set_font('Arial', 'B', 9)
+                self.set_text_color(46, 139, 87)
+                self.cell(0, 6, 'REPORTE DE DIAGNÓSTICO FITOSANITARIO (IMÁGENES)', 0, 0, 'L')
+                self.set_font('Arial', 'I', 8)
+                self.set_text_color(128, 128, 128)
+                self.cell(0, 6, f'Archivo: {uploaded_filename}', 0, 1, 'R')
+                self.set_draw_color(200, 200, 200)
+                self.line(10, 17, 200, 17)
+                self.ln(5)
 
         def footer(self):
             self.set_y(-15)
@@ -490,75 +512,80 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
             self.set_text_color(128, 128, 128)
             self.cell(0, 10, f'Pagina {self.page_no()} | Generado el {peru_time.strftime("%Y-%m-%d %H:%M:%S")} (Hora Peru)', 0, 0, 'C')
 
+        def check_and_add_page(self, needed_height):
+            # Agregar pagina si el elemento excede el limite
+            if self.get_y() + needed_height > 265:
+                self.add_page()
+
         def chapter_title(self, title, icon=""):
-            self.ln(5)
-            self.set_font('Arial', 'B', 16)
+            self.check_and_add_page(25)
+            self.ln(3)
+            self.set_font('Arial', 'B', 14)
             self.set_text_color(46, 139, 87)
-            self.cell(0, 12, f'{icon} {title}', 0, 1, 'L')
+            self.cell(0, 10, f'{icon} {title}', 0, 1, 'L')
             self.set_draw_color(46, 139, 87)
             self.line(10, self.get_y(), 200, self.get_y())
-            self.ln(8)
+            self.ln(4)
 
         def section_title(self, title, icon=""):
-            self.ln(3)
-            self.set_font('Arial', 'B', 12)
-            self.set_text_color(70, 70, 70)
-            self.cell(0, 8, f'{icon} {title}', 0, 1, 'L')
+            self.check_and_add_page(15)
             self.ln(2)
+            self.set_font('Arial', 'B', 11)
+            self.set_text_color(70, 70, 70)
+            self.cell(0, 7, f'{icon} {title}', 0, 1, 'L')
+            self.ln(1)
 
         def normal_text(self, text, bold=False):
-            self.set_font('Arial', 'B' if bold else '', 10)
+            self.check_and_add_page(8)
+            self.set_font('Arial', 'B' if bold else '', 9.5)
             self.set_text_color(0, 0, 0)
-            self.cell(0, 6, text, 0, 1, 'L')
+            self.cell(0, 5.5, text, 0, 1, 'L')
 
         def info_box(self, title, content, bg_color=(240, 248, 255)):
-            # Guardar posición actual
+            lines = content.split('\n')
+            needed = len(lines) * 5 + 15
+            self.check_and_add_page(needed)
             x, y = self.get_x(), self.get_y()
-
-            # Dibujar fondo
             self.set_fill_color(*bg_color)
-            self.rect(x, y, 190, len(content.split('\n')) * 5 + 15, 'F')
+            self.rect(x, y, 190, needed, 'F')
 
-            # Título del box
-            self.set_font('Arial', 'B', 11)
+            self.set_font('Arial', 'B', 10.5)
             self.set_text_color(25, 25, 112)
-            self.cell(0, 8, title, 0, 1, 'L')
+            self.cell(0, 7, title, 0, 1, 'L')
 
-            # Contenido
             self.set_font('Arial', '', 9)
             self.set_text_color(0, 0, 0)
-            for line in content.split('\n'):
+            for line in lines:
                 if line.strip():
-                    self.cell(0, 5, f"  {line.strip()}", 0, 1, 'L')
-            self.ln(5)
+                    self.cell(0, 4.5, f"  {line.strip()}", 0, 1, 'L')
+            self.ln(3)
 
         def add_consensus_result(self, consensus_reached, consensus_diagnosis):
+            self.check_and_add_page(20)
             if consensus_reached:
                 if consensus_diagnosis == "Sano":
-                    bg_color = (212, 237, 218)  # Verde claro
+                    bg_color = (212, 237, 218)
                     title = "[OK] DIAGNOSTICO: HOJA SALUDABLE"
                 else:
-                    bg_color = (248, 215, 218)  # Rojo claro
+                    bg_color = (248, 215, 218)
                     title = f"[!] DIAGNOSTICO: {consensus_diagnosis.upper()}"
             else:
-                bg_color = (255, 243, 205)  # Amarillo claro
+                bg_color = (255, 243, 205)
                 title = "[?] SIN CONSENSO ENTRE MODELOS"
 
             self.set_fill_color(*bg_color)
-            self.rect(10, self.get_y(), 190, 15, 'F')
+            self.rect(10, self.get_y(), 190, 12, 'F')
 
-            self.set_font('Arial', 'B', 14)
+            self.set_font('Arial', 'B', 12)
             self.set_text_color(0, 0, 0)
-            self.cell(0, 15, title, 0, 1, 'C')
-            self.ln(5)
+            self.cell(0, 12, title, 0, 1, 'C')
+            self.ln(4)
 
-    # Crear PDF
     pdf = PDF()
     pdf.add_page()
 
     # 1. INFORMACIÓN GENERAL
     pdf.chapter_title("INFORMACION DEL ANALISIS", "[INFO]")
-
     pdf.normal_text(f"Archivo: {uploaded_filename}", bold=True)
     pdf.normal_text(f"Fecha y hora: {peru_time.strftime('%Y-%m-%d %H:%M:%S')} (Hora Peru)")
     pdf.normal_text(f"Modelos utilizados: MobileNetV2, ResNet50, EfficientNetB0")
@@ -570,84 +597,69 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
 
     # 3. IMAGEN ANALIZADA
     pdf.chapter_title("IMAGEN ANALIZADA", "[IMG]")
-
     try:
-        # Guardar imagen temporalmente
         image_pil = Image.fromarray(image)
         temp_img_path = f"temp_analysis_img_{int(peru_time.timestamp())}.png"
         image_pil.save(temp_img_path, format='PNG')
 
-        # Calcular dimensiones para centrar la imagen
         img_width = 80
         page_width = 190
         x_position = (page_width - img_width) / 2 + 10
 
-        pdf.image(temp_img_path, x=x_position, w=img_width)
-        pdf.ln(60)
+        # Calcular altura real de la imagen según relación de aspecto
+        img_w, img_h = image_pil.size
+        aspect = img_h / img_w
+        pdf_img_height = img_width * aspect
 
-        # Información de la imagen
+        pdf.check_and_add_page(pdf_img_height + 25)
+        pdf.image(temp_img_path, x=x_position, w=img_width)
+        pdf.ln(pdf_img_height + 3)
+
         pdf.section_title("Detalles de la imagen:", "[i]")
         pdf.normal_text(f"- Tamano original: {image_pil.size[0]}x{image_pil.size[1]} pixeles")
         pdf.normal_text(f"- Formato: {image_pil.format if hasattr(image_pil, 'format') else 'Unknown'}")
         pdf.normal_text(f"- Canales de color: RGB")
 
-        # Limpiar archivo temporal de imagen
         try:
             os.remove(temp_img_path)
         except:
             pass
-
     except Exception as e:
         pdf.normal_text(f"[Error al procesar la imagen: {e}]")
-        pdf.ln(10)
+        pdf.ln(5)
 
-    # 4. RESULTADOS DETALLADOS POR MODELO
-    pdf.add_page()
+    # 4. RESULTADOS DETALLADOS POR MODELO (Se remueve add_page para flujo continuo)
     pdf.chapter_title("RESULTADOS DETALLADOS", "[MODELS]")
 
-    # Crear gráficas para cada modelo
     temp_graph_paths = []
-
     try:
         for i, (model_name, pred) in enumerate(predictions.items()):
-            # Crear gráfica individual para cada modelo
-            fig, ax = plt.subplots(figsize=(8, 5))
-
-            # Configurar colores
+            fig, ax = plt.subplots(figsize=(6, 3.5))
             colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#2E8B57']
             bars = ax.bar(CLASS_NAMES, pred['probabilities'], color=colors, alpha=0.8)
-
-            # Personalizar gráfica
-            ax.set_title(f'Predicciones del Modelo {model_name}', fontsize=14, fontweight='bold', pad=20)
-            ax.set_ylabel('Probabilidad', fontsize=12)
+            ax.set_title(f'Predicciones del Modelo {model_name}', fontsize=11, fontweight='bold', pad=10)
+            ax.set_ylabel('Probabilidad', fontsize=9)
             ax.set_ylim(0, 1)
-            ax.grid(True, alpha=0.3, axis='y')
+            ax.grid(True, alpha=0.2, axis='y')
 
-            # Resaltar la predicción más alta
             max_idx = np.argmax(pred['probabilities'])
             bars[max_idx].set_color('#2E8B57')
             bars[max_idx].set_alpha(1.0)
 
-            # Añadir valores en las barras
             for j, v in enumerate(pred['probabilities']):
-                ax.text(j, v + 0.02, f'{v:.1%}', ha='center', va='bottom',
-                       fontsize=10, fontweight='bold')
+                ax.text(j, v + 0.02, f'{v:.1%}', ha='center', va='bottom', fontsize=8, fontweight='bold')
 
-            # Rotar etiquetas del eje x
-            plt.xticks(rotation=45, ha='right')
+            plt.xticks(rotation=30, ha='right', fontsize=8)
             plt.tight_layout()
 
-            # Guardar gráfica temporalmente
             temp_graph_path = f"temp_graph_{model_name}_{int(peru_time.timestamp())}.png"
-            plt.savefig(temp_graph_path, dpi=150, bbox_inches='tight')
+            plt.savefig(temp_graph_path, dpi=120, bbox_inches='tight')
             temp_graph_paths.append(temp_graph_path)
             plt.close()
 
-        # Añadir las gráficas al PDF
+        # Añadir las gráficas y tablas
         for i, (model_name, pred) in enumerate(predictions.items()):
             pdf.section_title(f"Modelo {model_name}", "[M]")
-
-            # Información del modelo
             confidence_level = "ALTA" if pred['confidence'] > 0.8 else "MEDIA" if pred['confidence'] > 0.6 else "BAJA"
 
             pdf.info_box(
@@ -657,29 +669,26 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
                 f"Estado: {'[OK] Saludable' if pred['class'] == 'Sano' else '[!] Enfermedad detectada'}"
             )
 
-            # Añadir gráfica
+            # Insertar gráfico con altura dinámica calculada (figsize 6x3.5 -> aspect ratio 3.5/6 = 0.58)
+            chart_width = 130
+            chart_height = chart_width * 0.58
+            
             if i < len(temp_graph_paths) and os.path.exists(temp_graph_paths[i]):
-                pdf.image(temp_graph_paths[i], x=25, w=160)
-                pdf.ln(80)
+                pdf.check_and_add_page(chart_height + 5)
+                # Centrar gráfico
+                pdf.image(temp_graph_paths[i], x=40, w=chart_width)
+                pdf.ln(chart_height + 2)
 
-            # Tabla de probabilidades
             pdf.section_title("Probabilidades por clase:", "[DATA]")
             for j, class_name in enumerate(CLASS_NAMES):
                 prob = pred['probabilities'][j]
                 marker = "=>" if j == np.argmax(pred['probabilities']) else "  "
                 pdf.normal_text(f"{marker} {clean_text_for_pdf(class_name)}: {prob:.2%}")
-
-            pdf.ln(5)
-
-            # Añadir nueva página si no es el último modelo
-            if i < len(predictions) - 1:
-                pdf.add_page()
+            pdf.ln(4)
 
     except Exception as e:
         pdf.normal_text(f"Error generando gráficas: {e}")
-
     finally:
-        # Limpiar archivos temporales de gráficas
         for temp_path in temp_graph_paths:
             try:
                 os.remove(temp_path)
@@ -687,10 +696,7 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
                 pass
 
     # 5. ANÁLISIS COMPARATIVO
-    pdf.add_page()
     pdf.chapter_title("ANALISIS COMPARATIVO", "[COMP]")
-
-    # Tabla resumen
     pdf.section_title("Resumen de predicciones:", "[SUM]")
     pdf.normal_text("Modelo                Prediccion           Confianza    Estado")
     pdf.normal_text("-" * 65)
@@ -700,10 +706,8 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
         clean_class = clean_text_for_pdf(pred['class'])
         line = f"{model_name:<15} {clean_class:<15} {pred['confidence']:>8.1%}    {status}"
         pdf.normal_text(line)
+    pdf.ln(4)
 
-    pdf.ln(8)
-
-    # Análisis de consenso
     if consensus_reached:
         pdf.info_box(
             "[OK] Consenso Alcanzado",
@@ -714,19 +718,16 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
     else:
         predictions_list = [pred['class'] for pred in predictions.values()]
         unique_predictions = list(set(predictions_list))
-
         consensus_text = "Los modelos presentan diferentes diagnosticos:\n"
         for pred in unique_predictions:
             count = predictions_list.count(pred)
             clean_pred = clean_text_for_pdf(pred)
             consensus_text += f"- {clean_pred}: {count} modelo(s)\n"
         consensus_text += "Se recomienda analisis adicional para confirmar."
-
         pdf.info_box("[!] Sin Consenso", consensus_text)
 
     # 6. RECOMENDACIONES
     pdf.chapter_title("RECOMENDACIONES", "[REC]")
-
     if consensus_reached:
         if consensus_diagnosis == "Sano":
             recommendations = [
@@ -754,15 +755,12 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
             "- Realizar analisis de laboratorio si persisten sintomas",
             "- Considerar multiples muestras de diferentes partes de la planta"
         ]
-
     for rec in recommendations:
         pdf.normal_text(rec)
 
     # 7. INFORMACIÓN SOBRE ENFERMEDADES
     if consensus_reached and consensus_diagnosis != "Sano":
-        pdf.add_page()
         pdf.chapter_title("INFORMACION ESPECIFICA", "[DISEASE]")
-
         disease_details = {
             "Tizon del norte": {
                 "descripcion": "Enfermedad fungica causada por Exserohilum turcicum que afecta principalmente las hojas del maiz.",
@@ -822,28 +820,25 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
 
         if consensus_diagnosis in disease_details:
             details = disease_details[consensus_diagnosis]
-
             pdf.section_title(f"Enfermedad: {consensus_diagnosis}", "[PATHOGEN]")
             pdf.normal_text(details['descripcion'])
-            pdf.ln(3)
+            pdf.ln(2)
 
             pdf.section_title("Sintomas caracteristicos:", "[SYMP]")
             for sintoma in details['sintomas']:
                 pdf.normal_text(sintoma)
-            pdf.ln(3)
+            pdf.ln(2)
 
             pdf.section_title("Condiciones favorables:", "[ENV]")
             pdf.normal_text(details['condiciones'])
-            pdf.ln(3)
+            pdf.ln(2)
 
             pdf.section_title("Estrategias de manejo:", "[TREAT]")
             for tratamiento in details['tratamiento']:
                 pdf.normal_text(tratamiento)
 
     # 8. INFORMACIÓN TÉCNICA Y DISCLAIMER
-    pdf.add_page()
     pdf.chapter_title("INFORMACION TECNICA", "[TECH]")
-
     pdf.section_title("Especificaciones del sistema:", "[SPEC]")
     tech_info = [
         "- Modelos basados en transfer learning con redes neuronales convolucionales",
@@ -854,11 +849,10 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
         "- Preprocesamiento especifico por modelo aplicado",
         "- Analisis basado en caracteristicas visuales de la hoja"
     ]
-
     for info in tech_info:
         pdf.normal_text(info)
+    pdf.ln(4)
 
-    pdf.ln(8)
     pdf.info_box(
         "[!] IMPORTANTE - LIMITACIONES Y DISCLAIMER",
         "- Este analisis automatizado debe ser validado por un profesional\n"
@@ -869,8 +863,7 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
         "- Los resultados pueden variar segun condiciones de iluminacion y enfoque"
     )
 
-    # 9. PIE DE PÁGINA CON INFORMACIÓN DE CONTACTO
-    pdf.ln(10)
+    # 9. PIE DE PÁGINA
     pdf.section_title("Informacion del sistema:", "[SYS]")
     pdf.normal_text("Sistema de Deteccion Automatica de Enfermedades en Maiz")
     pdf.normal_text(f"Version: 2.0 | Fecha de generacion: {peru_time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -878,29 +871,22 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
 
     # Generar PDF final
     try:
-        # En fpdf2, llamar a output() sin argumentos devuelve un bytearray
         pdf_output = pdf.output()
         if isinstance(pdf_output, str):
             pdf_bytes = pdf_output.encode('latin-1')
         else:
             pdf_bytes = bytes(pdf_output)
     except Exception as e:
-        # Método alternativo guardando en un archivo temporal si falla
         temp_pdf_path = f"temp_report_{int(peru_time.timestamp())}.pdf"
         pdf.output(temp_pdf_path)
-
         with open(temp_pdf_path, 'rb') as f:
             pdf_bytes = f.read()
-
         try:
             os.remove(temp_pdf_path)
         except:
             pass
 
     return bytes(pdf_bytes)
-
-
-
 def plot_predictions(predictions):
     """Crea gráficos de las predicciones"""
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
@@ -1013,14 +999,14 @@ def show_prediction_interface(models):
                     count = predictions_list.count(pred)
                     st.write(f"- {pred}: {count} modelo(s)")
 
-            # Botón para generar reporte PDF
-            st.markdown("## 📄 Generar Reporte")
+            # Botón para generar reportes
+            st.markdown("## 📥 Generar y Descargar Reportes")
 
-            col_pdf1, col_pdf2 = st.columns([1, 2])
+            col_rep1, col_rep2, col_rep3 = st.columns(3)
 
-            with col_pdf1:
-                if st.button("📥 Generar Reporte PDF", type="primary", use_container_width=True):
-                    with st.spinner("Generando reporte PDF..."):
+            with col_rep1:
+                if st.button("📥 Generar Reporte PDF", type="primary", use_container_width=True, key="btn_img_pdf"):
+                    with st.spinner("Generando PDF..."):
                         try:
                             pdf_bytes = generate_pdf_report(
                                 image=image_array,
@@ -1029,37 +1015,82 @@ def show_prediction_interface(models):
                                 consensus_reached=consensus_reached,
                                 consensus_diagnosis=consensus_diagnosis
                             )
-
-                            # Generar nombre del archivo con timestamp de Perú
                             peru_time = get_peru_time()
                             timestamp = peru_time.strftime("%Y%m%d_%H%M%S")
-                            pdf_filename = f"reporte_maiz_{timestamp}.pdf"
-
-                            # Botón de descarga
                             st.download_button(
-                                label="📥 Descargar Reporte PDF",
+                                label="📥 Descargar PDF",
                                 data=pdf_bytes,
-                                file_name=pdf_filename,
+                                file_name=f"reporte_maiz_{timestamp}.pdf",
                                 mime="application/pdf",
                                 use_container_width=True
                             )
-
-                            st.success(f"✅ Reporte PDF generado exitosamente! ({peru_time.strftime('%H:%M:%S')} - Hora Perú)")
-
+                            st.success("✅ PDF listo!")
                         except Exception as e:
-                            st.error(f"❌ Error al generar el PDF: {str(e)}")
+                            st.error(f"❌ Error: {e}")
+
+            with col_rep2:
+                if st.button("📥 Generar Reporte Word (.docx)", type="primary", use_container_width=True, key="btn_img_docx"):
+                    with st.spinner("Generando Word..."):
+                        try:
+                            peru_time = get_peru_time()
+                            timestamp = peru_time.strftime("%Y%m%d_%H%M%S")
+                            filepath = f"reports/reporte_maiz_{timestamp}.docx"
+                            generate_image_docx_report(
+                                image=image_array,
+                                predictions=predictions,
+                                uploaded_filename=uploaded_file.name,
+                                consensus_reached=consensus_reached,
+                                consensus_diagnosis=consensus_diagnosis,
+                                filepath=filepath
+                            )
+                            with open(filepath, "rb") as f:
+                                docx_bytes = f.read()
+                            st.download_button(
+                                label="📥 Descargar Word",
+                                data=docx_bytes,
+                                file_name=f"reporte_maiz_{timestamp}.docx",
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                use_container_width=True
+                            )
+                            st.success("✅ Word listo!")
+                        except Exception as e:
+                            st.error(f"❌ Error: {e}")
+
+            with col_rep3:
+                if st.button("📥 Generar Reporte Excel (.xlsx)", type="primary", use_container_width=True, key="btn_img_xlsx"):
+                    with st.spinner("Generando Excel..."):
+                        try:
+                            peru_time = get_peru_time()
+                            timestamp = peru_time.strftime("%Y%m%d_%H%M%S")
+                            filepath = f"reports/reporte_maiz_{timestamp}.xlsx"
+                            generate_image_xlsx_report(
+                                predictions=predictions,
+                                uploaded_filename=uploaded_file.name,
+                                consensus_reached=consensus_reached,
+                                consensus_diagnosis=consensus_diagnosis,
+                                filepath=filepath
+                            )
+                            with open(filepath, "rb") as f:
+                                xlsx_bytes = f.read()
+                            st.download_button(
+                                label="📥 Descargar Excel",
+                                data=xlsx_bytes,
+                                file_name=f"reporte_maiz_{timestamp}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                use_container_width=True
+                            )
+                            st.success("✅ Excel listo!")
+                        except Exception as e:
+                            st.error(f"❌ Error: {e}")
                             st.info("💡 Asegúrate de que las librerías estén instaladas: `pip install fpdf2 pytz`")
 
-            with col_pdf2:
-                st.info("""
-                **📋 El reporte PDF incluye:**
-                - Imagen analizada
-                - Diagnóstico de cada modelo
-                - Probabilidades detalladas
-                - Consenso entre modelos
-                - Recomendaciones específicas
-                - Información técnica
-                """)
+            st.info("""
+            **📋 Los reportes descargables incluyen:**
+            - Imagen analizada
+            - Diagnóstico y confianza de cada modelo
+            - Tabla de probabilidades por clase
+            - Análisis de consenso y recomendaciones específicas
+            """)
 
             # Información adicional sobre el diagnóstico
             if consensus_reached:
@@ -1410,46 +1441,155 @@ def show_model_comparison():
     st.pyplot(fig)
 
 def check_login():
-    """Valida credenciales e inyecta la pantalla de login si no está autenticado."""
+    """Valida credenciales e inyecta la pantalla de login con estilos cargados desde assets."""
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
         
     if not st.session_state.authenticated:
-        # Mostrar pantalla de inicio de sesión con Estilo 2026
-        st.markdown('<h1 class="main-header">🔑 Acceso al Sistema Fitosanitario</h1>', unsafe_allow_html=True)
+        import base64
         
-        # Centrar el formulario usando columnas
-        _, col, _ = st.columns([1, 2, 1])
-        with col:
-            st.markdown("""
-            <div class="model-card">
-                <h3 style="text-align: center; margin-bottom: 1.5rem;">Iniciar Sesión</h3>
-            </div>
-            """, unsafe_allow_html=True)
+        # Cargar imagen de fondo en base64 de forma segura
+        bg_image_base64 = ""
+        img_path = "data/login_leaf_background.png"
+        if os.path.exists(img_path):
+            with open(img_path, "rb") as img_file:
+                bg_image_base64 = base64.b64encode(img_file.read()).decode('utf-8')
+                
+        # Cargar estilos CSS desde el archivo externo assets/login_styles.css
+        css_path = "assets/login_styles.css"
+        if os.path.exists(css_path):
+            with open(css_path, "r", encoding="utf-8") as f:
+                login_css = f.read()
+            # Inyectar base64 dinámico de la imagen
+            login_css = login_css.replace("__BG_IMAGE_BASE64__", bg_image_base64)
+            st.markdown(f"<style>{login_css}</style>", unsafe_allow_html=True)
+        else:
+            # Fallback en caso de que no exista el archivo
+            st.warning("⚠️ Estilos de inicio de sesión no encontrados en assets/login_styles.css")
             
-            username = st.text_input("Usuario", placeholder="admin")
-            password = st.text_input("Contraseña", type="password", placeholder="••••••••")
+        col1, col2 = st.columns([45, 55])
+        
+        with col1:
+            st.markdown("""<div style="height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Poppins', sans-serif;">
+<div>
+<!-- Logo Circular -->
+<div style="width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center;">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 3C6.5 3 2 7.5 2 13C2 18.5 6.5 23 12 23C17.5 23 22 18.5 22 13V3H12ZM12 21C7.6 21 4 17.4 4 13C4 8.6 7.6 5 12 5C16.4 5 20 8.6 20 13V21H12Z" fill="#ffffff"/>
+<path d="M12 7C9.8 7 8 8.8 8 11C8 13.2 9.8 15 12 15C14.2 15 16 13.2 16 11C16 8.8 14.2 7 12 7Z" fill="#4ADE80"/>
+</svg>
+</div>
+<h1 style="color: #ffffff; font-size: 1.5rem; font-weight: 800; line-height: 1.25; margin-top: 1.2rem; margin-bottom: 0.5rem; font-family: 'Poppins', sans-serif; letter-spacing: -0.5px;">
+DETECTOR DE<br><span style="color: #4ADE80;">ENFERMEDADES</span><br>EN HOJAS DE MAÍZ
+</h1>
+<p style="color: #e2e8f0; font-size: 0.8rem; line-height: 1.35; max-width: 320px; font-weight: 300; margin-bottom: 0.3rem;">
+Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
+</p>
+</div>
+
+<!-- Viewfinder Visor -->
+<div class="viewfinder-container">
+<div class="viewfinder-box">
+<div class="viewfinder-corner top-left"></div>
+<div class="viewfinder-corner top-right"></div>
+<div class="viewfinder-corner bottom-left"></div>
+<div class="viewfinder-corner bottom-right"></div>
+<div class="viewfinder-target">
+<div class="viewfinder-circle-outer"></div>
+<div class="viewfinder-circle-inner"></div>
+<div class="viewfinder-crosshair-h"></div>
+<div class="viewfinder-crosshair-v"></div>
+</div>
+</div>
+</div>
+
+<!-- Beneficios -->
+<div style="background-color: rgba(255, 255, 255, 0.08); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-radius: 12px; padding: 0.8rem 1rem; border: 1px solid rgba(255, 255, 255, 0.12); margin-top: auto;">
+<div style="display: flex; align-items: flex-start; margin-bottom: 0.6rem;">
+<div style="width: 24px; height: 24px; border-radius: 50%; background-color: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.3); display: flex; align-items: center; justify-content: center; margin-right: 0.55rem; flex-shrink: 0;">
+<span style="font-size: 0.8rem;">🧠</span>
+</div>
+<div>
+<h4 style="color: #ffffff; margin: 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.3px;">IA AVANZADA</h4>
+<p style="color: #cbd5e1; margin: 0; font-size: 0.72rem; font-weight: 400; line-height: 1.1;">Modelos entrenados para mayor precisión</p>
+</div>
+</div>
+<div style="display: flex; align-items: flex-start; margin-bottom: 0.6rem;">
+<div style="width: 24px; height: 24px; border-radius: 50%; background-color: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.3); display: flex; align-items: center; justify-content: center; margin-right: 0.55rem; flex-shrink: 0;">
+<span style="font-size: 0.8rem;">🛡️</span>
+</div>
+<div>
+<h4 style="color: #ffffff; margin: 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.3px;">ANÁLISIS CONFIABLE</h4>
+<p style="color: #cbd5e1; margin: 0; font-size: 0.72rem; font-weight: 400; line-height: 1.1;">Diagnósticos rápidos y precisos</p>
+</div>
+</div>
+<div style="display: flex; align-items: flex-start;">
+<div style="width: 24px; height: 24px; border-radius: 50%; background-color: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.3); display: flex; align-items: center; justify-content: center; margin-right: 0.55rem; flex-shrink: 0;">
+<span style="font-size: 0.8rem;">📊</span>
+</div>
+<div>
+<h4 style="color: #ffffff; margin: 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.3px;">MEJORES DECISIONES</h4>
+<p style="color: #cbd5e1; margin: 0; font-size: 0.72rem; font-weight: 400; line-height: 1.1;">Información clara para un cultivo más saludable</p>
+</div>
+</div>
+</div>
+</div>""", unsafe_allow_html=True)
             
-            if st.button("🚀 Ingresar", use_container_width=True):
-                if username == "admin" and password == "admin123":
+        with col2:
+            st.markdown("""<div class="login-right-form" style="text-align: center; margin-bottom: 0.8rem; font-family: 'Poppins', sans-serif;">
+<div style="width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid rgba(34, 197, 94, 0.15); display: flex; align-items: center; justify-content: center; margin: 0 auto 0.4rem auto; background-color: rgba(34, 197, 94, 0.05);">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 3C6.5 3 2 7.5 2 13C2 18.5 6.5 23 12 23C17.5 23 22 18.5 22 13V3H12ZM12 21C7.6 21 4 17.4 4 13C4 8.6 7.6 5 12 5C16.4 5 20 8.6 20 13V21H12Z" fill="#22C55E"/>
+<path d="M12 7C9.8 7 8 8.8 8 11C8 13.2 9.8 15 12 15C14.2 15 16 13.2 16 11C16 8.8 14.2 7 12 7Z" fill="#1B5E20"/>
+</svg>
+</div>
+<h2 style="color: #1E293B; font-size: 1.4rem; font-weight: 700; margin: 0; font-family: 'Poppins', sans-serif; letter-spacing: -0.3px;">Bienvenido</h2>
+<p style="color: #64748B; font-size: 0.78rem; margin-top: 0.1rem; margin-bottom: 0; font-family: 'Poppins', sans-serif;">Inicie sesión para acceder al sistema.</p>
+</div>""", unsafe_allow_html=True)
+            
+            # Formulario
+            username = st.text_input("Correo electrónico", placeholder="ejemplo@correo.com", key="login_username")
+            password = st.text_input("Contraseña", type="password", placeholder="Ingresa tu contraseña", key="login_password")
+            
+            col_opt1, col_opt2 = st.columns(2)
+            with col_opt1:
+                st.checkbox("Recordarme", value=True, key="login_remember")
+            with col_opt2:
+                st.markdown('<p class="forgot-link" style="text-align: right; margin: 0; padding-top: 2px;"><a href="#">¿Olvidaste tu contraseña?</a></p>', unsafe_allow_html=True)
+            
+            st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
+            
+            if st.button("→  INICIAR SESIÓN", type="primary", use_container_width=True, key="btn_login_submit"):
+                if username in ["admin", "admin@maiz.com"] and password == "admin123":
                     st.session_state.authenticated = True
                     st.success("✅ ¡Ingreso exitoso!")
                     st.rerun()
                 else:
-                    st.error("❌ Credenciales inválidas. Inténtelo de nuevo.")
+                    st.error("❌ Correo o contraseña incorrectos")
+                    
+            st.markdown("""<div class="login-divider">
+<span class="divider-line"></span>
+<span class="divider-text">o</span>
+<span class="divider-line"></span>
+</div>""", unsafe_allow_html=True)
             
+            if st.button("Más información del sistema", use_container_width=True, key="btn_login_info"):
+                st.info("Sistema inteligente de diagnóstico fitosanitario y AutoML para la optimización de cultivos de maíz.")
+                
             st.markdown("""
-            <div style="text-align: center; font-size: 0.85rem; color: #888; margin-top: 1.5rem;">
-                Usuario por defecto: <b>admin</b> | Contraseña: <b>admin123</b>
+            <div style="text-align: center; color: #94A3B8; font-size: 0.65rem; margin-top: 1.2rem; font-family: 'Poppins', sans-serif; line-height: 1.5;">
+                &copy; 2024 Detector de Enfermedades en Hojas de Maíz<br>
+                <span style="font-weight: 600; color: #64748B;">Versión 1.0.0</span>
             </div>
             """, unsafe_allow_html=True)
+            
         return False
     return True
 
 def show_fitosanitario_panel():
     """Muestra el panel de diagnóstico fitosanitario por imágenes original."""
     # Navegación con tabs
-    tab1, tab2, tab3 = st.tabs(["🔍 Predicción", "📊 Reportes de Entrenamiento", "🔬 Comparación de Modelos"])
+    tab1, tab2, tab3 = st.tabs(["🔍 Predicción", "📈 Rendimiento Histórico del Entrenamiento (Estático)", "🔬 Comparación de Modelos"])
 
     with tab1:
         st.markdown("""
@@ -1470,6 +1610,7 @@ def show_fitosanitario_panel():
             show_prediction_interface(models)
 
     with tab2:
+        st.warning("ℹ️ **Nota de Uso:** Este panel muestra las métricas fijas y las curvas de aprendizaje del entrenamiento original de los modelos. No cambia al cargar una nueva imagen. Para generar e imprimir el reporte de diagnóstico de tu hoja cargada, utiliza los botones de descarga de PDF, Word o Excel al final de la pestaña **'Predicción'**.")
         show_training_reports()
 
     with tab3:
@@ -1522,26 +1663,33 @@ def show_automl_panel():
     """)
     
     # 1. Cargar datos
+    if 'automl_df' not in st.session_state:
+        st.session_state.automl_df = None
+        
     uploaded_file = st.file_uploader("Cargar archivo de datos (CSV)", type=["csv"])
-    df = None
     
     if uploaded_file is not None:
         try:
-            df = pd.read_csv(uploaded_file)
-            st.success("✅ Archivo cargado exitosamente.")
+            st.session_state.automl_df = pd.read_csv(uploaded_file)
         except Exception as e:
             st.error(f"Error al leer el archivo: {e}")
     else:
-        # Ofrecer dataset de prueba
-        if os.path.exists("data/maize_crop_data.csv"):
-            st.info("💡 Se ha detectado el dataset de prueba pregenerado `maize_crop_data.csv` en el servidor local.")
+        if st.session_state.automl_df is None and os.path.exists("data/maize_crop_data.csv"):
+            st.info("💡 Se ha detectado el conjunto de datos de prueba pregenerado `maize_crop_data.csv` en el servidor local.")
             if st.button("📊 Cargar Dataset de Prueba Fitosanitario", use_container_width=True):
-                df = pd.read_csv("data/maize_crop_data.csv")
-                st.success("✅ Dataset de prueba cargado correctamente.")
+                st.session_state.automl_df = pd.read_csv("data/maize_crop_data.csv")
+                st.rerun()
+                
+    df = st.session_state.automl_df
                 
     if df is None:
         st.warning("⚠️ Cargue un archivo CSV para iniciar el análisis.")
         return
+        
+    if st.button("🗑️ Limpiar Datos cargados"):
+        st.session_state.automl_df = None
+        st.session_state.pipeline_executed = False
+        st.rerun()
         
     # Mostrar vista previa
     st.markdown("### 📋 Vista Previa del Dataset")
@@ -1645,7 +1793,7 @@ def show_automl_panel():
             
             xlsx_report = generate_xlsx_report(df_eda, df_training, cv_results, tuning_results, stats_results)
             docx_report = generate_docx_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths)
-            pdf_report = generate_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths)
+            pdf_report = generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths)
             
             # Almacenar en session_state
             st.session_state.pipeline_executed = True
@@ -1781,6 +1929,12 @@ def main():
     )
     
     st.sidebar.markdown("---")
+    
+    # Botón de cerrar sesión
+    if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True, key="btn_logout"):
+        st.session_state.authenticated = False
+        st.success("Sesión cerrada correctamente.")
+        st.rerun()
 
     if app_mode == "🌽 Diagnóstico Fitosanitario (Imágenes)":
         show_fitosanitario_panel()

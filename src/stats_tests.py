@@ -170,7 +170,7 @@ def interpret_stats(results, alpha=0.05):
     """
     interpretations = [
         f"**Pruebas Estadísticas Globales ({results['test_type']}):** Se evaluaron las diferencias grupales en validación cruzada. El p-valor global es **{results['overall_pval']:.4f}**.",
-        f"Al ser el p-valor global {'menor' if results['overall_pval'] < alpha else 'mayor'} que el nivel de significancia configurable α = {alpha}, se concluye que **{'existen' if results['overall_pval'] < alpha else 'no existen'} diferencias estadísticamente significativas** en el rendimiento de los 5 modelos."
+        f"Al ser el p-valor global {'menor' if results['overall_pval'] < alpha else 'mayor'} que el nivel de significancia configurable alfa = {alpha}, se concluye que **{'existen' if results['overall_pval'] < alpha else 'no existen'} diferencias estadísticamente significativas** en el rendimiento de los 5 modelos."
     ]
     
     # Wilcoxon

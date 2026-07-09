@@ -1,0 +1,312 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+/* Ocultar elementos nativos de Streamlit */
+#MainMenu {visibility: hidden !important;}
+header {visibility: hidden !important;}
+footer {visibility: hidden !important;}
+div[data-testid="stSidebar"] {display: none !important;}
+div[data-testid="stHeader"] {display: none !important;}
+div[data-testid="stToolbar"] {display: none !important;}
+
+/* Reset de fuentes e inyección de fondo */
+html, body, [data-testid="stAppViewContainer"] {
+    font-family: 'Poppins', sans-serif !important;
+    background-color: #F8FAFC !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+}
+
+section.main {
+    padding: 0 !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Centrar contenedor vertical y horizontalmente */
+div.block-container {
+    max-width: 1000px !important;
+    padding: 0 !important;
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+}
+
+/* Contenedor tipo tarjeta dividida */
+div[data-testid="stHorizontalBlock"] {
+    background-color: #ffffff;
+    border-radius: 24px;
+    box-shadow: 0 20px 40px rgba(30, 41, 59, 0.08);
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    display: flex !important;
+    flex-direction: row !important;
+    height: 540px !important; /* Altura optimizada */
+}
+
+/* Estilización general de las columnas del horizontal block superior */
+div[data-testid="stHorizontalBlock"]:not(div[data-testid="stHorizontalBlock"] *) > div[data-testid*="olumn"] {
+    padding: 2.5rem 3.5rem !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+}
+
+/* Columna izquierda (Branding) - Primera columna del horizontal block superior */
+div[data-testid="stHorizontalBlock"]:not(div[data-testid="stHorizontalBlock"] *) > div[data-testid*="olumn"]:first-child,
+div[data-testid="stHorizontalBlock"]:not(div[data-testid="stHorizontalBlock"] *) > div[data-testid*="olumn"]:first-of-type {
+    background-image: linear-gradient(rgba(27, 94, 32, 0.85), rgba(27, 94, 32, 0.95)), url('data:image/png;base64,__BG_IMAGE_BASE64__') !important;
+    background-size: cover !important;
+    background-position: center !important;
+    padding: 2.5rem 2.2rem !important;
+    color: #ffffff !important;
+    justify-content: space-between !important;
+}
+
+/* Visor de escaneo en la imagen (Viewfinder) de menor tamaño */
+.viewfinder-container {
+    position: relative;
+    width: 100%;
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+.viewfinder-box {
+    position: relative;
+    width: 100px;
+    height: 100px;
+}
+.viewfinder-corner {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-color: #4ADE80;
+    border-style: solid;
+    border-width: 0;
+    filter: drop-shadow(0 0 3px #4ADE80);
+}
+.top-left {
+    top: 0;
+    left: 0;
+    border-top-width: 3px;
+    border-left-width: 3px;
+    border-top-left-radius: 6px;
+}
+.top-right {
+    top: 0;
+    right: 0;
+    border-top-width: 3px;
+    border-right-width: 3px;
+    border-top-right-radius: 6px;
+}
+.bottom-left {
+    bottom: 0;
+    left: 0;
+    border-bottom-width: 3px;
+    border-left-width: 3px;
+    border-bottom-left-radius: 6px;
+}
+.bottom-right {
+    bottom: 0;
+    right: 0;
+    border-bottom-width: 3px;
+    border-right-width: 3px;
+    border-bottom-right-radius: 6px;
+}
+.viewfinder-target {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.viewfinder-circle-outer {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border: 1.5px solid rgba(74, 222, 128, 0.6);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+.viewfinder-circle-inner {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: #4ADE80;
+    border-radius: 50%;
+    box-shadow: 0 0 6px #4ADE80;
+}
+.viewfinder-crosshair-h {
+    position: absolute;
+    width: 12px;
+    height: 1px;
+    background-color: rgba(74, 222, 128, 0.6);
+}
+.viewfinder-crosshair-v {
+    position: absolute;
+    width: 1px;
+    height: 12px;
+    background-color: rgba(74, 222, 128, 0.6);
+}
+@keyframes pulse {
+    0% { transform: scale(0.9); opacity: 0.5; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(0.9); opacity: 0.5; }
+}
+
+/* Estilo para los inputs de Streamlit con iconos en el background */
+input[id^="login_username"] {
+    padding-left: 42px !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239CA3AF' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: 14px center !important;
+    background-size: 16px !important;
+    border-radius: 10px !important;
+    border: 1.5px solid #CBD5E1 !important;
+    background-color: #F8FAFC !important;
+    height: 40px !important;
+    font-family: 'Poppins', sans-serif !important;
+    color: #1E293B !important;
+}
+input[id^="login_password"] {
+    padding-left: 42px !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239CA3AF' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: 14px center !important;
+    background-size: 16px !important;
+    border-radius: 10px !important;
+    border: 1.5px solid #CBD5E1 !important;
+    background-color: #F8FAFC !important;
+    height: 40px !important;
+    font-family: 'Poppins', sans-serif !important;
+    color: #1E293B !important;
+}
+
+div[data-baseweb="input"]:focus-within {
+    border-color: #22C55E !important;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12) !important;
+}
+
+/* Botón de ingreso */
+button[key="btn_login_submit"] {
+    background-color: #1B5E20 !important;
+    border-color: #1B5E20 !important;
+    color: #ffffff !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+    padding: 0.55rem 0 !important;
+    letter-spacing: 0.5px;
+    font-size: 0.9rem !important;
+    font-family: 'Poppins', sans-serif !important;
+    box-shadow: 0 4px 10px rgba(27, 94, 32, 0.15) !important;
+    transition: all 0.2s !important;
+}
+button[key="btn_login_submit"]:hover {
+    background-color: #14532D !important;
+    border-color: #14532D !important;
+    box-shadow: 0 6px 14px rgba(20, 83, 45, 0.25) !important;
+}
+
+/* Botón secundario Outline */
+button[key="btn_login_info"] {
+    background-color: transparent !important;
+    border: 1.5px solid #CBD5E1 !important;
+    color: #475569 !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+    padding: 0.45rem 0 !important;
+    transition: all 0.2s !important;
+    font-size: 0.85rem !important;
+}
+button[key="btn_login_info"]:hover {
+    background-color: rgba(71, 85, 105, 0.05) !important;
+    border-color: #94A3B8 !important;
+    color: #1E293B !important;
+}
+
+/* Estilos del label de inputs */
+label {
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    color: #475569 !important;
+    margin-bottom: 2px !important;
+    font-family: 'Poppins', sans-serif !important;
+}
+
+/* Enlace de olvido de contraseña */
+.forgot-link a {
+    color: #22C55E;
+    text-decoration: none;
+    font-size: 0.78rem;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+.forgot-link a:hover {
+    color: #15803d;
+}
+
+/* Checkbox layout */
+div[data-testid="stCheckbox"] label {
+    font-size: 0.78rem !important;
+    font-weight: 500 !important;
+    color: #475569 !important;
+}
+
+/* Línea separadora o */
+.login-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+    color: #9ca3af;
+    font-size: 0.75rem;
+}
+.divider-line {
+    flex-grow: 1;
+    height: 1px;
+    background-color: #e5e7eb;
+}
+.divider-text {
+    padding: 0 10px;
+}
+
+/* Responsive styling */
+@media (max-width: 768px) {
+    div[data-testid="stAppViewContainer"] {
+        overflow: auto !important;
+        height: auto !important;
+    }
+    div.block-container {
+        height: auto !important;
+        padding: 1.5rem !important;
+    }
+    div[data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        height: auto !important;
+    }
+    div[data-testid="stHorizontalBlock"] > div[data-testid*="olumn"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 100% !important;
+    }
+    div[data-testid="stHorizontalBlock"]:not(div[data-testid="stHorizontalBlock"] *) > div[data-testid*="olumn"]:nth-child(1) {
+        min-height: 250px !important;
+        padding: 1.8rem 1.5rem !important;
+    }
+    div[data-testid="stHorizontalBlock"]:not(div[data-testid="stHorizontalBlock"] *) > div[data-testid*="olumn"]:nth-child(2) {
+        padding: 1.8rem 1.5rem !important;
+    }
+}

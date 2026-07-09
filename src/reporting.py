@@ -6,6 +6,53 @@ from datetime import datetime
 # ---------------------------------------------------------
 # 1. GENERACIÓN DE EXCEL (.xlsx)
 # ---------------------------------------------------------
+
+def format_excel_sheet(worksheet):
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    
+    header_font = Font(name='Segoe UI', size=11, bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='16A34A', end_color='16A34A', fill_type='solid')
+    cell_font = Font(name='Segoe UI', size=10, color='1E293B')
+    
+    thin_side = Side(border_style="thin", color="E2E8F0")
+    border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+    
+    # Formatear encabezado
+    for col_idx in range(1, worksheet.max_column + 1):
+        cell = worksheet.cell(row=1, column=col_idx)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border = border
+        
+    # Formatear datos
+    for r_idx in range(2, worksheet.max_row + 1):
+        for c_idx in range(1, worksheet.max_column + 1):
+            cell = worksheet.cell(row=r_idx, column=c_idx)
+            cell.font = cell_font
+            cell.border = border
+            
+            val = cell.value
+            if isinstance(val, (int, float)):
+                cell.alignment = Alignment(horizontal='center')
+                if isinstance(val, float):
+                    if val <= 1.0 and c_idx >= 3:
+                        cell.number_format = '0.00%'
+                    else:
+                        cell.number_format = '0.0000'
+            else:
+                cell.alignment = Alignment(horizontal='left')
+                
+    # Autoajustar columnas
+    for col in worksheet.columns:
+        max_len = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            val_str = str(cell.value or '')
+            if len(val_str) > max_len:
+                max_len = len(val_str)
+        worksheet.column_dimensions[col_letter].width = max(max_len + 4, 14)
+
 def generate_xlsx_report(df_eda, df_training, cv_results, tuning_results, stats_results, filepath="reports/reporte_automl.xlsx"):
     """
     Crea un archivo Excel organizado con una pestaña para cada fase del pipeline de ML.
@@ -36,9 +83,9 @@ def generate_xlsx_report(df_eda, df_training, cv_results, tuning_results, stats_
             'Métrica': ['Método de Búsqueda', 'Tiempo de Búsqueda (s)', 'Precisión Antes', 'Precisión Después', 'Mejores Hiperparámetros'],
             'Valor': [
                 tuning_results['method'],
-                f"{tuning_results['search_time']:.2f}",
-                f"{tuning_results['accuracy_before']:.4f}",
-                f"{tuning_results['accuracy_after']:.4f}",
+                tuning_results['search_time'],
+                tuning_results['accuracy_before'],
+                tuning_results['accuracy_after'],
                 str(tuning_results['best_params'])
             ]
         }
@@ -54,18 +101,22 @@ def generate_xlsx_report(df_eda, df_training, cv_results, tuning_results, stats_
             ],
             'Resultado/Valor': [
                 stats_results['test_type'],
-                f"{stats_results['overall_stat']:.4f}",
-                f"{stats_results['overall_pval']:.4f}",
+                stats_results['overall_stat'],
+                stats_results['overall_pval'],
                 shapiros,
-                f"{stats_results['levene_pval']:.4f}",
+                stats_results['levene_pval'],
                 f"Classic vs Hybrid: p={stats_results['wilcoxon']['p_val']:.4f}",
                 f"Aciertos/Fallos: p={stats_results['mcnemar']['p_val']:.4f}"
             ]
         }
         pd.DataFrame(stats_data).to_excel(writer, sheet_name='Pruebas Estadisticas', index=False)
         
+        # Aplicar formato a todas las pestañas creadas
+        workbook = writer.book
+        for sheet_name in workbook.sheetnames:
+            format_excel_sheet(workbook[sheet_name])
+            
     return filepath
-
 # ---------------------------------------------------------
 # 2. GENERACIÓN DE WORD (.docx)
 # ---------------------------------------------------------
@@ -212,9 +263,54 @@ def generate_docx_report(df_eda, df_training, cv_results, tuning_results, stats_
     return filepath
 
 # ---------------------------------------------------------
+def clean_pdf_text(text):
+    if not text:
+        return ""
+    replacements = {
+        "α": "alfa",
+        "β": "beta",
+        "γ": "gamma",
+        "±": "+/-",
+        "⭐": "*",
+        "👉": ">",
+        "💡": "Idea: ",
+        "🌽": "Maiz: ",
+        "📊": "Grafico: ",
+        "🚀": "Inicio: ",
+        "⚠️": "Alerta: ",
+        "🗑️": "Eliminar: ",
+        "✅": "OK",
+        "❌": "Error",
+        "📈": "Grafica",
+        "🔍": "Buscar",
+        "🤖": "Robot",
+        "🔬": "Estudios",
+        "⏱️": "Tiempo: ",
+        "⏱": "Tiempo: ",
+        "⚙️": "Config: ",
+        "⚙": "Config: ",
+        "🥇": "1ro",
+        "🥈": "2do",
+        "🥉": "3ro",
+        "🏆": "Premio",
+        "🧠": "Cerebro",
+        "🎯": "Objetivo",
+        "📋": "Lista",
+        "📥": "Descargar",
+        "📄": "Documento",
+        "🩺": "Medicina",
+        "🌾": "Trigo",
+        "🌳": "Arbol"
+    }
+    for orig, rep in replacements.items():
+        text = text.replace(orig, rep)
+    # Remplazar cualquier caracter no-latin1
+    return text.encode('latin-1', 'replace').decode('latin-1')
+
+# ---------------------------------------------------------
 # 3. GENERACIÓN DE PDF (.pdf)
 # ---------------------------------------------------------
-def generate_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths, filepath="reports/reporte_automl.pdf"):
+def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths, filepath="reports/reporte_automl.pdf"):
     """
     Crea un reporte PDF utilizando fpdf2 que incluye portada, tablas, interpretaciones e imágenes embebidas.
     """
@@ -277,7 +373,7 @@ def generate_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_r
     
     pdf.set_font('Helvetica', '', 9)
     for var_name, row in df_eda.iterrows():
-        pdf.cell(45, 7, str(var_name), border=1)
+        pdf.cell(45, 7, clean_pdf_text(str(var_name)), border=1)
         pdf.cell(30, 7, f"{row['media']:.2f}", border=1, align='C')
         pdf.cell(30, 7, f"{row['mediana']:.2f}", border=1, align='C')
         pdf.cell(30, 7, f"{row['desviación']:.2f}", border=1, align='C')
@@ -285,17 +381,24 @@ def generate_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_r
         pdf.cell(25, 7, f"{row['curtosis']:.2f}", border=1, align='C')
         pdf.ln()
         
-    pdf.ln(10)
+    pdf.ln(8)
+    has_eda_images = False
     if 'balance' in image_paths and os.path.exists(image_paths['balance']):
         pdf.image(image_paths['balance'], x=15, y=pdf.get_y(), w=85)
+        has_eda_images = True
     if 'correlation' in image_paths and os.path.exists(image_paths['correlation']):
         pdf.image(image_paths['correlation'], x=110, y=pdf.get_y(), w=85)
+        has_eda_images = True
     
-    pdf.ln(65)
+    if has_eda_images:
+        pdf.ln(62)
+    else:
+        pdf.ln(3)
+        
     pdf.set_font('Helvetica', 'B', 10)
     pdf.cell(0, 6, 'Interpretación Técnica del EDA:', ln=1)
     pdf.set_font('Helvetica', '', 9)
-    pdf.multi_cell(0, 5, interpretations['eda'].replace('**', ''))
+    pdf.multi_cell(0, 5, clean_pdf_text(interpretations['eda'].replace('**', '')))
     
     # --- Página 3: Entrenamiento ---
     pdf.add_page()
@@ -315,7 +418,7 @@ def generate_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_r
     
     pdf.set_font('Helvetica', '', 8)
     for model_name, row in df_training.iterrows():
-        pdf.cell(55, 7, str(model_name), border=1)
+        pdf.cell(55, 7, clean_pdf_text(str(model_name)), border=1)
         pdf.cell(27, 7, f"{row['Accuracy']:.4f}", border=1, align='C')
         pdf.cell(27, 7, f"{row['Precision']:.4f}", border=1, align='C')
         pdf.cell(27, 7, f"{row['Recall']:.4f}", border=1, align='C')
@@ -324,14 +427,20 @@ def generate_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_r
         pdf.ln()
         
     pdf.ln(5)
+    has_roc = False
     if 'roc' in image_paths and os.path.exists(image_paths['roc']):
         pdf.image(image_paths['roc'], x=40, y=pdf.get_y(), w=120)
+        has_roc = True
         
-    pdf.ln(90)
+    if has_roc:
+        pdf.ln(78)
+    else:
+        pdf.ln(3)
+        
     pdf.set_font('Helvetica', 'B', 10)
     pdf.cell(0, 6, 'Interpretación de Entrenamiento:', ln=1)
     pdf.set_font('Helvetica', '', 9)
-    pdf.multi_cell(0, 5, interpretations['training'].replace('**', ''))
+    pdf.multi_cell(0, 5, clean_pdf_text(interpretations['training'].replace('**', '')))
     
     # --- Página 4: CV, Tuning y Pruebas Estadísticas ---
     pdf.add_page()
@@ -340,22 +449,269 @@ def generate_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_r
     pdf.cell(0, 10, '3. Validación Cruzada, Tuning y Pruebas Estadísticas', ln=1)
     pdf.ln(5)
     
+    has_cv_stats = False
     if 'cv' in image_paths and os.path.exists(image_paths['cv']):
         pdf.image(image_paths['cv'], x=15, y=pdf.get_y(), w=85)
+        has_cv_stats = True
     if 'stats' in image_paths and os.path.exists(image_paths['stats']):
         pdf.image(image_paths['stats'], x=110, y=pdf.get_y(), w=85)
+        has_cv_stats = True
         
-    pdf.ln(70)
+    if has_cv_stats:
+        pdf.ln(58)
+    else:
+        pdf.ln(3)
+        
     pdf.set_font('Helvetica', 'B', 10)
     pdf.cell(0, 6, 'Interpretación de Validación y Tuning:', ln=1)
     pdf.set_font('Helvetica', '', 9)
-    pdf.multi_cell(0, 5, interpretations['cv'].replace('**', '') + "\n" + interpretations['tuning'].replace('**', ''))
+    pdf.multi_cell(0, 5, clean_pdf_text(interpretations['cv'].replace('**', '') + "\n" + interpretations['tuning'].replace('**', '')))
     
     pdf.ln(5)
     pdf.set_font('Helvetica', 'B', 10)
     pdf.cell(0, 6, 'Interpretación de Pruebas de Significancia Estadística:', ln=1)
     pdf.set_font('Helvetica', '', 9)
-    pdf.multi_cell(0, 5, interpretations['stats'].replace('**', ''))
+    pdf.multi_cell(0, 5, clean_pdf_text(interpretations['stats'].replace('**', '')))
     
     pdf.output(filepath)
+    return filepath
+# ---------------------------------------------------------
+# 4. REPORTES PARA DIAGNÓSTICO POR IMÁGENES (WORD & EXCEL)
+# ---------------------------------------------------------
+def generate_image_docx_report(image, predictions, uploaded_filename, consensus_reached, consensus_diagnosis, filepath="reports/reporte_imagen.docx"):
+    from docx import Document
+    from docx.shared import Inches, Pt, RGBColor
+    import tempfile
+    from datetime import datetime
+    import matplotlib.pyplot as plt
+    import numpy as np
+    
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    
+    doc = Document()
+    
+    # Configurar estilos de fuente globales
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Arial'
+    font.size = Pt(11)
+    
+    # --- PÁGINA 1: PORTADA ---
+    title_p = doc.add_paragraph()
+    title_p.alignment = 1 # Centrado
+    run_title = title_p.add_run("\n\n\n\n🌽 INFORME DE DIAGNÓSTICO FITOSANITARIO\n")
+    run_title.font.size = Pt(22)
+    run_title.bold = True
+    run_title.font.color.rgb = RGBColor(46, 139, 87) # Verde
+    
+    subtitle_p = doc.add_paragraph()
+    subtitle_p.alignment = 1
+    run_sub = subtitle_p.add_run("Detección Automática de Patologías en Hojas de Maíz\n\n\n\n")
+    run_sub.font.size = Pt(13)
+    run_sub.font.color.rgb = RGBColor(100, 100, 100)
+    
+    info_p = doc.add_paragraph()
+    info_p.alignment = 1
+    run_info = info_p.add_run(f"Archivo analizado: {uploaded_filename}\nFecha y hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} (Hora local)\nÁrea de Sanidad Vegetal\n")
+    run_info.font.size = Pt(10)
+    
+    doc.add_page_break()
+    
+    # --- PÁGINA 2: DIAGNÓSTICO PRINCIPAL ---
+    doc.add_heading("1. Diagnóstico Principal por Consenso", level=1)
+    doc.add_paragraph("Resultado de la clasificación combinada de múltiples redes neuronales convolucionales:")
+    
+    # Cuadro de Consenso
+    p_cons = doc.add_paragraph()
+    if consensus_reached:
+        res_text = f"DIAGNÓSTICO GENERAL: {consensus_diagnosis.upper()}"
+        color = RGBColor(46, 139, 87) if consensus_diagnosis == "Sano" else RGBColor(185, 28, 28)
+    else:
+        res_text = "DIAGNÓSTICO GENERAL: SIN CONSENSO DEFINIDO"
+        color = RGBColor(217, 119, 6)
+    run_cons = p_cons.add_run(f"\n   {res_text}   \n")
+    run_cons.bold = True
+    run_cons.font.size = Pt(14)
+    run_cons.font.color.rgb = color
+    
+    # Imagen de la hoja
+    doc.add_heading("2. Imagen de la Hoja de Maíz Analizada", level=2)
+    try:
+        from PIL import Image
+        temp_img = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        temp_img_name = temp_img.name
+        temp_img.close()
+        
+        image_pil = Image.fromarray(image)
+        image_pil.save(temp_img_name, format="PNG")
+        doc.add_picture(temp_img_name, width=Inches(3.2))
+        os.remove(temp_img_name)
+    except Exception as e:
+        doc.add_paragraph(f"[Error incrustando la imagen: {e}]")
+        
+    doc.add_page_break()
+    
+    # --- PÁGINA 3: RESULTADOS DETALLADOS POR MODELO ---
+    doc.add_heading("2. Resultados Detallados de los Modelos", level=1)
+    doc.add_paragraph("Métricas y predicciones individuales de cada red neuronal entrenada:")
+    
+    # Gráficos de barras individuales por modelo
+    class_names = ["Mancha gris", "Roña común", "Tizón del norte", "Sano"]
+    temp_graph_paths = []
+    
+    try:
+        for model_name, pred in predictions.items():
+            fig, ax = plt.subplots(figsize=(6, 3))
+            colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#16A34A']
+            bars = ax.bar(class_names, pred['probabilities'], color=colors, alpha=0.8)
+            ax.set_title(f'Modelo {model_name}', fontsize=10, fontweight='bold')
+            ax.set_ylim(0, 1)
+            ax.grid(True, alpha=0.2, axis='y')
+            
+            # Resaltar más alta
+            max_idx = np.argmax(pred['probabilities'])
+            bars[max_idx].set_color('#16A34A')
+            
+            # Valores
+            for j, v in enumerate(pred['probabilities']):
+                ax.text(j, v + 0.02, f'{v:.1%}', ha='center', va='bottom', fontsize=8)
+                
+            plt.tight_layout()
+            temp_path = tempfile.NamedTemporaryFile(suffix=".png", delete=False).name
+            plt.savefig(temp_path, dpi=120)
+            temp_graph_paths.append(temp_path)
+            plt.close()
+            
+        # Incrustar en Word
+        for idx, (model_name, pred) in enumerate(predictions.items()):
+            doc.add_heading(f"Modelo: {model_name}", level=2)
+            doc.add_paragraph(f"Predicción: {pred['class']} | Confianza: {pred['confidence']:.2%}")
+            if idx < len(temp_graph_paths) and os.path.exists(temp_graph_paths[idx]):
+                doc.add_picture(temp_graph_paths[idx], width=Inches(4.5))
+                os.remove(temp_graph_paths[idx])
+                
+    except Exception as e:
+        doc.add_paragraph(f"[Error generando gráficos: {e}]")
+        
+    # Eliminamos el salto de página forzado aquí para flujo continuo
+    
+    # --- PÁGINA 4: TABLA COMPARATIVA Y ENFERMEDADES ---
+    doc.add_heading("3. Análisis Comparativo de Predicciones", level=1)
+    
+    table = doc.add_table(rows=1, cols=4)
+    table.style = 'Light Shading Accent 1'
+    hdr_cells = table.rows[0].cells
+    hdr_cells[0].text = 'Modelo de IA'
+    hdr_cells[1].text = 'Diagnóstico'
+    hdr_cells[2].text = 'Confianza'
+    hdr_cells[3].text = 'Estado General'
+    
+    for model_name, pred in predictions.items():
+        row_cells = table.add_row().cells
+        row_cells[0].text = model_name
+        row_cells[1].text = pred['class']
+        row_cells[2].text = f"{pred['confidence']:.2%}"
+        row_cells[3].text = 'Saludable' if pred['class'] == 'Sano' else 'Infección Detectada'
+        
+    # Información sobre la patología
+    if consensus_reached and consensus_diagnosis != "Sano":
+        doc.add_heading(f"4. Información Técnica sobre: {consensus_diagnosis}", level=2)
+        
+        disease_info = {
+            "Tizón del norte": {
+                "desc": "Causado por Exserohilum turcicum. Provoca lesiones alargadas en forma de cigarro de color marrón-grisáceo.",
+                "recs": ["Consultar con un fitopatólogo.", "Aplicación foliar preventiva de fungicidas.", "Uso de semillas híbridas con tolerancia genética."]
+            },
+            "Roña común": {
+                "desc": "Causado por Puccinia sorghi. Produce pústulas circulares de color rojizo-marrón en ambas caras de las hojas.",
+                "recs": ["Eliminar malezas hospederas.", "Monitorear roció matutino.", "Aplicación temprana de compuestos cúpricos."]
+            },
+            "Mancha gris": {
+                "desc": "Causado por Cercospora zeae-maydis. Provoca lesiones rectangulares delimitadas por las venas foliares.",
+                "recs": ["Rotación de cultivos por 2 temporadas.", "Mejora del drenaje.", "Fungicidas sistémicos en etapas vegetativas."]
+            }
+        }
+        
+        if consensus_diagnosis in disease_info:
+            d = disease_info[consensus_diagnosis]
+            doc.add_paragraph(f"**Descripción:** {d['desc']}")
+            doc.add_heading("Recomendaciones de Manejo:", level=3)
+            for r in d['recs']:
+                doc.add_paragraph(f"- {r}")
+                
+    # Eliminamos salto de página para flujo continuo
+    
+    # --- RECOMENDACIONES GENERALES Y DISCLAIMER ---
+    doc.add_heading("5. Recomendaciones Generales del Sistema", level=1)
+    
+    if consensus_reached and consensus_diagnosis == "Sano":
+        recs = [
+            "Continuar con las prácticas de manejo actuales.",
+            "Realizar monitoreos preventivos regulares cada 7-10 días.",
+            "Mantener condiciones óptimas de cultivo (riego, fertilización).",
+            "Inspeccionar las hojas inferiores que tienen contacto directo con la humedad del suelo."
+        ]
+    elif consensus_reached:
+        recs = [
+            "Aislar de inmediato la zona de cultivo afectada para evitar la propagación foliar por viento.",
+            "Considerar tratamientos preventivos con fungicidas orgánicos o químicos regulados.",
+            "Evitar el riego por aspersión directo al follaje en horas de la tarde para reducir humedad retenida.",
+            "Documentar la evolución de las hojas con fotografías diarias."
+        ]
+    else:
+        recs = [
+            "Tomar una nueva imagen con mejor iluminación y enfoque central en la patología.",
+            "Asegurar que la hoja no tenga reflejos de luz solar excesivos al momento de capturar.",
+            "Realizar análisis de suelo para descartar deficiencias de nutrientes simulando necrosis foliar."
+        ]
+        
+    for r in recs:
+        doc.add_paragraph(f"- {r}")
+        
+    doc.add_heading("⚠️ Limitaciones y Responsabilidad", level=2)
+    doc.add_paragraph("Este sistema es una herramienta de soporte analítico basada en redes neuronales. Los resultados deben ser confirmados visualmente en campo por ingenieros agrónomos o técnicos fitosanitarios calificados antes de realizar aplicaciones masivas de tratamientos.")
+    
+    doc.save(filepath)
+    return filepath
+
+
+def generate_image_xlsx_report(predictions, uploaded_filename, consensus_reached, consensus_diagnosis, filepath="reports/reporte_imagen.xlsx"):
+    import pandas as pd
+    from datetime import datetime
+    
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    
+    with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
+        # Pestaña 1: Resumen de Diagnóstico
+        resumen_data = {
+            'Variable': ['Archivo Analizado', 'Fecha de Análisis', 'Consenso Alcanzado', 'Diagnóstico Final', 'Estado General'],
+            'Valor': [
+                uploaded_filename,
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'SÍ' if consensus_reached else 'NO',
+                consensus_diagnosis if consensus_diagnosis else 'Sin Consenso',
+                'Saludable (Sano)' if consensus_diagnosis == 'Sano' else 'Infectado (Enfermo)' if consensus_reached else 'No Determinado'
+            ]
+        }
+        pd.DataFrame(resumen_data).to_excel(writer, sheet_name='Diagnostico', index=False)
+        
+        # Pestaña 2: Predicciones Detalladas
+        preds_data = []
+        for model_name, pred in predictions.items():
+            preds_data.append({
+                'Modelo': model_name,
+                'Clase Predicha': pred['class'],
+                'Confianza': pred['confidence'],
+                'Prob_Mancha_Gris': pred['probabilities'][0],
+                'Prob_Rona_Comun': pred['probabilities'][1],
+                'Prob_Tizon_Norte': pred['probabilities'][2],
+                'Prob_Sano': pred['probabilities'][3]
+            })
+        pd.DataFrame(preds_data).to_excel(writer, sheet_name='Predicciones por Modelo', index=False)
+        
+        # Aplicar formato y autoajustes
+        workbook = writer.book
+        for sheet_name in workbook.sheetnames:
+            format_excel_sheet(workbook[sheet_name])
+            
     return filepath
