@@ -93,9 +93,8 @@ def clean_data(df, target_col):
 
 def get_descriptive_stats(df, target_col):
     """
-    Genera estadisticas descriptivas avanzadas para variables numericas:
-    media, mediana, moda, desviacion estandar, varianza, asimetria, curtosis,
-    percentiles, coeficiente de variacion, error estandar (SEM) y prueba de normalidad.
+    Genera estadisticas descriptivas avanzadas para variables numericas.
+    Retorna llaves en minuscula (compatibles con reporting.py) y en mayuscula (para presentacion en UI).
     """
     num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     if target_col in num_cols:
@@ -125,16 +124,27 @@ def get_descriptive_stats(df, target_col):
             p_val = 0.0
             
         global_stats[col] = {
+            'media': mean_val,
             'Media': mean_val,
+            'mediana': desc['50%'],
             'Mediana': desc['50%'],
+            'moda': mode_val,
             'Moda': mode_val,
+            'desviación': std_val,
             'Desv. Estándar': std_val,
+            'varianza': std_val ** 2,
             'Varianza': std_val ** 2,
+            'rango': desc['max'] - desc['min'],
             'Rango': desc['max'] - desc['min'],
+            'error_sem': sem,
             'Error Est. (SEM)': sem,
+            'coef_var': cv,
             'Coef. Variación (CV)': cv,
+            'asimetría': skewness,
             'Asimetría': skewness,
+            'curtosis': kurtosis,
             'Curtosis': kurtosis,
+            'shapiro_p': p_val,
             'Norm. p-valor (Shapiro)': p_val,
             'p25': desc['25%'],
             'p75': desc['75%']
@@ -187,10 +197,10 @@ def interpret_eda(df, target_col, num_duplicates, imputed_nulls, outliers_detect
     skewed_cols = []
     non_normal_cols = []
     for col, stat in global_stats.iterrows():
-        if abs(stat['Asimetría']) > 1.0:
-            skewed_cols.append(f"'{col}' (asimetría: {stat['Asimetría']:.2f})")
-        if stat['Norm. p-valor (Shapiro)'] < 0.05:
-            non_normal_cols.append(f"'{col}' (p-valor: {stat['Norm. p-valor (Shapiro)']:.4f})")
+        if abs(stat['asimetría']) > 1.0:
+            skewed_cols.append(f"'{col}' (asimetría: {stat['asimetría']:.2f})")
+        if stat['shapiro_p'] < 0.05:
+            non_normal_cols.append(f"'{col}' (p-valor: {stat['shapiro_p']:.4f})")
             
     if skewed_cols:
         dist_text += f"* Variables altamente sesgadas detectadas: {', '.join(skewed_cols)}. "
