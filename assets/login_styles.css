@@ -40,12 +40,17 @@ div.block-container {
 div[data-testid="stHorizontalBlock"] {
     background-color: #ffffff;
     border-radius: 24px;
-    box-shadow: 0 20px 40px rgba(30, 41, 59, 0.08);
+    box-shadow: 0 20px 40px rgba(30, 41, 59, 0.08), 0 0 20px rgba(34, 197, 94, 0.03);
     overflow: hidden;
     border: 1px solid #e2e8f0;
     display: flex !important;
     flex-direction: row !important;
     height: 540px !important; /* Altura optimizada */
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+div[data-testid="stHorizontalBlock"]:hover {
+    box-shadow: 0 30px 60px rgba(30, 41, 59, 0.12), 0 0 35px rgba(34, 197, 94, 0.08);
+    transform: translateY(-2px);
 }
 
 /* Estilización general de las columnas del horizontal block superior */
@@ -194,15 +199,21 @@ input[id^="login_password"] {
     color: #1E293B !important;
 }
 
+div[data-baseweb="input"] {
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
 div[data-baseweb="input"]:focus-within {
     border-color: #22C55E !important;
-    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12) !important;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15) !important;
+    transform: translateY(-2px);
 }
 
 /* Botón de ingreso */
 button[key="btn_login_submit"] {
-    background-color: #1B5E20 !important;
-    border-color: #1B5E20 !important;
+    background: linear-gradient(-45deg, #1B5E20, #22C55E, #15803D, #1B5E20) !important;
+    background-size: 300% 300% !important;
+    animation: button-gradient 8s ease infinite !important;
+    border: none !important;
     color: #ffffff !important;
     border-radius: 10px !important;
     font-weight: 700 !important;
@@ -210,13 +221,17 @@ button[key="btn_login_submit"] {
     letter-spacing: 0.5px;
     font-size: 0.9rem !important;
     font-family: 'Poppins', sans-serif !important;
-    box-shadow: 0 4px 10px rgba(27, 94, 32, 0.15) !important;
-    transition: all 0.2s !important;
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.2) !important;
+    transition: all 0.3s ease !important;
 }
 button[key="btn_login_submit"]:hover {
-    background-color: #14532D !important;
-    border-color: #14532D !important;
-    box-shadow: 0 6px 14px rgba(20, 83, 45, 0.25) !important;
+    box-shadow: 0 6px 20px rgba(34, 197, 94, 0.35) !important;
+    transform: scale(1.01);
+}
+@keyframes button-gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
 /* Botón secundario Outline */
@@ -309,4 +324,43 @@ div[data-testid="stCheckbox"] label {
     div[data-testid="stHorizontalBlock"]:not(div[data-testid="stHorizontalBlock"] *) > div[data-testid*="olumn"]:nth-child(2) {
         padding: 1.8rem 1.5rem !important;
     }
+}
+
+/* Laser Scanner Animation */
+.laser-scanner {
+    position: absolute;
+    width: 90px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #4ADE80, transparent);
+    box-shadow: 0 0 8px #4ADE80, 0 0 12px #4ADE80;
+    animation: scan 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    z-index: 10;
+}
+
+@keyframes scan {
+    0% { top: 10px; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 90px; opacity: 0; }
+}
+
+/* Micro-animaciones en las características (benefits) */
+.benefit-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 0.6rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 8px;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: default;
+}
+.benefit-item:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    transform: translateX(6px);
+}
+.benefit-item div h4 {
+    transition: color 0.3s ease;
+}
+.benefit-item:hover div h4 {
+    color: #4ADE80 !important;
 }

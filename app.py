@@ -1490,6 +1490,7 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
 <!-- Viewfinder Visor -->
 <div class="viewfinder-container">
 <div class="viewfinder-box">
+<div class="laser-scanner"></div>
 <div class="viewfinder-corner top-left"></div>
 <div class="viewfinder-corner top-right"></div>
 <div class="viewfinder-corner bottom-left"></div>
@@ -1505,7 +1506,7 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
 
 <!-- Beneficios -->
 <div style="background-color: rgba(255, 255, 255, 0.08); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-radius: 12px; padding: 0.8rem 1rem; border: 1px solid rgba(255, 255, 255, 0.12); margin-top: auto;">
-<div style="display: flex; align-items: flex-start; margin-bottom: 0.6rem;">
+<div class="benefit-item">
 <div style="width: 24px; height: 24px; border-radius: 50%; background-color: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.3); display: flex; align-items: center; justify-content: center; margin-right: 0.55rem; flex-shrink: 0;">
 <span style="font-size: 0.8rem;">🧠</span>
 </div>
@@ -1514,7 +1515,7 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
 <p style="color: #cbd5e1; margin: 0; font-size: 0.72rem; font-weight: 400; line-height: 1.1;">Modelos entrenados para mayor precisión</p>
 </div>
 </div>
-<div style="display: flex; align-items: flex-start; margin-bottom: 0.6rem;">
+<div class="benefit-item">
 <div style="width: 24px; height: 24px; border-radius: 50%; background-color: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.3); display: flex; align-items: center; justify-content: center; margin-right: 0.55rem; flex-shrink: 0;">
 <span style="font-size: 0.8rem;">🛡️</span>
 </div>
@@ -1523,7 +1524,7 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
 <p style="color: #cbd5e1; margin: 0; font-size: 0.72rem; font-weight: 400; line-height: 1.1;">Diagnósticos rápidos y precisos</p>
 </div>
 </div>
-<div style="display: flex; align-items: flex-start;">
+<div class="benefit-item">
 <div style="width: 24px; height: 24px; border-radius: 50%; background-color: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.3); display: flex; align-items: center; justify-content: center; margin-right: 0.55rem; flex-shrink: 0;">
 <span style="font-size: 0.8rem;">📊</span>
 </div>
