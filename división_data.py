@@ -13,13 +13,16 @@ original_dataset_dir = '/content/drive/MyDrive/maize-leaf-disease/Data'
 base_dir = '/content/drive/MyDrive/maize-leaf-disease/Data2'
 train_dir = os.path.join(base_dir, 'train')
 val_dir = os.path.join(base_dir, 'val')
+test_dir = os.path.join(base_dir, 'test')
 
 # Crear carpetas de salida
-for folder in [train_dir, val_dir]:
+for folder in [train_dir, val_dir, test_dir]:
     os.makedirs(folder, exist_ok=True)
 
-# Parámetro de división
-split_ratio = 0.8  # 80% train, 20% val
+# Parámetros de división científica: 70% train, 15% val, 15% test
+train_ratio = 0.70
+val_ratio = 0.15
+test_ratio = 0.15
 
 # Procesar cada clase
 classes = os.listdir(original_dataset_dir)
@@ -31,15 +34,21 @@ for class_name in classes:
 
     images = os.listdir(class_path)
     images = [img for img in images if img.lower().endswith(('.png', '.jpg', '.jpeg'))]
+    random.seed(42)  # Garantizar reproducibilidad en la partición
     random.shuffle(images)
 
-    split_index = int(len(images) * split_ratio)
-    train_images = images[:split_index]
-    val_images = images[split_index:]
+    total_images = len(images)
+    train_end = int(total_images * train_ratio)
+    val_end = train_end + int(total_images * val_ratio)
+
+    train_images = images[:train_end]
+    val_images = images[train_end:val_end]
+    test_images = images[val_end:]
 
     # Crear carpetas de clase
     os.makedirs(os.path.join(train_dir, class_name), exist_ok=True)
     os.makedirs(os.path.join(val_dir, class_name), exist_ok=True)
+    os.makedirs(os.path.join(test_dir, class_name), exist_ok=True)
 
     # Copiar imágenes
     for img in train_images:
@@ -48,6 +57,9 @@ for class_name in classes:
     for img in val_images:
         shutil.copy(os.path.join(class_path, img), os.path.join(val_dir, class_name, img))
 
-    print(f'Clase {class_name}: {len(train_images)} entrenamiento, {len(val_images)} validación')
+    for img in test_images:
+        shutil.copy(os.path.join(class_path, img), os.path.join(test_dir, class_name, img))
 
-print("✅ División completa.")
+    print(f'Clase {class_name}: {len(train_images)} train, {len(val_images)} val, {len(test_images)} test')
+
+print("✅ División científica en tres conjuntos (Train/Val/Test) completada.")
