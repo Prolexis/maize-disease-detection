@@ -29,6 +29,18 @@ from src.tuning import run_hyperparameter_tuning, interpret_tuning
 from src.stats_tests import run_statistical_tests, interpret_stats
 from src.reporting import generate_xlsx_report, generate_docx_report, generate_tabular_pdf_report, generate_image_docx_report, generate_image_xlsx_report
 
+# Inicialización de multi-idioma (Español, English, Português)
+if 'lang' not in st.session_state:
+    st.session_state.lang = 'es'
+
+def t(key):
+    try:
+        from src.translation import TRANSLATIONS
+        lang = st.session_state.get('lang', 'es')
+        return TRANSLATIONS[lang].get(key, key)
+    except:
+        return key
+
 # Configuración de la página
 st.set_page_config(
     page_title="🌽 Detector de Enfermedades en Hojas de Maíz",
@@ -1555,36 +1567,53 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
 </div>""", unsafe_allow_html=True)
             
         with col2:
-            st.markdown("""<div class="login-right-form" style="text-align: center; margin-bottom: 0.8rem; font-family: 'Poppins', sans-serif;">
+            # Selector de idioma discreto en la parte superior derecha de la tarjeta de Login
+            lang_col1, lang_col2 = st.columns([3, 1.2])
+            with lang_col2:
+                lang_choice = st.selectbox(
+                    "🌐", 
+                    ["Español", "English", "Português"],
+                    index=0 if st.session_state.get('lang', 'es') == 'es' else (1 if st.session_state.get('lang', 'es') == 'en' else 2),
+                    key="login_lang_selector",
+                    label_visibility="collapsed"
+                )
+                if lang_choice == "Español":
+                    st.session_state.lang = "es"
+                elif lang_choice == "English":
+                    st.session_state.lang = "en"
+                else:
+                    st.session_state.lang = "pt"
+            
+            st.markdown(f"""<div class="login-right-form" style="text-align: center; margin-bottom: 0.8rem; font-family: 'Poppins', sans-serif;">
 <div style="width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid #22C55E; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.4rem auto; background-color: rgba(34, 197, 94, 0.05);">
 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B5E20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 3.58.1 8A7 7 0 0 1 11 20z" />
 <path d="M19 2c-2.26 4.33-5.27 7.14-8 10" />
 </svg>
 </div>
-<h2 style="color: #1E293B; font-size: 1.4rem; font-weight: 700; margin: 0; font-family: 'Poppins', sans-serif; letter-spacing: -0.3px;">Bienvenido</h2>
-<p style="color: #64748B; font-size: 0.78rem; margin-top: 0.1rem; margin-bottom: 0; font-family: 'Poppins', sans-serif;">Inicie sesión para acceder al sistema.</p>
+<h2 style="color: #1E293B; font-size: 1.4rem; font-weight: 700; margin: 0; font-family: 'Poppins', sans-serif; letter-spacing: -0.3px;">{t('welcome')}</h2>
+<p style="color: #64748B; font-size: 0.78rem; margin-top: 0.1rem; margin-bottom: 0; font-family: 'Poppins', sans-serif;">{t('login_desc')}</p>
 </div>""", unsafe_allow_html=True)
             
             # Formulario
-            username = st.text_input("Correo electrónico", placeholder="ejemplo@correo.com", key="login_username")
-            password = st.text_input("Contraseña", type="password", placeholder="Ingresa tu contraseña", key="login_password")
+            username = st.text_input(t("email"), placeholder="ejemplo@correo.com", key="login_username")
+            password = st.text_input(t("password"), type="password", placeholder="******", key="login_password")
             
-            st.markdown('<p class="forgot-link" style="text-align: right; margin: -5px 0 10px 0;"><a href="#">¿Olvidaste tu contraseña?</a></p>', unsafe_allow_html=True)
+            st.markdown(f'<p class="forgot-link" style="text-align: right; margin: -5px 0 10px 0;"><a href="#">{t("forgot_pwd")}</a></p>', unsafe_allow_html=True)
             
             st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
             
-            if st.button("→  INICIAR SESIÓN", type="primary", use_container_width=True, key="btn_login_submit"):
+            if st.button(t("login_btn"), type="primary", use_container_width=True, key="btn_login_submit"):
                 if username in ["admin", "admin@maiz.com"] and password == "admin123":
-                    with st.spinner("Verificando credenciales..."):
+                    with st.spinner(t("verifying_credentials")):
                         import time
                         time.sleep(0.65)
-                    st.success("✅ ¡Ingreso exitoso!")
+                    st.success(t("login_success"))
                     time.sleep(0.4)
                     st.session_state.authenticated = True
                     st.rerun()
                 else:
-                    st.error("❌ Correo o contraseña incorrectos")
+                    st.error(t("login_error"))
                     
             st.markdown("""<div class="login-divider">
 <span class="divider-line"></span>
@@ -1592,7 +1621,7 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
 <span class="divider-line"></span>
 </div>""", unsafe_allow_html=True)
             
-            if st.button("Más información del sistema", use_container_width=True, key="btn_login_info"):
+            if st.button(t("more_info_btn"), use_container_width=True, key="btn_login_info"):
                 st.info("Sistema inteligente de diagnóstico fitosanitario y AutoML para la optimización de cultivos de maíz.")
                 
             st.markdown("""
@@ -1608,7 +1637,7 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
 def show_fitosanitario_panel():
     """Muestra el panel de diagnóstico fitosanitario por imágenes original."""
     # Navegación con tabs
-    tab1, tab2, tab3 = st.tabs(["🔍 Predicción", "📈 Rendimiento Histórico del Entrenamiento (Estático)", "🔬 Comparación de Modelos"])
+    tab1, tab2, tab3 = st.tabs([t("tab_prediction"), t("tab_performance"), t("tab_comparison")])
 
     with tab1:
         st.markdown("""
@@ -1619,13 +1648,13 @@ def show_fitosanitario_panel():
         """)
 
         # Cargar modelos
-        st.markdown("## 🤖 Cargando Modelos...")
+        st.markdown(t("loading_models"))
         models = load_models()
 
         if not models:
-            st.error("❌ No se pudieron cargar los modelos. Verifica las rutas.")
+            st.error(t("models_loaded_error"))
         else:
-            st.success(f"✅ {len(models)} modelo(s) cargado(s) exitosamente")
+            st.success(f"✅ {len(models)} {t('models_loaded_success')}")
             show_prediction_interface(models)
 
     with tab2:
@@ -1677,15 +1706,13 @@ def show_fitosanitario_panel():
 
 def show_automl_panel():
     """Muestra la plataforma AutoML tabular modular."""
-    st.markdown("""
-    Esta plataforma permite cargar un dataset tabular de variables agrícolas y ejecutar de extremo a extremo un pipeline de Machine Learning (3 modelos clásicos + 2 híbridos).
-    """)
+    st.markdown(t("automl_desc"))
     
     # 1. Cargar datos
     if 'automl_df' not in st.session_state:
         st.session_state.automl_df = None
         
-    uploaded_file = st.file_uploader("Cargar archivo de datos (CSV)", type=["csv"])
+    uploaded_file = st.file_uploader(t("upload_csv"), type=["csv"])
     
     if uploaded_file is not None:
         try:
@@ -1695,7 +1722,7 @@ def show_automl_panel():
     else:
         if st.session_state.automl_df is None and os.path.exists("data/maize_crop_data.csv"):
             st.info("💡 Se ha detectado el conjunto de datos de prueba pregenerado `maize_crop_data.csv` en el servidor local.")
-            if st.button("📊 Cargar Dataset de Prueba Fitosanitario", use_container_width=True):
+            if st.button(t("btn_load_test"), use_container_width=True):
                 st.session_state.automl_df = pd.read_csv("data/maize_crop_data.csv")
                 st.rerun()
                 
@@ -1705,37 +1732,37 @@ def show_automl_panel():
         st.warning("⚠️ Cargue un archivo CSV para iniciar el análisis.")
         return
         
-    if st.button("🗑️ Limpiar Datos cargados"):
+    if st.button(t("clean_data_btn")):
         st.session_state.automl_df = None
         st.session_state.pipeline_executed = False
         st.rerun()
         
     # Mostrar vista previa
-    st.markdown("### 📋 Vista Previa del Dataset")
+    st.markdown(t("preview_dataset"))
     st.dataframe(df.head(5), use_container_width=True)
     
     # Seleccionar la columna objetivo (Target)
-    target_col = st.selectbox("Seleccione la variable objetivo (Target):", df.columns.tolist(), index=len(df.columns)-1)
+    target_col = st.selectbox(t("select_target"), df.columns.tolist(), index=len(df.columns)-1)
     
     # Configuración de hiperparámetros
     st.markdown("---")
-    st.markdown("### ⚙️ Configuración del Experimento")
+    st.markdown(t("experiment_config"))
     
     col_c1, col_c2 = st.columns(2)
     with col_c1:
-        cv_folds = st.slider("Validación Cruzada (K-Folds)", 3, 10, 5)
-        split_ratio = st.slider("Porcentaje de Entrenamiento (%)", 60, 90, 80) / 100.0
+        cv_folds = st.slider(t("cross_val_label"), 3, 10, 5)
+        split_ratio = st.slider(t("train_pct_label"), 60, 90, 80) / 100.0
     with col_c2:
-        seed = st.number_input("Semilla de Reproducibilidad", value=42, step=1)
-        alpha = st.selectbox("Nivel de Significancia (α)", [0.01, 0.05, 0.10], index=1)
-        tuning_method = st.radio("Método de Búsqueda de Hiperparámetros", ["grid", "random"], index=0, horizontal=True)
+        seed = st.number_input(t("seed_label"), value=42, step=1)
+        alpha = st.selectbox(t("alpha_label"), [0.01, 0.05, 0.10], index=1)
+        tuning_method = st.radio(t("search_method_label"), ["grid", "random"], index=0, horizontal=True)
         
     # Inicializar semillas
     set_seed(seed)
     
     # Botón de ejecución
-    if st.button("🚀 Ejecutar Pipeline de Machine Learning", type="primary", use_container_width=True):
-        with st.spinner("Ejecutando Pipeline... por favor espere."):
+    if st.button(t("btn_run_pipeline"), type="primary", use_container_width=True):
+        with st.spinner(t("verifying_pipeline")):
             # 1. EDA
             df_cleaned, num_duplicates, imputed_nulls, outliers_detected = clean_data(df, target_col)
             df_eda, class_stats = get_descriptive_stats(df_cleaned, target_col)
@@ -1837,21 +1864,21 @@ def show_automl_panel():
         col_d1, col_d2, col_d3 = st.columns(3)
         with col_d1:
             with open(st.session_state.pdf_report, "rb") as f:
-                st.download_button("📥 Descargar Reporte PDF", f.read(), file_name="reporte_fitosanitario_automl.pdf", mime="application/pdf", use_container_width=True)
+                st.download_button(t("download_pdf"), f.read(), file_name="reporte_fitosanitario_automl.pdf", mime="application/pdf", use_container_width=True)
         with col_d2:
             with open(st.session_state.docx_report, "rb") as f:
-                st.download_button("📥 Descargar Reporte Word (.docx)", f.read(), file_name="reporte_fitosanitario_automl.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+                st.download_button(t("download_docx"), f.read(), file_name="reporte_fitosanitario_automl.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
         with col_d3:
             with open(st.session_state.xlsx_report, "rb") as f:
-                st.download_button("📥 Descargar Reporte Excel (.xlsx)", f.read(), file_name="reporte_fitosanitario_automl.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                st.download_button(t("download_xlsx"), f.read(), file_name="reporte_fitosanitario_automl.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
                 
         # Mostrar fases con tabs
         tab_eda, tab_train, tab_cv, tab_tuning, tab_stats = st.tabs([
-            "🔍 Análisis Exploratorio (EDA)", 
-            "🤖 Modelado y Entrenamiento", 
-            "🔁 Validación Cruzada", 
-            "🔧 Tuning de Hiperparámetros", 
-            "🔬 Pruebas Estadísticas"
+            t("tab_eda"), 
+            t("tab_train"), 
+            t("tab_cv"), 
+            t("tab_tuning"), 
+            t("tab_stats")
         ])
         
         with tab_eda:
@@ -1936,36 +1963,51 @@ def main():
     if not check_login():
         return
 
+    # Selector de Idioma en el Sidebar para sincronización
+    st.sidebar.markdown(t("language_selector_title"))
+    language = st.sidebar.selectbox(
+        t("language_selector_label"),
+        ["Español", "English", "Português"],
+        index=0 if st.session_state.get('lang', 'es') == 'es' else (1 if st.session_state.get('lang', 'es') == 'en' else 2),
+        key="main_lang_selector"
+    )
+    if language == "Español":
+        st.session_state.lang = "es"
+    elif language == "English":
+        st.session_state.lang = "en"
+    else:
+        st.session_state.lang = "pt"
+
     # Encabezado principal
-    st.markdown('<h1 class="main-header">🌽 Detector de Enfermedades en Hojas de Maíz</h1>',
+    st.markdown(f'<h1 class="main-header">{t("title")}</h1>',
                 unsafe_allow_html=True)
 
     # Selector de Modo en el Sidebar
-    st.sidebar.markdown("# 🗺️ Selector de Panel")
+    st.sidebar.markdown(t("panel_selector_title"))
     app_mode = st.sidebar.selectbox(
-        "Seleccione el panel de trabajo:",
-        ["🌽 Diagnóstico Fitosanitario (Imágenes)", "📊 AutoML Pipeline Analítico (Tabular)"]
+        t("panel_selector_label"),
+        [t("fitosanitario_panel"), t("automl_panel")]
     )
     
     st.sidebar.markdown("---")
     
     # Botón de cerrar sesión
-    if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True, key="btn_logout"):
+    if st.sidebar.button(t("logout_btn"), use_container_width=True, key="btn_logout"):
         st.session_state.authenticated = False
-        st.success("Sesión cerrada correctamente.")
+        st.success(t("success_logout"))
         st.rerun()
 
-    if app_mode == "🌽 Diagnóstico Fitosanitario (Imágenes)":
+    # Mapear modo
+    if app_mode == t("fitosanitario_panel"):
         show_fitosanitario_panel()
     else:
         show_automl_panel()
 
     # Footer común
     st.markdown("---")
-    st.markdown("""
+    st.markdown(f"""
     <div style='text-align: center; color: #666; margin-top: 2rem;'>
-        🌽 Desarrollado para el análisis de enfermedades en cultivos de maíz<br>
-        Integración de diagnóstico de imágenes y pipeline analítico de Machine Learning
+        {t('footer_text')}
     </div>
     """, unsafe_allow_html=True)
 
