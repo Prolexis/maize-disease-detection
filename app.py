@@ -371,11 +371,11 @@ def load_models():
         if os.path.exists(model_path):
             try:
                 models[name] = load_model(model_path)
-                st.success(f"✅ Modelo {name} cargado exitosamente")
+                st.success(t("model_load_success").format(name=name))
             except Exception as e:
-                st.error(f"❌ Error cargando {name}: {str(e)}")
+                st.error(t("model_load_error").format(name=name, err=str(e)))
         else:
-            st.warning(f"⚠️ No se encontró el archivo: {model_path}")
+            st.warning(t("model_file_not_found").format(path=model_path))
 
     return models
 
@@ -928,11 +928,21 @@ def plot_predictions(predictions):
 
 def show_prediction_interface(models):
     """Muestra la interfaz de predicción"""
-    st.markdown("## 📤 Cargar Imagen")
+    # Función auxiliar para traducir clases de salida
+    def translate_class(class_name):
+        class_map = {
+            "Mancha gris": "class_gray_spot",
+            "Roña común": "class_common_rust",
+            "Tizón del norte": "class_northern_blight",
+            "Sano": "class_healthy"
+        }
+        return t(class_map.get(class_name, class_name))
+
+    st.markdown(f"## {t('pred_upload_header')}")
     uploaded_file = st.file_uploader(
-        "Selecciona una imagen de una hoja de maíz",
+        t("pred_upload_label"),
         type=['png', 'jpg', 'jpeg'],
-        help="Formatos soportados: PNG, JPG, JPEG"
+        help=t("pred_upload_help")
     )
 
     if uploaded_file is not None:
@@ -941,62 +951,64 @@ def show_prediction_interface(models):
 
         with col1:
             image = Image.open(uploaded_file)
-            st.image(image, caption="Imagen cargada", use_column_width=True)
+            st.image(image, caption=t("pred_loaded_caption"), use_column_width=True)
 
             # Información de la imagen
-            st.markdown("### 📋 Información de la imagen")
-            st.write(f"**Nombre:** {uploaded_file.name}")
-            st.write(f"**Tamaño:** {image.size}")
-            st.write(f"**Formato:** {image.format}")
+            st.markdown(f"### {t('pred_info_header')}")
+            st.write(f"**{t('pred_info_name')}:** {uploaded_file.name}")
+            st.write(f"**{t('pred_info_size')}:** {image.size}")
+            st.write(f"**{t('pred_info_format')}:** {image.format}")
 
         with col2:
             # Convertir a array numpy para procesamiento
             image_array = np.array(image.convert('RGB'))
 
             # Realizar predicciones
-            st.markdown("## 🔍 Realizando Predicciones...")
+            st.markdown(f"## {t('pred_running')}")
 
-            with st.spinner('Procesando imagen con los modelos...'):
+            with st.spinner(t('pred_spinner')):
                 predictions = predict_disease(image_array, models)
 
             # Mostrar resultados
-            st.markdown("## 📊 Resultados de Predicción")
+            st.markdown(f"## {t('pred_results_header')}")
 
             # Crear tarjetas de resultados
             for model_name, pred in predictions.items():
                 is_healthy = pred['class'] == 'Sano'
                 card_class = "healthy" if is_healthy else "diseased"
+                translated_cls = translate_class(pred['class'])
 
                 st.markdown(f"""
                 <div class="model-card">
                     <h3>🤖 {model_name}</h3>
                     <div class="prediction-result {card_class}">
-                        Predicción: {pred['class']} ({pred['confidence']:.2%} confianza)
+                        {t('pred_col_prediction')}: {translated_cls} ({pred['confidence']:.2%} {t('pred_col_confidence').lower()})
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
             # Gráficos de probabilidades
-            st.markdown("## 📈 Probabilidades por Modelo")
+            st.markdown(f"## {t('pred_probs_header')}")
             fig = plot_predictions(predictions)
             st.pyplot(fig)
 
             # Tabla resumen
-            st.markdown("## 📋 Resumen de Resultados")
+            st.markdown(f"## {t('pred_summary_header')}")
             summary_data = []
             for model_name, pred in predictions.items():
+                translated_cls = translate_class(pred['class'])
                 summary_data.append({
-                    'Modelo': model_name,
-                    'Predicción': pred['class'],
-                    'Confianza': f"{pred['confidence']:.2%}",
-                    'Estado': '🟢 Sana' if pred['class'] == 'Sano' else '🔴 Enferma'
+                    t('pred_col_model'): model_name,
+                    t('pred_col_prediction'): translated_cls,
+                    t('pred_col_confidence'): f"{pred['confidence']:.2%}",
+                    t('pred_col_state'): t('state_healthy') if pred['class'] == 'Sano' else t('state_diseased')
                 })
 
             summary_df = pd.DataFrame(summary_data)
             st.dataframe(summary_df, use_container_width=True)
 
             # Consenso de modelos
-            st.markdown("## 🎯 Consenso de Modelos")
+            st.markdown(f"## {t('pred_consensus_header')}")
             predictions_list = [pred['class'] for pred in predictions.values()]
             unique_predictions = list(set(predictions_list))
 
@@ -1004,21 +1016,23 @@ def show_prediction_interface(models):
             consensus_diagnosis = unique_predictions[0] if consensus_reached else None
 
             if consensus_reached:
-                st.success(f"✅ **Consenso alcanzado:** Todos los modelos predicen '{consensus_diagnosis}'")
+                translated_diagnosis = translate_class(consensus_diagnosis)
+                st.success(t("pred_consensus_success").format(diagnosis=translated_diagnosis))
             else:
-                st.warning("⚠️ **Sin consenso:** Los modelos tienen predicciones diferentes")
+                st.warning(t("pred_consensus_warning"))
                 for pred in unique_predictions:
                     count = predictions_list.count(pred)
-                    st.write(f"- {pred}: {count} modelo(s)")
+                    translated_pred = translate_class(pred)
+                    st.write(f"- {translated_pred}: {t('pred_models_count').format(count=count)}")
 
             # Botón para generar reportes
-            st.markdown("## 📥 Generar y Descargar Reportes")
+            st.markdown(t("generate_reports_header"))
 
             col_rep1, col_rep2, col_rep3 = st.columns(3)
 
             with col_rep1:
-                if st.button("📥 Generar Reporte PDF", type="primary", use_container_width=True, key="btn_img_pdf"):
-                    with st.spinner("Generando PDF..."):
+                if st.button(t("pred_gen_pdf"), type="primary", use_container_width=True, key="btn_img_pdf"):
+                    with st.spinner(t("verifying_pipeline")):
                         try:
                             pdf_bytes = generate_pdf_report(
                                 image=image_array,
@@ -1030,19 +1044,19 @@ def show_prediction_interface(models):
                             peru_time = get_peru_time()
                             timestamp = peru_time.strftime("%Y%m%d_%H%M%S")
                             st.download_button(
-                                label="📥 Descargar PDF",
+                                label=t("pred_download_pdf"),
                                 data=pdf_bytes,
                                 file_name=f"reporte_maiz_{timestamp}.pdf",
                                 mime="application/pdf",
                                 use_container_width=True
                             )
-                            st.success("✅ PDF listo!")
+                            st.success(t("pred_pdf_ready"))
                         except Exception as e:
-                            st.error(f"❌ Error: {e}")
+                            st.error(t("pred_err").format(err=str(e)))
 
             with col_rep2:
-                if st.button("📥 Generar Reporte Word (.docx)", type="primary", use_container_width=True, key="btn_img_docx"):
-                    with st.spinner("Generando Word..."):
+                if st.button(t("pred_gen_docx"), type="primary", use_container_width=True, key="btn_img_docx"):
+                    with st.spinner(t("verifying_pipeline")):
                         try:
                             peru_time = get_peru_time()
                             timestamp = peru_time.strftime("%Y%m%d_%H%M%S")
@@ -1058,19 +1072,19 @@ def show_prediction_interface(models):
                             with open(filepath, "rb") as f:
                                 docx_bytes = f.read()
                             st.download_button(
-                                label="📥 Descargar Word",
+                                label=t("pred_download_docx"),
                                 data=docx_bytes,
                                 file_name=f"reporte_maiz_{timestamp}.docx",
                                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                 use_container_width=True
                             )
-                            st.success("✅ Word listo!")
+                            st.success(t("pred_docx_ready"))
                         except Exception as e:
-                            st.error(f"❌ Error: {e}")
+                            st.error(t("pred_err").format(err=str(e)))
 
             with col_rep3:
-                if st.button("📥 Generar Reporte Excel (.xlsx)", type="primary", use_container_width=True, key="btn_img_xlsx"):
-                    with st.spinner("Generando Excel..."):
+                if st.button(t("pred_gen_xlsx"), type="primary", use_container_width=True, key="btn_img_xlsx"):
+                    with st.spinner(t("verifying_pipeline")):
                         try:
                             peru_time = get_peru_time()
                             timestamp = peru_time.strftime("%Y%m%d_%H%M%S")
@@ -1085,15 +1099,15 @@ def show_prediction_interface(models):
                             with open(filepath, "rb") as f:
                                 xlsx_bytes = f.read()
                             st.download_button(
-                                label="📥 Descargar Excel",
+                                label=t("pred_download_xlsx"),
                                 data=xlsx_bytes,
                                 file_name=f"reporte_maiz_{timestamp}.xlsx",
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                 use_container_width=True
                             )
-                            st.success("✅ Excel listo!")
+                            st.success(t("pred_xlsx_ready"))
                         except Exception as e:
-                            st.error(f"❌ Error: {e}")
+                            st.error(t("pred_err").format(err=str(e)))
                             st.info("💡 Asegúrate de que las librerías estén instaladas: `pip install fpdf2 pytz`")
 
             st.info("""
@@ -1454,6 +1468,16 @@ def show_model_comparison():
 
 def check_login():
     """Valida credenciales e inyecta la pantalla de login con estilos cargados desde assets."""
+    # Sincronizar el idioma desde el selector de widgets antes de renderizar las columnas
+    if "login_lang_selector" in st.session_state:
+        lang_choice = st.session_state.login_lang_selector
+        if lang_choice == "Español":
+            st.session_state.lang = "es"
+        elif lang_choice == "English":
+            st.session_state.lang = "en"
+        elif lang_choice == "Português":
+            st.session_state.lang = "pt"
+
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
         
@@ -1482,7 +1506,7 @@ def check_login():
         col1, col2 = st.columns([45, 55])
         
         with col1:
-            st.markdown("""<div style="height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Poppins', sans-serif;">
+            st.markdown(f"""<div style="height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Poppins', sans-serif;">
 <div>
 <!-- Logo Circular -->
 <div style="width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid #4ADE80; display: flex; align-items: center; justify-content: center; background-color: rgba(74, 222, 128, 0.1);">
@@ -1492,10 +1516,10 @@ def check_login():
 </svg>
 </div>
 <h1 style="color: #ffffff; font-size: 1.5rem; font-weight: 800; line-height: 1.25; margin-top: 1.2rem; margin-bottom: 0.5rem; font-family: 'Poppins', sans-serif; letter-spacing: -0.5px;">
-DETECTOR DE<br><span style="color: #4ADE80;">ENFERMEDADES</span><br>EN HOJAS DE MAÍZ
+{t('left_title_part1')}<br><span style="color: #4ADE80;">{t('left_title_part2')}</span><br>{t('left_title_part3')}
 </h1>
 <p style="color: #e2e8f0; font-size: 0.8rem; line-height: 1.35; max-width: 320px; font-weight: 300; margin-bottom: 0.3rem;">
-Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
+{t('left_desc')}
 </p>
 </div>
 
@@ -1534,8 +1558,8 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
 </svg>
 </div>
 <div>
-<h4 style="color: #ffffff; margin: 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.3px;">IA AVANZADA</h4>
-<p style="color: #cbd5e1; margin: 0; font-size: 0.72rem; font-weight: 400; line-height: 1.1;">Modelos entrenados para mayor precisión</p>
+<h4 style="color: #ffffff; margin: 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.3px;">{t('benefit1_title')}</h4>
+<p style="color: #cbd5e1; margin: 0; font-size: 0.72rem; font-weight: 400; line-height: 1.1;">{t('benefit1_desc')}</p>
 </div>
 </div>
 <div class="benefit-item">
@@ -1546,8 +1570,8 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
 </svg>
 </div>
 <div>
-<h4 style="color: #ffffff; margin: 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.3px;">ANÁLISIS CONFIABLE</h4>
-<p style="color: #cbd5e1; margin: 0; font-size: 0.72rem; font-weight: 400; line-height: 1.1;">Diagnósticos rápidos y precisos</p>
+<h4 style="color: #ffffff; margin: 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.3px;">{t('benefit2_title')}</h4>
+<p style="color: #cbd5e1; margin: 0; font-size: 0.72rem; font-weight: 400; line-height: 1.1;">{t('benefit2_desc')}</p>
 </div>
 </div>
 <div class="benefit-item">
@@ -1559,8 +1583,8 @@ Inteligencia Artificial para identificar enfermedades y proteger tu cultivo
 </svg>
 </div>
 <div>
-<h4 style="color: #ffffff; margin: 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.3px;">MEJORES DECISIONES</h4>
-<p style="color: #cbd5e1; margin: 0; font-size: 0.72rem; font-weight: 400; line-height: 1.1;">Información clara para un cultivo más saludable</p>
+<h4 style="color: #ffffff; margin: 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.3px;">{t('benefit3_title')}</h4>
+<p style="color: #cbd5e1; margin: 0; font-size: 0.72rem; font-weight: 400; line-height: 1.1;">{t('benefit3_desc')}</p>
 </div>
 </div>
 </div>
@@ -1640,12 +1664,7 @@ def show_fitosanitario_panel():
     tab1, tab2, tab3 = st.tabs([t("tab_prediction"), t("tab_performance"), t("tab_comparison")])
 
     with tab1:
-        st.markdown("""
-        Esta aplicación utiliza tres modelos de deep learning para detectar enfermedades en hojas de maíz:
-        - **MobileNetV2**: Modelo eficiente y rápido
-        - **ResNet50**: Modelo robusto con conexiones residuales
-        - **EfficientNetB0**: Modelo optimizado para eficiencia
-        """)
+        st.markdown(t("model_desc_list"))
 
         # Cargar modelos
         st.markdown(t("loading_models"))
@@ -1658,51 +1677,34 @@ def show_fitosanitario_panel():
             show_prediction_interface(models)
 
     with tab2:
-        st.warning("ℹ️ **Nota de Uso:** Este panel muestra las métricas fijas y las curvas de aprendizaje del entrenamiento original de los modelos. No cambia al cargar una nueva imagen. Para generar e imprimir el reporte de diagnóstico de tu hoja cargada, utiliza los botones de descarga de PDF, Word o Excel al final de la pestaña **'Predicción'**.")
+        st.warning(t("tab_perf_warning"))
         show_training_reports()
 
     with tab3:
         show_model_comparison()
 
     # Sidebar con información
-    st.sidebar.markdown("## 📊 Información de la App")
-    st.sidebar.markdown("""
-    **Clases detectables:**
-    - 🟢 Sano
-    - 🔴 Tizón del norte
-    - 🟠 Roña común
-    - 🟡 Mancha gris
-    """)
+    st.sidebar.markdown(f"## {t('sb_app_info')}")
+    st.sidebar.markdown(t('sb_detectable_classes'))
 
-    st.sidebar.markdown("## 📋 Instrucciones")
-    st.sidebar.markdown("""
-    1. Ve a la pestaña "Predicción"
-    2. Carga una imagen de una hoja de maíz
-    3. Espera a que se procese
-    4. Revisa las predicciones de los tres modelos
-    5. Analiza las probabilidades
-    """)
+    st.sidebar.markdown(f"## {t('sb_instructions_title')}")
+    st.sidebar.markdown(t('sb_instructions_body'))
 
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### 🔧 Configuración")
-    if st.sidebar.button("🔄 Recargar Modelos"):
+    st.sidebar.markdown(f"### {t('sb_config')}")
+    if st.sidebar.button(t("sb_btn_reload")):
         st.cache_resource.clear()
         st.rerun()
 
-    if st.sidebar.button("📁 Verificar Archivos"):
+    if st.sidebar.button(t("sb_btn_verify")):
         existing_files, _ = check_report_files()
         files_found = sum(existing_files.values())
         total_files = len(existing_files)
-        st.sidebar.success(f"Archivos encontrados: {files_found}/{total_files}")
+        st.sidebar.success(f"{t('sb_files_found')}: {files_found}/{total_files}")
 
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### 📝 Notas")
-    st.sidebar.markdown("""
-    - Sube imágenes claras de hojas
-    - Resolución recomendada: 224x224px
-    - Formatos: JPG, PNG
-    - Para mejores resultados, centra la hoja en la imagen
-    """)
+    st.sidebar.markdown(t('sb_notes_title'))
+    st.sidebar.markdown(t('sb_notes_body'))
 
 def show_automl_panel():
     """Muestra la plataforma AutoML tabular modular."""
