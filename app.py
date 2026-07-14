@@ -21,7 +21,8 @@ from datetime import datetime
 import pytz
 
 # Importar componentes de la plataforma AutoML tabular
-from src.config import set_seed
+from src.config imp
+ort set_seed
 from src.eda import clean_data, get_descriptive_stats, interpret_eda, plot_eda_charts
 from src.training import train_and_evaluate_all, plot_training_charts, interpret_training, save_best_model
 from src.cross_validation import run_cross_validation, plot_cv_dispersion, interpret_cv
@@ -352,8 +353,8 @@ IMG_SIZE = 128
 CLASS_NAMES = [
     "Mancha gris",
     "Roña común",
-    "Tizón del norte",
-    "Sano"
+    "Sano",
+    "Tizón del norte"
 ]
 
 @st.cache_resource
@@ -857,7 +858,7 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
         "- Dataset de entrenamiento: PlantVillage Corn Leaf Disease",
         "- Arquitecturas: MobileNetV2, ResNet50, EfficientNetB0",
         "- Precision promedio en validacion: >95%",
-        "- Resolucion de procesamiento: 128x128 pixeles",
+        f"- Resolucion de procesamiento: {IMG_SIZE}x{IMG_SIZE} pixeles",
         "- Preprocesamiento especifico por modelo aplicado",
         "- Analisis basado en caracteristicas visuales de la hoja"
     ]
