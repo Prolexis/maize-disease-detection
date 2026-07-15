@@ -535,10 +535,16 @@ def inject_custom_css():
                 meta.content = "notranslate";
                 doc.head.appendChild(meta);
             }}
-            // 2. Forzar idioma en elemento html
+            // 2. Forzar idioma en elemento html y evitar traducción
             doc.documentElement.lang = '{lang_code}';
+            doc.documentElement.setAttribute('translate', 'no');
+            doc.documentElement.classList.add('notranslate');
             
-            // 3. Añadir clase notranslate al contenedor de la app
+            // 3. Forzar en body y .stApp si existen
+            if (doc.body) {{
+                doc.body.setAttribute('translate', 'no');
+                doc.body.classList.add('notranslate');
+            }}
             const app = doc.querySelector('.stApp');
             if (app && !app.classList.contains('notranslate')) {{
                 app.classList.add('notranslate');
@@ -1696,19 +1702,18 @@ def show_prediction_interface(models):
             st.info(t("info_reports_included"))
 
             # Información adicional sobre el diagnóstico
-            if consensus_reached:
-                st.markdown("## 💡 Información sobre el Diagnóstico")
-
-                if consensus_diagnosis == "Sano":
-                    st.success("""
-                    **Hoja Saludable Detectada**
-
-                    La hoja analizada no presenta signos visibles de enfermedad.
-                    Continúe con las prácticas de manejo actuales y mantenga
-                    un monitoreo preventivo regular.
-                    """)
-                else:
-                    disease_info = {
+            lang = st.session_state.get('lang', 'es')
+            lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
+            
+            tx_pred = {
+                'es': {
+                    'info_title': "## 💡 Información sobre el Diagnóstico",
+                    'healthy_title': "**Hoja Saludable Detectada**",
+                    'healthy_desc': "La hoja analizada no presenta signos visibles de enfermedad. Continúe con las prácticas de manejo actuales y mantenga un monitoreo preventivo regular.",
+                    'additional_analysis_title': "**🔍 Análisis Adicional Recomendado**",
+                    'additional_analysis_desc': "Los modelos no alcanzaron consenso. Esto puede deberse a:\n- Calidad de la imagen\n- Estadio temprano de la enfermedad\n- Condiciones de iluminación\n\nRecomendamos tomar una nueva fotografía con mejor iluminación o consultar con un especialista.",
+                    'specialist_warning': "⚠️ *Consulte con un especialista en fitopatología para confirmar el diagnóstico y obtener un plan de tratamiento específico.*",
+                    'disease_info': {
                         "Tizón del norte": {
                             "description": "Enfermedad fúngica que causa lesiones alargadas de color marrón.",
                             "recommendations": "Aplicar fungicidas, mejorar ventilación, evitar humedad excesiva."
@@ -1722,48 +1727,230 @@ def show_prediction_interface(models):
                             "recommendations": "Rotación de cultivos, manejo de residuos, fungicidas específicos."
                         }
                     }
+                },
+                'en': {
+                    'info_title': "## 💡 Diagnosis Information",
+                    'healthy_title': "**Healthy Leaf Detected**",
+                    'healthy_desc': "The analyzed leaf does not show visible signs of disease. Continue with current management practices and maintain regular preventive monitoring.",
+                    'additional_analysis_title': "**🔍 Additional Analysis Recommended**",
+                    'additional_analysis_desc': "The models did not reach a consensus. This may be due to:\n- Image quality\n- Early stage of the disease\n- Lighting conditions\n\nWe recommend taking a new photograph with better lighting or consulting with a specialist.",
+                    'specialist_warning': "⚠️ *Consult with a phytopathology specialist to confirm the diagnosis and obtain a specific treatment plan.*",
+                    'disease_info': {
+                        "Tizón del norte": {
+                            "description": "Fungal disease causing elongated brown lesions.",
+                            "recommendations": "Apply fungicides, improve ventilation, avoid excessive humidity."
+                        },
+                        "Roña común": {
+                            "description": "Fungal disease producing reddish-brown pustules.",
+                            "recommendations": "Use resistant varieties, apply preventive fungicides."
+                        },
+                        "Mancha gris": {
+                            "description": "Disease that causes rectangular gray spots on the leaves.",
+                            "recommendations": "Crop rotation, residue management, specific fungicides."
+                        }
+                    }
+                },
+                'pt': {
+                    'info_title': "## 💡 Informações sobre o Diagnóstico",
+                    'healthy_title': "**Folha Saudável Detectada**",
+                    'healthy_desc': "A folha analisada não mostra sinais visíveis de doença. Continue com as práticas de manejo atuais e mantenha o monitoramento preventivo regular.",
+                    'additional_analysis_title': "**🔍 Análise Adicional Recomendada**",
+                    'additional_analysis_desc': "Os modelos não chegaram a um consenso. Isso pode ser devido a:\n- Qualidade da imagem\n- Estágio inicial da doença\n- Condições de iluminação\n\nRecomendamos tirar uma nova fotografia com melhor iluminação ou consultar um especialista.",
+                    'specialist_warning': "⚠️ *Consulte um especialista em fitopatologia para confirmar o diagnóstico e obter um plano de tratamento específico.*",
+                    'disease_info': {
+                        "Tizón del norte": {
+                            "description": "Doença fúngica que causa lesões alongadas marrons.",
+                            "recommendations": "Aplicar fungicidas, melhorar a ventilação, evitar umidade excessiva."
+                        },
+                        "Roña común": {
+                            "description": "Doença fúngica que produz pústulas marrom-avermelhadas.",
+                            "recommendations": "Usar variedades resistentes, aplicar fungicidas preventivos."
+                        },
+                        "Mancha gris": {
+                            "description": "Doença que causa manchas cinzas retangulares nas folhas.",
+                            "recommendations": "Rotação de culturas, manejo de resíduos, fungicidas específicos."
+                        }
+                    }
+                }
+            }
+            
+            t_pr = tx_pred[lang_key]
+
+            if consensus_reached:
+                st.markdown(t_pr['info_title'])
+
+                if consensus_diagnosis == "Sano":
+                    st.success(f"""
+                    {t_pr['healthy_title']}
+
+                    {t_pr['healthy_desc']}
+                    """)
+                else:
+                    disease_info = t_pr['disease_info']
 
                     if consensus_diagnosis in disease_info:
                         info = disease_info[consensus_diagnosis]
                         st.warning(f"""
-                        **{consensus_diagnosis} Detectado**
+                        **{translate_class(consensus_diagnosis)}**
 
-                        **Descripción:** {info['description']}
+                        **{t_rep['sub_text_report'].split(' ')[1] if 't_rep' in locals() else 'Info'}:** {info['description']}
 
                         **Recomendaciones:** {info['recommendations']}
 
-                        ⚠️ *Consulte con un especialista en fitopatología para confirmar el diagnóstico y obtener un plan de tratamiento específico.*
+                        {t_pr['specialist_warning']}
                         """)
             else:
-                st.info("""
-                **🔍 Análisis Adicional Recomendado**
+                st.info(f"""
+                {t_pr['additional_analysis_title']}
 
-                Los modelos no alcanzaron consenso. Esto puede deberse a:
-                - Calidad de la imagen
-                - Estadio temprano de la enfermedad
-                - Condiciones de iluminación
-
-                Recomendamos tomar una nueva fotografía con mejor iluminación
-                o consultar con un especialista.
+                {t_pr['additional_analysis_desc']}
                 """)
 
 def show_training_reports():
     """Muestra los reportes de entrenamiento"""
-    st.header("📊 Reportes de Entrenamiento")
-    st.markdown("Visualización completa de todos los reportes generados durante el entrenamiento y evaluación de los modelos.")
+    lang = st.session_state.get('lang', 'es')
+    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
+    
+    tr_reports = {
+        'es': {
+            'header': "📊 Reportes de Entrenamiento",
+            'desc': "Visualización completa de todos los reportes generados durante el entrenamiento y evaluación de los modelos.",
+            'expander': "📁 Estado de Archivos de Reportes",
+            'not_found': " - No encontrado",
+            'sub_time': "⏱️ Tiempos de Entrenamiento",
+            'lbl_fastest': "Más rápido",
+            'lbl_moderate': "Moderado",
+            'lbl_slowest': "Más lento",
+            'total_sec': "{seconds} segundos total",
+            'plot_title_compare': "📊 Comparación Visual de Tiempos",
+            'axis_y_time': "Tiempo de Entrenamiento (minutos)",
+            'plot_bar_title': "Tiempo de Entrenamiento por Modelo",
+            'min_text': "{time:.1f} min",
+            'efficiency_analysis_header': "📋 Análisis de Eficiencia:",
+            'efficiency_analysis_body': (
+                "- **MobileNetV2**: Entrenamiento más rápido, ideal para prototipado\n"
+                "- **EfficientNetB0**: Buen balance tiempo/rendimiento\n"
+                "- **ResNet50**: Entrenamiento más lento pero mayor precisión final"
+            ),
+            'sub_comparison': "🏆 Comparación General de Modelos",
+            'caption_comparison': "Comparación de precisión y pérdida entre los tres modelos",
+            'err_comparison': "Archivo de comparación no encontrado",
+            'sub_cm_comparative': "🔍 Matrices de Confusión - Vista Comparativa",
+            'caption_cm_comparative': "Matrices de confusión de los tres modelos lado a lado",
+            'err_cm_comparative': "Archivo de matrices combinadas no encontrado",
+            'sub_cm_indiv': "🔎 Matrices de Confusión - Detalle Individual",
+            'caption_cm_indiv': "Matriz - {name}",
+            'err_cm_indiv': "Matriz de {name} no encontrada",
+            'sub_metrics': "📈 Métricas Detalladas por Clase",
+            'caption_metrics': "Análisis detallado de Precision, Recall y F1-Score por clase y modelo",
+            'err_metrics': "Archivo de métricas detalladas no encontrado",
+            'sub_mcnemar': "📈 Pruebas de McNemar",
+            'caption_mcnemar': "Pruebas de mcnemar y tablas de contingencia",
+            'err_mcnemar': "Archivo de analisis de mcnemar no encontrado",
+            'sub_text_report': "📄 Reporte Detallado en Texto",
+            'text_report_area': "Reporte Completo",
+            'btn_download_report': "📥 Descargar Reporte Completo",
+            'err_text_report': "Archivo de reporte de texto no encontrado"
+        },
+        'en': {
+            'header': "📊 Training Reports",
+            'desc': "Full visualization of all reports generated during model training and evaluation.",
+            'expander': "📁 Report Files Status",
+            'not_found': " - Not found",
+            'sub_time': "⏱️ Training Times",
+            'lbl_fastest': "Fastest",
+            'lbl_moderate': "Moderate",
+            'lbl_slowest': "Slowest",
+            'total_sec': "{seconds} seconds total",
+            'plot_title_compare': "📊 Visual Time Comparison",
+            'axis_y_time': "Training Time (minutes)",
+            'plot_bar_title': "Training Time per Model",
+            'min_text': "{time:.1f} min",
+            'efficiency_analysis_header': "📋 Efficiency Analysis:",
+            'efficiency_analysis_body': (
+                "- **MobileNetV2**: Fastest training, ideal for prototyping\n"
+                "- **EfficientNetB0**: Good balance between time and performance\n"
+                "- **ResNet50**: Slower training but higher final accuracy"
+            ),
+            'sub_comparison': "🏆 Overall Model Comparison",
+            'caption_comparison': "Comparison of accuracy and loss among the three models",
+            'err_comparison': "Comparison file not found",
+            'sub_cm_comparative': "🔍 Confusion Matrices - Comparative View",
+            'caption_cm_comparative': "Confusion matrices of the three models side by side",
+            'err_cm_comparative': "Combined matrices file not found",
+            'sub_cm_indiv': "🔎 Confusion Matrices - Individual Detail",
+            'caption_cm_indiv': "Matrix - {name}",
+            'err_cm_indiv': "Matrix of {name} not found",
+            'sub_metrics': "📈 Detailed Metrics by Class",
+            'caption_metrics': "Detailed analysis of Precision, Recall and F1-Score by class and model",
+            'err_metrics': "Detailed metrics file not found",
+            'sub_mcnemar': "📈 McNemar Tests",
+            'caption_mcnemar': "McNemar tests and contingency tables",
+            'err_mcnemar': "McNemar analysis file not found",
+            'sub_text_report': "📄 Detailed Text Report",
+            'text_report_area': "Full Report",
+            'btn_download_report': "📥 Download Full Report",
+            'err_text_report': "Text report file not found"
+        },
+        'pt': {
+            'header': "📊 Relatórios de Treinamento",
+            'desc': "Visualização completa de todos os relatórios gerados durante o treinamento e avaliação do modelo.",
+            'expander': "📁 Status dos Arquivos de Relatório",
+            'not_found': " - Não encontrado",
+            'sub_time': "⏱️ Tempos de Treinamento",
+            'lbl_fastest': "Mais rápido",
+            'lbl_moderate': "Moderado",
+            'lbl_slowest': "Mais lento",
+            'total_sec': "{seconds} segundos total",
+            'plot_title_compare': "📊 Comparação Visual de Tempos",
+            'axis_y_time': "Tempo de Treinamento (minutos)",
+            'plot_bar_title': "Tempo de Treinamento por Modelo",
+            'min_text': "{time:.1f} min",
+            'efficiency_analysis_header': "📋 Análise de Eficiência:",
+            'efficiency_analysis_body': (
+                "- **MobileNetV2**: Treinamento mais rápido, ideal para prototipagem\n"
+                "- **EfficientNetB0**: Bom equilíbrio entre tempo e desempenho\n"
+                "- **ResNet50**: Treinamento mais lento, mas maior acurácia final"
+            ),
+            'sub_comparison': "🏆 Comparação Geral de Modelos",
+            'caption_comparison': "Comparação de acurácia e perda entre os três modelos",
+            'err_comparison': "Arquivo de comparação não encontrado",
+            'sub_cm_comparative': "🔍 Matrizes de Confusão - Vista Comparativa",
+            'caption_cm_comparative': "Matrizes de confusão dos três modelos lado a lado",
+            'err_cm_comparative': "Arquivo de matrizes combinadas não encontrado",
+            'sub_cm_indiv': "🔎 Matrizes de Confusão - Detalhe Individual",
+            'caption_cm_indiv': "Matriz - {name}",
+            'err_cm_indiv': "Matriz de {name} não encontrada",
+            'sub_metrics': "📈 Métricas Detalhadas por Classe",
+            'caption_metrics': "Análise detalhada de Precision, Recall e F1-Score por classe e modelo",
+            'err_metrics': "Arquivo de métricas detalhadas não encontrado",
+            'sub_mcnemar': "📈 Testes de McNemar",
+            'caption_mcnemar': "Testes de McNemar e tabelas de contingência",
+            'err_mcnemar': "Arquivo de análise de McNemar não encontrado",
+            'sub_text_report': "📄 Relatório de Texto Detalhado",
+            'text_report_area': "Relatório Completo",
+            'btn_download_report': "📥 Baixar Relatório Completo",
+            'err_text_report': "Arquivo de relatório de texto não encontrado"
+        }
+    }
+    
+    t_rep = tr_reports[lang_key]
+
+    st.header(t_rep['header'])
+    st.markdown(t_rep['desc'])
 
     existing_files, reports_path = check_report_files()
 
     # Mostrar estado de archivos
-    with st.expander("📁 Estado de Archivos de Reportes"):
+    with st.expander(t_rep['expander']):
         for file, exists in existing_files.items():
             if exists:
                 st.success(f"✅ {file}")
             else:
-                st.error(f"❌ {file} - No encontrado")
+                st.error(f"❌ {file}{t_rep['not_found']}")
 
     # Sección de tiempos de entrenamiento
-    st.subheader("⏱️ Tiempos de Entrenamiento")
+    st.subheader(t_rep['sub_time'])
 
     # Crear métricas de tiempo
     col1, col2, col3 = st.columns(3)
@@ -1772,82 +1959,79 @@ def show_training_reports():
         st.metric(
             label="🚀 MobileNetV2",
             value="46.97 min",
-            delta="Más rápido",
+            delta=t_rep['lbl_fastest'],
             delta_color="normal"
         )
-        st.caption("2,818 segundos total")
+        st.caption(t_rep['total_sec'].format(seconds="2,818"))
 
     with col2:
         st.metric(
             label="⚡ EfficientNetB0",
             value="55.61 min",
-            delta="Moderado",
+            delta=t_rep['lbl_moderate'],
             delta_color="normal"
         )
-        st.caption("3,337 segundos total")
+        st.caption(t_rep['total_sec'].format(seconds="3,337"))
 
     with col3:
         st.metric(
             label="🎯 ResNet50",
             value="162.8 min",
-            delta="Más lento",
+            delta=t_rep['lbl_slowest'],
             delta_color="inverse"
         )
-        st.caption("9,768 segundos total")
+        st.caption(t_rep['total_sec'].format(seconds="9,768"))
 
     # Gráfico de tiempos
-    st.markdown("#### 📊 Comparación Visual de Tiempos")
+    st.markdown(f"#### {t_rep['plot_title_compare']}")
 
     # Datos de tiempo
     time_data = {
         'Modelo': ['MobileNetV2', 'EfficientNetB0', 'ResNet50'],
-        'Tiempo (min)': [46.97, 55.61, 162.8],
-        'Eficiencia': ['Alta', 'Media-Alta', 'Baja']
+        'Tiempo (min)': [46.97, 55.61, 162.8]
     }
+
+    # Aplicar el tema actual antes de graficar
+    apply_theme_to_plot(st.session_state.get('theme', 'Oscuro'))
 
     fig, ax = plt.subplots(figsize=(10, 6))
     colors = ['#2E8B57', '#FFA500', '#DC143C']  # Verde, naranja, rojo
     bars = ax.bar(time_data['Modelo'], time_data['Tiempo (min)'], color=colors, alpha=0.7)
 
-    ax.set_ylabel('Tiempo de Entrenamiento (minutos)')
-    ax.set_title('Tiempo de Entrenamiento por Modelo')
+    ax.set_ylabel(t_rep['axis_y_time'])
+    ax.set_title(t_rep['plot_bar_title'])
     ax.grid(True, alpha=0.3, axis='y')
 
     # Añadir valores en las barras
     for bar, tiempo in zip(bars, time_data['Tiempo (min)']):
         height = bar.get_height()
         ax.text(bar.get_x() + bar.get_width()/2., height + 2,
-                f'{tiempo:.1f} min', ha='center', va='bottom', fontweight='bold')
+                t_rep['min_text'].format(time=tiempo), ha='center', va='bottom', fontweight='bold')
 
     plt.tight_layout()
     st.pyplot(fig)
 
     # Análisis de eficiencia
-    st.markdown("""
-    **📋 Análisis de Eficiencia:**
-    - **MobileNetV2**: Entrenamiento más rápido, ideal para prototipado
-    - **EfficientNetB0**: Buen balance tiempo/rendimiento
-    - **ResNet50**: Entrenamiento más lento pero mayor precisión final
-    """)
+    st.markdown(f"**{t_rep['efficiency_analysis_header']}**\n{t_rep['efficiency_analysis_body']}")
 
     # 1. Comparación General de Modelos
-    st.subheader("🏆 Comparación General de Modelos")
+    st.subheader(t_rep['sub_comparison'])
     comparison_file = reports_path / "modelos_comparacion_completa.png"
     if comparison_file.exists():
-        st.image(str(comparison_file), caption="Comparación de precisión y pérdida entre los tres modelos")
+        st.image(str(comparison_file), caption=t_rep['caption_comparison'])
     else:
-        st.error("Archivo de comparación no encontrado")
+        st.error(t_rep['err_comparison'])
 
     # 2. Matrices de Confusión Combinadas
-    st.subheader("🔍 Matrices de Confusión - Vista Comparativa")
+    st.subheader(t_rep['sub_cm_comparative'])
     matrices_file = reports_path / "matrices_confusion_todos.png"
     if matrices_file.exists():
-        st.image(str(matrices_file), caption="Matrices de confusión de los tres modelos lado a lado")
+        st.image(str(matrices_file), caption=t_rep['caption_cm_comparative'])
     else:
-        st.error("Archivo de matrices combinadas no encontrado")
+        st.error(t_rep['err_cm_comparative'])
 
     # 3. Matrices Individuales
-    st.subheader("🔎 Matrices de Confusión - Detalle Individual")
+    st.subheader(t_rep['sub_cm_indiv'])
 
     matrix_files = {
         "MobileNetV2": "matriz_confusion_mobilenetv2.png",
@@ -1860,43 +2044,44 @@ def show_training_reports():
         with cols[idx]:
             matrix_path = reports_path / filename
             if matrix_path.exists():
-                st.image(str(matrix_path), caption=f"Matriz - {model_name}")
+                st.image(str(matrix_path), caption=t_rep['caption_cm_indiv'].format(name=model_name))
             else:
-                st.error(f"Matriz de {model_name} no encontrada")
+                st.error(t_rep['err_cm_indiv'].format(name=model_name))
 
     # 4. Métricas Detalladas
-    st.subheader("📈 Métricas Detalladas por Clase")
+    st.subheader(t_rep['sub_metrics'])
     metrics_file = reports_path / "metricas_detalladas_por_clase.png"
     if metrics_file.exists():
-        st.image(str(metrics_file), caption="Análisis detallado de Precision, Recall y F1-Score por clase y modelo")
+        st.image(str(metrics_file), caption=t_rep['caption_metrics'])
     else:
-        st.error("Archivo de métricas detalladas no encontrado")
+        st.error(t_rep['err_metrics'])
 
-    # 4. Métricas Detalladas
-    st.subheader("📈 Pruebas de McNemar")
-    metrics_file = reports_path / "mcnemar_analysis.png"
-    if metrics_file.exists():
-        st.image(str(metrics_file), caption="Pruebas de mcnemar y tablas de contingencia")
+    # 5. Pruebas de McNemar
+    st.subheader(t_rep['sub_mcnemar'])
+    mcnemar_file = reports_path / "mcnemar_analysis.png"
+    if mcnemar_file.exists():
+        st.image(str(mcnemar_file), caption=t_rep['caption_mcnemar'])
     else:
-        st.error("Archivo de analisis de mcnemar no encontrado")
+        st.error(t_rep['err_mcnemar'])
 
-    # 5. Reporte de Texto
-    st.subheader("📄 Reporte Detallado en Texto")
+    # 6. Reporte de Texto
+    st.subheader(t_rep['sub_text_report'])
     text_report_path = reports_path / "reporte_completo.txt"
     if text_report_path.exists():
         with open(text_report_path, 'r', encoding='utf-8') as f:
             report_content = f.read()
-        st.text_area("Reporte Completo", report_content, height=400)
+        st.text_area(t_rep['text_report_area'], report_content, height=400)
 
         # Botón de descarga
         st.download_button(
-            label="📥 Descargar Reporte Completo",
+            label=t_rep['btn_download_report'],
             data=report_content,
             file_name="reporte_maiz_completo.txt",
             mime="text/plain"
         )
     else:
-        st.error("Archivo de reporte de texto no encontrado")
+        st.error(t_rep['err_text_report'])
+
 
 def show_model_comparison():
     """Muestra la comparación entre modelos"""
@@ -2305,16 +2490,35 @@ def check_login():
             st.markdown(f"<style>{login_css}</style>", unsafe_allow_html=True)
             
             # Evitar traducción automática en el login
-            meta_html = """
+            lang_code = st.session_state.get('lang', 'es')
+            meta_html = f"""
             <script>
-                if (window.parent && window.parent.document) {
-                    if (!window.parent.document.querySelector('meta[name="google"][content="notranslate"]')) {
-                        const meta = window.parent.document.createElement('meta');
+                try {{
+                    const doc = window.parent.document;
+                    // 1. Añadir meta tag notranslate
+                    if (!doc.querySelector('meta[name="google"][content="notranslate"]')) {{
+                        const meta = doc.createElement('meta');
                         meta.name = "google";
                         meta.content = "notranslate";
-                        window.parent.document.head.appendChild(meta);
-                    }
-                }
+                        doc.head.appendChild(meta);
+                    }}
+                    // 2. Forzar idioma en elemento html
+                    doc.documentElement.lang = '{lang_code}';
+                    doc.documentElement.setAttribute('translate', 'no');
+                    doc.documentElement.classList.add('notranslate');
+                    
+                    // 3. Forzar en body y .stApp si existen
+                    if (doc.body) {{
+                        doc.body.setAttribute('translate', 'no');
+                        doc.body.classList.add('notranslate');
+                    }}
+                    const app = doc.querySelector('.stApp');
+                    if (app && !app.classList.contains('notranslate')) {{
+                        app.classList.add('notranslate');
+                    }}
+                }} catch(e) {{
+                    console.error("Login Blocker failed:", e);
+                }}
             </script>
             """
             st.components.v1.html(meta_html, height=0, width=0)
@@ -2480,7 +2684,7 @@ def check_login():
 def show_fitosanitario_panel():
     """Muestra el panel de diagnóstico fitosanitario por imágenes original."""
     # Navegación con tabs
-    tab1, tab2, tab3 = st.tabs([t("tab_prediction"), t("tab_performance"), t("tab_comparison")])
+    tab1, tab2, tab3, tab4 = st.tabs([t("tab_prediction"), t("tab_performance"), t("tab_comparison"), t("tab_tinyml")])
 
     with tab1:
         st.markdown(t("model_desc_list"))
@@ -2501,6 +2705,42 @@ def show_fitosanitario_panel():
 
     with tab3:
         show_model_comparison()
+
+    with tab4:
+        st.header(t("tinyml_header"))
+        st.markdown(t("tinyml_desc"))
+        
+        # Opciones de exportación
+        model_choice = st.selectbox(t("tinyml_select_model"), ["MobileNetV2", "EfficientNetB0", "ResNet50"], key="tinyml_model_sel")
+        var_name = st.text_input(t("tinyml_variable_name"), value=f"maize_{model_choice.lower()}", key="tinyml_var_name")
+        
+        if st.button(t("tinyml_generate_btn"), type="primary", key="btn_tinyml_gen"):
+            with st.spinner(t("tinyml_running")):
+                try:
+                    import os
+                    from src.export_c_header import export_model_to_c_header
+                    
+                    keras_path = f"models/{model_choice}.h5"
+                    out_path = f"reports/maize_{model_choice.lower()}.h"
+                    
+                    export_model_to_c_header(keras_path, out_path, variable_name=var_name)
+                    
+                    if os.path.exists(out_path):
+                        size_bytes = os.path.getsize(out_path)
+                        st.success(t("tinyml_success").format(size=size_bytes))
+                        
+                        with open(out_path, "r", encoding="utf-8") as f:
+                            header_content = f.read()
+                            
+                        st.download_button(
+                            label=t("tinyml_download_btn"),
+                            data=header_content,
+                            file_name=f"maize_{model_choice.lower()}.h",
+                            mime="text/x-chdr",
+                            use_container_width=True
+                        )
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
 
     # Sidebar con información
     st.sidebar.markdown(f"## {t('sb_app_info')}")

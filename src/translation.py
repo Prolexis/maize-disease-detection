@@ -208,7 +208,16 @@ TRANSLATIONS = {
         "automl_system_info": "Sistema inteligente de diagnóstico fitosanitario y AutoML para la optimización de cultivos de maíz.",
         "install_libraries_info": "💡 Asegúrate de que las librerías estén instaladas: `pip install fpdf2 pytz`",
         "email_placeholder": "ejemplo@correo.com",
-        "error_reading_file": "Error al leer el archivo"
+        "error_reading_file": "Error al leer el archivo",
+        "tab_tinyml": "💾 Exportar a C/TinyML",
+        "tinyml_header": "💾 Exportar Modelos a C/TinyML para Sistemas Embebidos",
+        "tinyml_desc": "Esta utilidad convierte los modelos de Keras (.h5) a formato optimizado de TensorFlow Lite (.tflite) y genera una cabecera de C/C++ (.h) conteniendo el modelo como un arreglo binario estático, ideal para cargarlo directamente en microcontroladores como Arduino, ESP32, STM32 o Raspberry Pi Pico.",
+        "tinyml_select_model": "Seleccione el modelo a exportar:",
+        "tinyml_variable_name": "Nombre de la variable en C:",
+        "tinyml_generate_btn": "⚙️ Generar Cabecera de C (.h)",
+        "tinyml_success": "✅ ¡Conversión y cabecera generada con éxito! Tamaño TFLite: {size} bytes.",
+        "tinyml_download_btn": "📥 Descargar Cabecera (.h)",
+        "tinyml_running": "Convirtiendo y cuantizando modelo... por favor espere."
     },
     "en": {
         "title": "🌽 Maize Leaf Disease Detector",
@@ -417,7 +426,16 @@ TRANSLATIONS = {
         "automl_system_info": "Intelligent phytosanitary diagnostic and AutoML system for the optimization of maize crops.",
         "install_libraries_info": "💡 Make sure that the libraries are installed: `pip install fpdf2 pytz`",
         "email_placeholder": "example@email.com",
-        "error_reading_file": "Error reading file"
+        "error_reading_file": "Error reading file",
+        "tab_tinyml": "💾 Export to C/TinyML",
+        "tinyml_header": "💾 Export Models to C/TinyML for Embedded Systems",
+        "tinyml_desc": "This utility converts Keras models (.h5) into optimized TensorFlow Lite (.tflite) format and generates a C/C++ header (.h) containing the model as a static binary array, ideal for running directly on microcontrollers like Arduino, ESP32, STM32, or Raspberry Pi Pico.",
+        "tinyml_select_model": "Select the model to export:",
+        "tinyml_variable_name": "C variable name:",
+        "tinyml_generate_btn": "⚙️ Generate C Header (.h)",
+        "tinyml_success": "✅ Conversion and header generated successfully! TFLite size: {size} bytes.",
+        "tinyml_download_btn": "📥 Download Header (.h)",
+        "tinyml_running": "Converting and quantizing model... please wait."
     },
     "pt": {
         "title": "🌽 Detector de Doenças em Folhas de Milho",
@@ -618,7 +636,16 @@ TRANSLATIONS = {
         "automl_system_info": "Sistema inteligente de diagnóstico fitossanitário e AutoML para otimização de cultivos de milho.",
         "install_libraries_info": "💡 Certifique-se de que as bibliotecas estão instaladas: `pip install fpdf2 pytz`",
         "email_placeholder": "exemplo@email.com",
-        "error_reading_file": "Erro ao ler o arquivo"
+        "error_reading_file": "Erro ao ler o arquivo",
+        "tab_tinyml": "💾 Exportar para C/TinyML",
+        "tinyml_header": "💾 Exportar Modelos para C/TinyML para Sistemas Embarcados",
+        "tinyml_desc": "Esta utilidade converte os modelos do Keras (.h5) para o formato otimizado do TensorFlow Lite (.tflite) e gera um cabeçalho C/C++ (.h) contendo o modelo como uma matriz binária estática, ideal para execução direta em microcontroladores como Arduino, ESP32, STM32 ou Raspberry Pi Pico.",
+        "tinyml_select_model": "Selecione o modelo a ser exportado:",
+        "tinyml_variable_name": "Nome da variável em C:",
+        "tinyml_generate_btn": "⚙️ Gerar Cabeçalho C (.h)",
+        "tinyml_success": "✅ Conversão e cabeçalho gerados com sucesso! Tamanho do TFLite: {size} bytes.",
+        "tinyml_download_btn": "📥 Baixar Cabeçalho (.h)",
+        "tinyml_running": "Convertendo e quantizando o modelo... por favor aguarde."
     }
 }
 

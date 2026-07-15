@@ -30,11 +30,24 @@ def export_model_to_c_header(keras_model_path, output_header_path, variable_name
         f.write(f"#ifndef {variable_name.upper()}_DATA_H\n")
         f.write(f"#define {variable_name.upper()}_DATA_H\n\n")
         
+        # Escribir soporte para diferentes alineaciones según el compilador
+        f.write("#if defined(__GNUC__) || defined(__clang__)\n")
+        f.write("#define ALIGNMENT_16 __attribute__((aligned(16)))\n")
+        f.write("#elif defined(_MSC_VER)\n")
+        f.write("#define ALIGNMENT_16 __declspec(align(16))\n")
+        f.write("#elif defined(__cplusplus) && __cplusplus >= 201103L\n")
+        f.write("#define ALIGNMENT_16 alignas(16)\n")
+        f.write("#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L\n")
+        f.write("#define ALIGNMENT_16 _Alignas(16)\n")
+        f.write("#else\n")
+        f.write("#define ALIGNMENT_16\n")
+        f.write("#endif\n\n")
+
         # Escribir tamaño del arreglo
         f.write(f"const unsigned int {variable_name}_tflite_len = {len(tflite_model)};\n\n")
         
         # Escribir el arreglo de bytes alineado
-        f.write(f"const unsigned char {variable_name}_tflite[] alignas(16) = {{\n  ")
+        f.write(f"ALIGNMENT_16 const unsigned char {variable_name}_tflite[] = {{\n  ")
         
         for idx, val in enumerate(tflite_model):
             f.write(f"0x{val:02x}")
