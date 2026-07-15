@@ -21,8 +21,8 @@ from datetime import datetime
 import pytz
 
 # Importar componentes de la plataforma AutoML tabular
-from src.config imp
-ort set_seed
+from src.config import set_seed, apply_theme_to_plot
+from src.chatbot import get_chatbot_response
 from src.eda import clean_data, get_descriptive_stats, interpret_eda, plot_eda_charts
 from src.training import train_and_evaluate_all, plot_training_charts, interpret_training, save_best_model
 from src.cross_validation import run_cross_validation, plot_cv_dispersion, interpret_cv
@@ -343,6 +343,214 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+def inject_custom_css():
+    theme = st.session_state.get('theme', 'Oscuro')
+    is_dark = theme in ['Oscuro', 'Dark', 'escuro', 'Escuro']
+    if is_dark:
+        theme_css = """
+        <style>
+            :root {
+                --background-color: #0f172a !important;
+                --text-color: #f8fafc !important;
+                --secondary-background-color: #1e293b !important;
+            }
+            .stApp {
+                background-color: #0f172a !important;
+                color: #f8fafc !important;
+            }
+            /* Títulos y textos generales */
+            h1, h2, h3, h4, h5, h6, p, label, li, span, div.stMarkdown {
+                color: #f8fafc !important;
+            }
+            [data-testid="stHeader"] {
+                background-color: #0f172a !important;
+            }
+            [data-testid="stSidebar"] {
+                background-color: #1e293b !important;
+                border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+            }
+            [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
+            [data-testid="stSidebar"] h4, [data-testid="stSidebar"] h5, [data-testid="stSidebar"] h6,
+            [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span {
+                color: #f8fafc !important;
+            }
+            .model-card, [data-testid="metric-container"] {
+                background: #1e293b !important;
+                border: 1px solid rgba(255, 255, 255, 0.08) !important;
+                color: #f8fafc !important;
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3) !important;
+            }
+            .model-card h3, [data-testid="metric-container"] p, [data-testid="metric-container"] div {
+                color: #f8fafc !important;
+            }
+            /* Botones del Sidebar */
+            section[data-testid="stSidebar"] button {
+                background: rgba(255, 255, 255, 0.05) !important;
+                color: #f8fafc !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            }
+            section[data-testid="stSidebar"] button:hover {
+                background: rgba(16, 185, 129, 0.15) !important;
+                border-color: #10b981 !important;
+                color: #10b981 !important;
+            }
+            /* Tabs */
+            button[data-baseweb="tab"] {
+                color: #94a3b8 !important;
+            }
+            button[data-baseweb="tab"][aria-selected="true"] {
+                color: #10b981 !important;
+                background-color: rgba(16, 185, 129, 0.15) !important;
+                border-color: rgba(16, 185, 129, 0.25) !important;
+            }
+            /* Inputs y Selectboxes */
+            [data-testid="stSelectbox"] div,
+            [data-testid="stTextInput"] div,
+            [data-testid="stTextInput"] input,
+            [data-testid="stFileUploader"] div,
+            [data-testid="stFileUploader"] button,
+            div[data-baseweb="select"],
+            div[data-baseweb="select"] *,
+            div[data-baseweb="menu"],
+            div[data-baseweb="menu"] *,
+            div[role="listbox"],
+            div[role="listbox"] *,
+            li[role="option"],
+            li[role="option"] * {
+                background-color: #1e293b !important;
+                color: #f8fafc !important;
+                border-color: rgba(255, 255, 255, 0.1) !important;
+            }
+            li[role="option"]:hover, li[role="option"]:hover * {
+                background-color: rgba(16, 185, 129, 0.15) !important;
+                color: #10b981 !important;
+            }
+            /* Chat messages */
+            [data-testid="stChatMessage"] {
+                background-color: #1e293b !important;
+                border: 1px solid rgba(255, 255, 255, 0.05) !important;
+                border-radius: 12px !important;
+            }
+        </style>
+        """
+    else:
+        theme_css = """
+        <style>
+            :root {
+                --background-color: #f8fafc !important;
+                --text-color: #0f172a !important;
+                --secondary-background-color: #ffffff !important;
+            }
+            .stApp {
+                background-color: #f8fafc !important;
+                color: #0f172a !important;
+            }
+            /* Títulos y textos generales */
+            h1, h2, h3, h4, h5, h6, p, label, li, span, div.stMarkdown {
+                color: #0f172a !important;
+            }
+            [data-testid="stHeader"] {
+                background-color: #f8fafc !important;
+            }
+            [data-testid="stSidebar"] {
+                background-color: #f1f5f9 !important;
+                border-right: 1px solid #cbd5e1 !important;
+            }
+            [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
+            [data-testid="stSidebar"] h4, [data-testid="stSidebar"] h5, [data-testid="stSidebar"] h6,
+            [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span {
+                color: #0f172a !important;
+            }
+            .model-card, [data-testid="metric-container"] {
+                background: #ffffff !important;
+                border: 1px solid #e2e8f0 !important;
+                color: #0f172a !important;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+            }
+            .model-card h3, [data-testid="metric-container"] p, [data-testid="metric-container"] div {
+                color: #0f172a !important;
+            }
+            /* Botones del Sidebar */
+            section[data-testid="stSidebar"] button {
+                background: #ffffff !important;
+                color: #0f172a !important;
+                border: 1px solid #cbd5e1 !important;
+            }
+            section[data-testid="stSidebar"] button:hover {
+                background: rgba(16, 185, 129, 0.08) !important;
+                border-color: #10b981 !important;
+                color: #10b981 !important;
+            }
+            /* Tabs */
+            button[data-baseweb="tab"] {
+                color: #475569 !important;
+            }
+            button[data-baseweb="tab"][aria-selected="true"] {
+                color: #10b981 !important;
+                background-color: rgba(16, 185, 129, 0.1) !important;
+                border-color: rgba(16, 185, 129, 0.2) !important;
+            }
+            /* Inputs y Selectboxes */
+            [data-testid="stSelectbox"] div,
+            [data-testid="stTextInput"] div,
+            [data-testid="stTextInput"] input,
+            [data-testid="stFileUploader"] div,
+            [data-testid="stFileUploader"] button,
+            div[data-baseweb="select"],
+            div[data-baseweb="select"] *,
+            div[data-baseweb="menu"],
+            div[data-baseweb="menu"] *,
+            div[role="listbox"],
+            div[role="listbox"] *,
+            li[role="option"],
+            li[role="option"] * {
+                background-color: #ffffff !important;
+                color: #0f172a !important;
+                border-color: #cbd5e1 !important;
+            }
+            li[role="option"]:hover, li[role="option"]:hover * {
+                background-color: rgba(16, 185, 129, 0.08) !important;
+                color: #10b981 !important;
+            }
+            /* Chat messages */
+            [data-testid="stChatMessage"] {
+                background-color: #ffffff !important;
+                border: 1px solid #e2e8f0 !important;
+                border-radius: 12px !important;
+            }
+        </style>
+        """
+    st.markdown(theme_css, unsafe_allow_html=True)
+    
+    # Inyectar meta tag para evitar traducción automática por parte del navegador y añadir clase notranslate
+    lang_code = st.session_state.get('lang', 'es')
+    meta_html = f"""
+    <script>
+        try {{
+            const doc = window.parent.document;
+            // 1. Añadir meta tag notranslate
+            if (!doc.querySelector('meta[name="google"][content="notranslate"]')) {{
+                const meta = doc.createElement('meta');
+                meta.name = "google";
+                meta.content = "notranslate";
+                doc.head.appendChild(meta);
+            }}
+            // 2. Forzar idioma en elemento html
+            doc.documentElement.lang = '{lang_code}';
+            
+            // 3. Añadir clase notranslate al contenedor de la app
+            const app = doc.querySelector('.stApp');
+            if (app && !app.classList.contains('notranslate')) {{
+                app.classList.add('notranslate');
+            }}
+        }} catch(e) {{
+            console.error("Blocker failed:", e);
+        }}
+    </script>
+    """
+    st.components.v1.html(meta_html, height=0, width=0)
+
+
 # Configuración de rutas - AJUSTA ESTAS RUTAS SEGÚN TU ESTRUCTURA
 MODEL_PATH = "models" if os.path.exists("models") else "/content/drive/MyDrive/maize-leaf-disease/Models"
 REPORTS_PATH = "reports" if os.path.exists("reports") else "/content/drive/MyDrive/maize-leaf-disease/Reports2"
@@ -353,8 +561,8 @@ IMG_SIZE = 128
 CLASS_NAMES = [
     "Mancha gris",
     "Roña común",
-    "Sano",
-    "Tizón del norte"
+    "Tizón del norte",
+    "Sano"
 ]
 
 @st.cache_resource
@@ -403,12 +611,29 @@ def check_report_files():
     return existing_files, reports_path
 
 def preprocess_image(image, model_name):
-    """Preprocesa la imagen según el modelo"""
-    # Redimensionar imagen
-    image_resized = cv2.resize(image, (IMG_SIZE, IMG_SIZE))
-
+    """Preprocesa la imagen según el modelo conservando la relación de aspecto con padding"""
+    h, w = image.shape[:2]
+    desired_size = IMG_SIZE
+    
+    # Calcular factor de escala para ajustar al tamaño deseado sin deformar
+    scale = desired_size / max(h, w)
+    new_h, new_w = int(h * scale), int(w * scale)
+    
+    # Redimensionar conservando la relación de aspecto
+    image_resized = cv2.resize(image, (new_w, new_h))
+    
+    # Crear un lienzo negro cuadrado (128x128x3)
+    padded_image = np.zeros((desired_size, desired_size, 3), dtype=np.uint8)
+    
+    # Calcular coordenadas para centrar la imagen redimensionada en el lienzo
+    dy = (desired_size - new_h) // 2
+    dx = (desired_size - new_w) // 2
+    
+    # Copiar la imagen redimensionada al centro del lienzo
+    padded_image[dy:dy+new_h, dx:dx+new_w] = image_resized
+    
     # Convertir a array y expandir dimensiones
-    image_array = np.array(image_resized, dtype=np.float32)
+    image_array = np.array(padded_image, dtype=np.float32)
     image_expanded = np.expand_dims(image_array, axis=0)
 
     # Aplicar preprocesamiento específico del modelo
@@ -475,20 +700,460 @@ def clean_text_for_pdf(text):
         text = text.replace(old, new)
 
     # Normalizar y convertir a ASCII
+    import unicodedata
     text = unicodedata.normalize('NFKD', text)
     text = text.encode('ascii', 'ignore').decode('ascii')
-
     return text
 
-
-def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached, consensus_diagnosis):
+def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached, consensus_diagnosis, lang='es'):
     """Genera un reporte PDF optimizado sin espacios vacíos innecesarios."""
+    from src.translation import t_lang, translate_class_lang
+    
+    def r_t(key):
+        return t_lang(key, lang)
+        
     peru_time = get_peru_time()
 
     # Limpiar texto de entrada
     uploaded_filename = clean_text_for_pdf(uploaded_filename)
     if consensus_diagnosis:
-        consensus_diagnosis = clean_text_for_pdf(consensus_diagnosis)
+        translated_diagnosis = translate_class_lang(consensus_diagnosis, lang)
+        consensus_diagnosis_cleaned = clean_text_for_pdf(translated_diagnosis)
+    else:
+        consensus_diagnosis_cleaned = ""
+
+    # Usar el listado de nombres de clases traducidas para graficar y tabular
+    translated_class_names = [clean_text_for_pdf(translate_class_lang(c, lang)) for c in ["Mancha gris", "Roña común", "Tizón del norte", "Sano"]]
+
+    # Diccionario local de textos traducidos para el reporte PDF
+    pdf_text_dict = {
+        "es": {
+            "title": "DIAGNOSTICO FITOSANITARIO - MAIZ",
+            "subtitle": "Sistema de Deteccion Automatica de Enfermedades",
+            "header": "REPORTE DE DIAGNÓSTICO FITOSANITARIO (IMÁGENES)",
+            "page": "Pagina",
+            "generated": "Generado el",
+            "peru_time": "(Hora Peru)",
+            "info_title": "INFORMACION DEL ANALISIS",
+            "file": "Archivo",
+            "datetime": "Fecha y hora",
+            "models_used": "Modelos utilizados",
+            "resolution": "Resolucion de procesamiento",
+            "diag_title": "DIAGNOSTICO PRINCIPAL",
+            "img_title": "IMAGEN ANALIZADA",
+            "img_details": "Detalles de la imagen:",
+            "orig_size": "Tamano original",
+            "format": "Formato",
+            "channels": "Canales de color",
+            "det_title": "RESULTADOS DETALLADOS",
+            "chart_title": "Predicciones del Modelo",
+            "prob_ylabel": "Probabilidad",
+            "model_card_title": "Resultado del Modelo",
+            "pred_label": "Prediccion",
+            "conf_label": "Confianza",
+            "state_label": "Estado",
+            "state_ok": "[OK] Saludable",
+            "state_warn": "[!] Enfermedad detectada",
+            "prob_per_class": "Probabilidades por clase:",
+            "comp_title": "ANALISIS COMPARATIVO",
+            "comp_summary": "Resumen de predicciones:",
+            "comp_table_header": "Modelo                Prediccion           Confianza    Estado",
+            "state_healthy_lbl": "[OK] Sana",
+            "state_diseased_lbl": "[!] Enferma",
+            "consensus_reached_title": "[OK] Consenso Alcanzado",
+            "consensus_reached_body": "Los tres modelos coinciden en el diagnostico: {diagnosis}\nEsto indica alta confiabilidad en el resultado.\nNivel de acuerdo: 100% (3/3 modelos)",
+            "no_consensus_title": "[!] Sin Consenso",
+            "no_consensus_body_start": "Los modelos presentan diferentes diagnosticos:\n",
+            "no_consensus_body_end": "Se recomienda analisis adicional para confirmar.",
+            "rec_title": "RECOMENDACIONES",
+            "rec_healthy": [
+                "- Continuar con las practicas de manejo actuales",
+                "- Realizar monitoreos preventivos regulares cada 7-10 dias",
+                "- Mantener condiciones optimas de cultivo (riego, fertilizacion)",
+                "- Implementar rotacion de cultivos para prevenir enfermedades",
+                "- Vigilar plantas circundantes por posibles sintomas"
+            ],
+            "rec_diseased": [
+                "- Consultar inmediatamente con un especialista en fitopatologia",
+                "- Aislar las plantas afectadas si es posible",
+                "- Implementar medidas de control especificas para la enfermedad",
+                "- Monitorear la extension de la enfermedad en el cultivo",
+                "- Considerar tratamientos preventivos en plantas cercanas",
+                "- Documentar la evolucion con fotografias regulares",
+                "- Revisar condiciones ambientales que favorecen la enfermedad"
+            ],
+            "rec_no_consensus": [
+                "- Tomar una nueva imagen con mejor calidad e iluminacion",
+                "- Asegurar que la hoja este bien centrada y enfocada",
+                "- Consultar con un especialista para confirmacion visual",
+                "- Realizar analisis de laboratorio si persisten sintomas",
+                "- Considerar multiples muestras de diferentes partes de la planta"
+            ],
+            "disease_info_title": "INFORMACION ESPECIFICA",
+            "disease_header": "Enfermedad",
+            "symptoms_header": "Sintomas caracteristicos:",
+            "conditions_header": "Condiciones favorables:",
+            "treatments_header": "Estrategias de manejo:",
+            "tech_title": "INFORMACION TECNICA",
+            "tech_spec_header": "Especificaciones del sistema:",
+            "tech_spec_list": [
+                "- Modelos basados en transfer learning con redes neuronales convolucionales",
+                "- Dataset de entrenamiento: PlantVillage Corn Leaf Disease",
+                "- Arquitecturas: MobileNetV2, ResNet50, EfficientNetB0",
+                "- Precision promedio en validacion: >95%",
+                "- Resolucion de procesamiento: {size}x{size} pixeles",
+                "- Preprocesamiento especifico por modelo aplicado",
+                "- Analisis basado en caracteristicas visuales de la hoja"
+            ],
+            "disclaimer_title": "[!] IMPORTANTE - LIMITACIONES Y DISCLAIMER",
+            "disclaimer_text": "- Este analisis automatizado debe ser validado por un profesional\n- La precision del diagnostico depende de la calidad de la imagen\n- Se recomienda tomar multiples muestras para mayor certeza\n- Este sistema es una herramienta de apoyo, no un sustituto del diagnostico profesional\n- En caso de dudas, consulte con un fitopatologo certificado\n- Los resultados pueden variar segun condiciones de iluminacion y enfoque",
+            "system_info_title": "Informacion del sistema:",
+            "system_info_name": "Sistema de Deteccion Automatica de Enfermedades en Maiz",
+            "system_info_version": "Version: 2.0 | Fecha de generacion: {date}",
+            "system_info_tech": "Desarrollado con tecnologia de Deep Learning",
+            "diseases": {
+                "Tizón del norte": {
+                    "descripcion": "Enfermedad fungica causada por Exserohilum turcicum que afecta principalmente las hojas del maiz.",
+                    "sintomas": [
+                        "- Lesiones alargadas en forma de cigarro",
+                        "- Color marron grisaceo con bordes definidos",
+                        "- Pueden alcanzar varios centimetros de longitud",
+                        "- Amarillamiento prematuro de hojas",
+                        "- En casos severos, marchitez de la planta"
+                    ],
+                    "condiciones": "Favorecido por alta humedad (>90%) y temperaturas de 18-27C",
+                    "tratamiento": [
+                        "- Aplicacion de fungicidas especificos (azoles, estrobilurinas)",
+                        "- Uso de variedades resistentes",
+                        "- Rotacion de cultivos con especies no susceptibles",
+                        "- Manejo de residuos de cosecha",
+                        "- Espaciamiento adecuado para mejorar ventilacion"
+                    ]
+                },
+                "Roña común": {
+                    "descripcion": "Enfermedad fungica causada por Puccinia sorghi que produce pustulas caracteristicas en las hojas.",
+                    "sintomas": [
+                        "- Pustulas pequenas y circulares de color marron-rojizo",
+                        "- Aparecen en ambas caras de la hoja",
+                        "- Pueden coalescer formando areas grandes",
+                        "- Amarillamiento prematuro del follaje",
+                        "- Reduccion en el vigor de la planta"
+                    ],
+                    "condiciones": "Temperaturas moderadas (16-25C) y presencia de rocio matutino",
+                    "tratamiento": [
+                        "- Fungicidas preventivos antes de la aparicion de sintomas",
+                        "- Variedades con genes de resistencia",
+                        "- Eliminacion de hospederos alternativos",
+                        "- Monitoreo temprano y control oportuno",
+                        "- Aplicacion foliar de productos cupricos"
+                    ]
+                },
+                "Mancha gris": {
+                    "descripcion": "Enfermedad fungica causada por Cercospora zeae-maydis que produce manchas caracteristicas en las hojas.",
+                    "sintomas": [
+                        "- Manchas rectangulares de color gris a marron",
+                        "- Delimitadas por las venas de las hojas",
+                        "- Pueden desarrollar un halo amarillento",
+                        "- Coalescencia causa muerte de tejido foliar",
+                        "- Afecta principalmente hojas inferiores"
+                    ],
+                    "condiciones": "Alta humedad relativa y temperaturas calidas (25-30C)",
+                    "tratamiento": [
+                        "- Rotacion con cultivos no gramineas",
+                        "- Aplicacion de fungicidas sistemicos",
+                        "- Manejo de densidad de siembra",
+                        "- Eliminacion de residuos infectados",
+                        "- Mejoramiento de drenaje del suelo"
+                    ]
+                }
+            }
+        },
+        "en": {
+            "title": "MAIZE PHYTOSANITARY DIAGNOSIS",
+            "subtitle": "Automatic Disease Detection System",
+            "header": "PHYTOSANITARY DIAGNOSIS REPORT (IMAGES)",
+            "page": "Page",
+            "generated": "Generated on",
+            "peru_time": "(Peru Time)",
+            "info_title": "ANALYSIS INFORMATION",
+            "file": "File",
+            "datetime": "Date and time",
+            "models_used": "Models used",
+            "resolution": "Processing resolution",
+            "diag_title": "PRIMARY DIAGNOSIS",
+            "img_title": "ANALYZED IMAGE",
+            "img_details": "Image details:",
+            "orig_size": "Original size",
+            "format": "Format",
+            "channels": "Color channels",
+            "det_title": "DETAILED RESULTS",
+            "chart_title": "Model Predictions",
+            "prob_ylabel": "Probability",
+            "model_card_title": "Model Result",
+            "pred_label": "Prediction",
+            "conf_label": "Confidence",
+            "state_label": "State",
+            "state_ok": "[OK] Healthy",
+            "state_warn": "[!] Disease detected",
+            "prob_per_class": "Probabilities per class:",
+            "comp_title": "COMPARATIVE ANALYSIS",
+            "comp_summary": "Predictions summary:",
+            "comp_table_header": "Model                Prediction           Confidence    State",
+            "state_healthy_lbl": "[OK] Healthy",
+            "state_diseased_lbl": "[!] Diseased",
+            "consensus_reached_title": "[OK] Consensus Reached",
+            "consensus_reached_body": "All three models agree on the diagnosis: {diagnosis}\nThis indicates high reliability in the result.\nAgreement level: 100% (3/3 models)",
+            "no_consensus_title": "[!] No Consensus",
+            "no_consensus_body_start": "Models present different diagnoses:\n",
+            "no_consensus_body_end": "Additional analysis is recommended for confirmation.",
+            "rec_title": "RECOMMENDATIONS",
+            "rec_healthy": [
+                "- Continue with current management practices",
+                "- Perform regular preventive monitoring every 7-10 days",
+                "- Maintain optimal crop conditions (irrigation, fertilization)",
+                "- Implement crop rotation to prevent diseases",
+                "- Monitor surrounding plants for potential symptoms"
+            ],
+            "rec_diseased": [
+                "- Consult immediately with a phytopathology specialist",
+                "- Isolate affected plants if possible",
+                "- Implement specific disease control measures",
+                "- Monitor the extension of the disease in the crop",
+                "- Consider preventive treatments in nearby plants",
+                "- Document the evolution with regular photographs",
+                "- Review environmental conditions that favor the disease"
+            ],
+            "rec_no_consensus": [
+                "- Take a new image with better quality and lighting",
+                "- Ensure the leaf is well centered and focused",
+                "- Consult with a specialist for visual confirmation",
+                "- Perform laboratory analysis if symptoms persist",
+                "- Consider multiple samples from different parts of the plant"
+            ],
+            "disease_info_title": "SPECIFIC INFORMATION",
+            "disease_header": "Disease",
+            "symptoms_header": "Characteristic symptoms:",
+            "conditions_header": "Favorable conditions:",
+            "treatments_header": "Management strategies:",
+            "tech_title": "TECHNICAL INFORMATION",
+            "tech_spec_header": "System specifications:",
+            "tech_spec_list": [
+                "- Models based on transfer learning with convolutional neural networks",
+                "- Training dataset: PlantVillage Corn Leaf Disease",
+                "- Architectures: MobileNetV2, ResNet50, EfficientNetB0",
+                "- Average validation accuracy: >95%",
+                "- Processing resolution: {size}x{size} pixels",
+                "- Specific preprocessing applied per model",
+                "- Analysis based on foliar visual features"
+            ],
+            "disclaimer_title": "[!] IMPORTANT - LIMITATIONS AND DISCLAIMER",
+            "disclaimer_text": "- This automated analysis should be validated by a professional\n- The diagnostic accuracy depends on the quality of the image\n- It is recommended to take multiple samples for higher certainty\n- This system is a support tool, not a substitute for professional diagnosis\n- In case of doubt, consult a certified phytopathologist\n- Results may vary depending on lighting and focus conditions",
+            "system_info_title": "System information:",
+            "system_info_name": "Automatic Disease Detection System in Maize",
+            "system_info_version": "Version: 2.0 | Generation date: {date}",
+            "system_info_tech": "Developed with Deep Learning technology",
+            "diseases": {
+                "Tizón del norte": {
+                    "descripcion": "Fungal disease caused by Exserohilum turcicum that mainly affects maize leaves.",
+                    "sintomas": [
+                        "- Elongated cigar-shaped lesions",
+                        "- Grayish-brown color with defined borders",
+                        "- Can reach several centimeters in length",
+                        "- Premature yellowing of leaves",
+                        "- In severe cases, wilting of the plant"
+                    ],
+                    "condiciones": "Favored by high humidity (>90%) and temperatures of 18-27C",
+                    "tratamiento": [
+                        "- Application of specific fungicides (azoles, strobilurins)",
+                        "- Use of resistant varieties",
+                        "- Crop rotation with non-susceptible species",
+                        "- Crop residue management",
+                        "- Proper spacing to improve ventilation"
+                    ]
+                },
+                "Roña común": {
+                    "descripcion": "Fungal disease caused by Puccinia sorghi that produces characteristic pustules on leaves.",
+                    "sintomas": [
+                        "- Small and circular reddish-brown pustules",
+                        "- Appear on both sides of the leaf",
+                        "- Can coalesce forming large areas",
+                        "- Premature yellowing of foliage",
+                        "- Reduction in plant vigor"
+                    ],
+                    "condiciones": "Moderate temperatures (16-25C) and presence of morning dew",
+                    "tratamiento": [
+                        "- Preventive fungicides before symptoms appear",
+                        "- Varieties with resistance genes",
+                        "- Elimination of alternative hosts",
+                        "- Early monitoring and timely control",
+                        "- Foliar application of copper products"
+                    ]
+                },
+                "Mancha gris": {
+                    "descripcion": "Fungal disease caused by Cercospora zeae-maydis that produces characteristic spots on leaves.",
+                    "sintomas": [
+                        "- Rectangular gray to brown spots",
+                        "- Delimited by leaf veins",
+                        "- Can develop a yellowish halo",
+                        "- Coalescence causes death of foliar tissue",
+                        "- Mainly affects lower leaves"
+                    ],
+                    "condiciones": "High relative humidity and warm temperatures (25-30C)",
+                    "tratamiento": [
+                        "- Rotation with non-grass crops",
+                        "- Application of systemic fungicides",
+                        "- Crop density management",
+                        "- Elimination of infected residues",
+                        "- Soil drainage improvement"
+                    ]
+                }
+            }
+        },
+        "pt": {
+            "title": "DIAGNOSTICO FITOSSANITARIO - MILHO",
+            "subtitle": "Sistema de Deteccao Automatica de Doencas",
+            "header": "RELATORIO DE DIAGNÓSTICO FITOSSANITÁRIO (IMAGENS)",
+            "page": "Pagina",
+            "generated": "Gerado em",
+            "peru_time": "(Hora Peru)",
+            "info_title": "INFORMACAO DA ANALISE",
+            "file": "Arquivo",
+            "datetime": "Data e hora",
+            "models_used": "Modelos utilizados",
+            "resolution": "Resolucao de processamento",
+            "diag_title": "DIAGNOSTICO PRINCIPAL",
+            "img_title": "IMAGEM ANALISADA",
+            "img_details": "Detalhes da imagem:",
+            "orig_size": "Tamanho original",
+            "format": "Formato",
+            "channels": "Canais de cor",
+            "det_title": "RESULTADOS DETALHADOS",
+            "chart_title": "Previsoes do Modelo",
+            "prob_ylabel": "Probabilidade",
+            "model_card_title": "Resultado do Modelo",
+            "pred_label": "Previsao",
+            "conf_label": "Confianca",
+            "state_label": "Estado",
+            "state_ok": "[OK] Saudavel",
+            "state_warn": "[!] Doenca detectada",
+            "prob_per_class": "Probabilidades por classe:",
+            "comp_title": "ANALISE COMPARATIVA",
+            "comp_summary": "Resumo das previsoes:",
+            "comp_table_header": "Modelo                Previsao           Confianca    Estado",
+            "state_healthy_lbl": "[OK] Saudavel",
+            "state_diseased_lbl": "[!] Doente",
+            "consensus_reached_title": "[OK] Consenso Alcancado",
+            "consensus_reached_body": "Os tres modelos coincidem no diagnostico: {diagnosis}\nIsto indica alta confiabilidade no resultado.\nNivel de acordo: 100% (3/3 modelos)",
+            "no_consensus_title": "[!] Sem Consenso",
+            "no_consensus_body_start": "Os modelos apresentam diferentes diagnosticos:\n",
+            "no_consensus_body_end": "Recomenda-se analise adicional para confirmar.",
+            "rec_title": "RECOMENDACOES",
+            "rec_healthy": [
+                "- Continuar com as praticas de manejo atuais",
+                "- Realizar monitoramentos preventivos regulares a cada 7-10 dias",
+                "- Manter condicoes optimas de cultivo (irrigacao, fertilizacao)",
+                "- Implementar rotacao de culturas para prevenir doencas",
+                "- Vigiar plantas vizinhas por possiveis sintomas"
+            ],
+            "rec_diseased": [
+                "- Consultar imediatamente com um especialista em fitopatologia",
+                "- Isolar as plantas afetadas se for possivel",
+                "- Implementar medidas de controle especificas para a doenca",
+                "- Monitorar a extensao da doenca no cultivo",
+                "- Considerar tratamentos preventivos em plantas proximas",
+                "- Documentar a evolucao com fotografias regulares",
+                "- Revisar condicoes ambientais que favorecem a doenca"
+            ],
+            "rec_no_consensus": [
+                "- Tirar uma nova imagem com melhor qualidade e iluminacao",
+                "- Assegurar que a folha esteja bem centrada e focada",
+                "- Consultar com um especialista para confirmacao visual",
+                "- Realizar analise de laboratorio se os sintomas persistirem",
+                "- Considerar multiplas amostras de diferentes partes da planta"
+            ],
+            "disease_info_title": "INFORMACAO ESPECIFICA",
+            "disease_header": "Doenca",
+            "symptoms_header": "Sintomas caracteristicos:",
+            "conditions_header": "Condicoes favoraveis:",
+            "treatments_header": "Estrategias de manejo:",
+            "tech_title": "INFORMACAO TECNICA",
+            "tech_spec_header": "Especificacoes do sistema:",
+            "tech_spec_list": [
+                "- Modelos baseados em transfer learning com redes neurais convolucionais",
+                "- Dataset de treinamento: PlantVillage Corn Leaf Disease",
+                "- Arquiteturas: MobileNetV2, ResNet50, EfficientNetB0",
+                "- Acuracia media de validacao: >95%",
+                "- Resolucao de processamento: {size}x{size} pixels",
+                "- Pre-processamento especifico aplicado por modelo",
+                "- Analise baseada em caracteristicas visuais da folha"
+            ],
+            "disclaimer_title": "[!] IMPORTANTE - LIMITACOES E DISCLAIMER",
+            "disclaimer_text": "- Esta analise automatizada deve ser validada por um profissional\n- A precisao do diagnostico depende da qualidade da imagem\n- Recomenda-se colher multiplas amostras para maior certeza\n- Este sistema e uma ferramenta de apoio, nao um substituto do diagnostico profissional\n- Em caso de duvida, consulte um fitopatologo certificado\n- Os resultados podem variar segundo condicoes de iluminacao e foco",
+            "system_info_title": "Informacao do sistema:",
+            "system_info_name": "Sistema de Deteccao Automatica de Doencas em Milho",
+            "system_info_version": "Versao: 2.0 | Data de geracao: {date}",
+            "system_info_tech": "Desenvolvido com tecnologia de Deep Learning",
+            "diseases": {
+                "Tizón del norte": {
+                    "descripcion": "Doenca fungica causada por Exserohilum turcicum que afeta principalmente as folhas do milho.",
+                    "sintomas": [
+                        "- Lesoes alongadas em forma de charuto",
+                        "- Cor marrom acinzentada com bordes definidos",
+                        "- Podem atingir varios centimetros de comprimento",
+                        "- Amarelecimento precoce das folhas",
+                        "- Em casos graves, murcha da planta"
+                    ],
+                    "condiciones": "Favorecido por alta umidade (>90%) e temperaturas de 18-27C",
+                    "tratamiento": [
+                        "- Aplicacao de fungicidas especificos (azoes, estrobilurinas)",
+                        "- Uso de variedades resistentes",
+                        "- Rotacao de culturas com especies nao suscetiveis",
+                        "- Manejo de residuos da colheita",
+                        "- Espacamento adequado para melhorar a ventilacao"
+                    ]
+                },
+                "Roña común": {
+                    "descripcion": "Doenca fungica causada por Puccinia sorghi que produz pustulas caracteristicas nas folhas.",
+                    "sintomas": [
+                        "- Pustulas pequenas e circulares de cor marrom-avermelhada",
+                        "- Aparecem em ambas as faces da folha",
+                        "- Podem coalescer formando grandes areas",
+                        "- Amarelecimento precoce da folhagem",
+                        "- Reducao no vigor da planta"
+                    ],
+                    "condiciones": "Temperaturas moderadas (16-25C) e presenca de orvalho matinal",
+                    "tratamiento": [
+                        "- Fungicidas preventivos antes do surgimento dos sintomas",
+                        "- Variedades com genes de resistencia",
+                        "- Eliminacao de hospederos alternativos",
+                        "- Monitoramento precoce e controle oportuno",
+                        "- Aplicacao foliar de produtos cupricos"
+                    ]
+                },
+                "Mancha gris": {
+                    "descripcion": "Doenca fungica causada por Cercospora zeae-maydis que produz manchas caracteristicas nas folhas.",
+                    "sintomas": [
+                        "- Manchas retangulares de cor cinza a marrom",
+                        "- Delimitadas pelas nervuras das folhas",
+                        "- Podem desenvolver um halo amarelado",
+                        "- Coalescencia causa morte do tecido foliar",
+                        "- Afeta principalmente as folhas inferiores"
+                    ],
+                    "condiciones": "Alta umidade relativa e temperaturas quentes (25-30C)",
+                    "tratamiento": [
+                        "- Rotacao com culturas nao gramineas",
+                        "- Aplicacao de fungicidas sistemicos",
+                        "- Manejo da densidade de plantio",
+                        "- Eliminacao de residuos infectados",
+                        "- Melhoria da drenagem do solo"
+                    ]
+                }
+            }
+        }
+    }
+
+    lang_key = lang if lang in ["es", "en", "pt"] else "es"
+    tx = pdf_text_dict[lang_key]
 
     class PDF(FPDF):
         def __init__(self):
@@ -500,10 +1165,10 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
                 # Portada/Primera pagina header grande
                 self.set_font('Arial', 'B', 18)
                 self.set_text_color(46, 139, 87)
-                self.cell(0, 15, 'DIAGNOSTICO FITOSANITARIO - MAIZ', 0, 1, 'C')
+                self.cell(0, 15, clean_text_for_pdf(tx["title"]), 0, 1, 'C')
                 self.set_font('Arial', 'I', 11)
                 self.set_text_color(100, 100, 100)
-                self.cell(0, 8, 'Sistema de Deteccion Automatica de Enfermedades', 0, 1, 'C')
+                self.cell(0, 8, clean_text_for_pdf(tx["subtitle"]), 0, 1, 'C')
                 self.set_draw_color(46, 139, 87)
                 self.line(10, 35, 200, 35)
                 self.ln(10)
@@ -511,10 +1176,10 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
                 # Paginas siguientes header compacto para ahorrar espacio
                 self.set_font('Arial', 'B', 9)
                 self.set_text_color(46, 139, 87)
-                self.cell(0, 6, 'REPORTE DE DIAGNÓSTICO FITOSANITARIO (IMÁGENES)', 0, 0, 'L')
+                self.cell(0, 6, clean_text_for_pdf(tx["header"]), 0, 0, 'L')
                 self.set_font('Arial', 'I', 8)
                 self.set_text_color(128, 128, 128)
-                self.cell(0, 6, f'Archivo: {uploaded_filename}', 0, 1, 'R')
+                self.cell(0, 6, f'{clean_text_for_pdf(tx["file"])}: {uploaded_filename}', 0, 1, 'R')
                 self.set_draw_color(200, 200, 200)
                 self.line(10, 17, 200, 17)
                 self.ln(5)
@@ -523,7 +1188,8 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
             self.set_y(-15)
             self.set_font('Arial', 'I', 8)
             self.set_text_color(128, 128, 128)
-            self.cell(0, 10, f'Pagina {self.page_no()} | Generado el {peru_time.strftime("%Y-%m-%d %H:%M:%S")} (Hora Peru)', 0, 0, 'C')
+            date_str = tx["generated"] + f" {peru_time.strftime('%Y-%m-%d %H:%M:%S')} " + tx["peru_time"]
+            self.cell(0, 10, clean_text_for_pdf(f'{tx["page"]} {self.page_no()} | {date_str}'), 0, 0, 'C')
 
         def check_and_add_page(self, needed_height):
             # Agregar pagina si el elemento excede el limite
@@ -578,13 +1244,13 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
             if consensus_reached:
                 if consensus_diagnosis == "Sano":
                     bg_color = (212, 237, 218)
-                    title = "[OK] DIAGNOSTICO: HOJA SALUDABLE"
+                    title = f"[OK] {tx['diag_title']}: {tx['state_healthy_lbl'].upper()}"
                 else:
                     bg_color = (248, 215, 218)
-                    title = f"[!] DIAGNOSTICO: {consensus_diagnosis.upper()}"
+                    title = f"[!] {tx['diag_title']}: {tx['state_diseased_lbl'].upper()} ({consensus_diagnosis_cleaned.upper()})"
             else:
                 bg_color = (255, 243, 205)
-                title = "[?] SIN CONSENSO ENTRE MODELOS"
+                title = f"[?] {tx['diag_title']}: {tx['pred_consensus_warning'].upper()}"
 
             self.set_fill_color(*bg_color)
             self.rect(10, self.get_y(), 190, 12, 'F')
@@ -598,18 +1264,18 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
     pdf.add_page()
 
     # 1. INFORMACIÓN GENERAL
-    pdf.chapter_title("INFORMACION DEL ANALISIS", "[INFO]")
-    pdf.normal_text(f"Archivo: {uploaded_filename}", bold=True)
-    pdf.normal_text(f"Fecha y hora: {peru_time.strftime('%Y-%m-%d %H:%M:%S')} (Hora Peru)")
-    pdf.normal_text(f"Modelos utilizados: MobileNetV2, ResNet50, EfficientNetB0")
-    pdf.normal_text(f"Resolucion de procesamiento: {IMG_SIZE}x{IMG_SIZE} pixeles")
+    pdf.chapter_title(clean_text_for_pdf(tx["info_title"]), "[INFO]")
+    pdf.normal_text(clean_text_for_pdf(f"{tx['file']}: {uploaded_filename}"), bold=True)
+    pdf.normal_text(clean_text_for_pdf(f"{tx['datetime']}: {peru_time.strftime('%Y-%m-%d %H:%M:%S')} {tx['peru_time']}"))
+    pdf.normal_text(clean_text_for_pdf(f"{tx['models_used']}: MobileNetV2, ResNet50, EfficientNetB0"))
+    pdf.normal_text(clean_text_for_pdf(f"{tx['resolution']}: {IMG_SIZE}x{IMG_SIZE} px"))
 
     # 2. DIAGNÓSTICO PRINCIPAL
-    pdf.chapter_title("DIAGNOSTICO PRINCIPAL", "[DIAG]")
+    pdf.chapter_title(clean_text_for_pdf(tx["diag_title"]), "[DIAG]")
     pdf.add_consensus_result(consensus_reached, consensus_diagnosis)
 
     # 3. IMAGEN ANALIZADA
-    pdf.chapter_title("IMAGEN ANALIZADA", "[IMG]")
+    pdf.chapter_title(clean_text_for_pdf(tx["img_title"]), "[IMG]")
     try:
         image_pil = Image.fromarray(image)
         temp_img_path = f"temp_analysis_img_{int(peru_time.timestamp())}.png"
@@ -628,30 +1294,30 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
         pdf.image(temp_img_path, x=x_position, w=img_width)
         pdf.ln(pdf_img_height + 3)
 
-        pdf.section_title("Detalles de la imagen:", "[i]")
-        pdf.normal_text(f"- Tamano original: {image_pil.size[0]}x{image_pil.size[1]} pixeles")
-        pdf.normal_text(f"- Formato: {image_pil.format if hasattr(image_pil, 'format') else 'Unknown'}")
-        pdf.normal_text(f"- Canales de color: RGB")
+        pdf.section_title(clean_text_for_pdf(tx["img_details"]), "[i]")
+        pdf.normal_text(clean_text_for_pdf(f"- {tx['orig_size']}: {image_pil.size[0]}x{image_pil.size[1]} px"))
+        pdf.normal_text(clean_text_for_pdf(f"- {tx['format']}: {image_pil.format if hasattr(image_pil, 'format') else 'Unknown'}"))
+        pdf.normal_text(clean_text_for_pdf(f"- {tx['channels']}: RGB"))
 
         try:
             os.remove(temp_img_path)
         except:
             pass
     except Exception as e:
-        pdf.normal_text(f"[Error al procesar la imagen: {e}]")
+        pdf.normal_text(clean_text_for_pdf(f"[Error al procesar la imagen: {e}]"))
         pdf.ln(5)
 
-    # 4. RESULTADOS DETALLADOS POR MODELO (Se remueve add_page para flujo continuo)
-    pdf.chapter_title("RESULTADOS DETALLADOS", "[MODELS]")
+    # 4. RESULTADOS DETALLADOS POR MODELO
+    pdf.chapter_title(clean_text_for_pdf(tx["det_title"]), "[MODELS]")
 
     temp_graph_paths = []
     try:
         for i, (model_name, pred) in enumerate(predictions.items()):
             fig, ax = plt.subplots(figsize=(6, 3.5))
             colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#2E8B57']
-            bars = ax.bar(CLASS_NAMES, pred['probabilities'], color=colors, alpha=0.8)
-            ax.set_title(f'Predicciones del Modelo {model_name}', fontsize=11, fontweight='bold', pad=10)
-            ax.set_ylabel('Probabilidad', fontsize=9)
+            bars = ax.bar(translated_class_names, pred['probabilities'], color=colors, alpha=0.8)
+            ax.set_title(clean_text_for_pdf(f"{tx['chart_title']} {model_name}"), fontsize=11, fontweight='bold', pad=10)
+            ax.set_ylabel(clean_text_for_pdf(tx["prob_ylabel"]), fontsize=9)
             ax.set_ylim(0, 1)
             ax.grid(True, alpha=0.2, axis='y')
 
@@ -672,35 +1338,37 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
 
         # Añadir las gráficas y tablas
         for i, (model_name, pred) in enumerate(predictions.items()):
-            pdf.section_title(f"Modelo {model_name}", "[M]")
+            pdf.section_title(clean_text_for_pdf(f"{r_t('pred_col_model')} {model_name}"), "[M]")
             confidence_level = "ALTA" if pred['confidence'] > 0.8 else "MEDIA" if pred['confidence'] > 0.6 else "BAJA"
 
+            translated_pred_class = translate_class_lang(pred['class'], lang)
+            status_text = tx["state_ok"] if pred['class'] == 'Sano' else tx["state_warn"]
             pdf.info_box(
-                f"Resultado del Modelo {model_name}",
-                f"Prediccion: {clean_text_for_pdf(pred['class'])}\n"
-                f"Confianza: {pred['confidence']:.2%} ({confidence_level})\n"
-                f"Estado: {'[OK] Saludable' if pred['class'] == 'Sano' else '[!] Enfermedad detectada'}"
+                clean_text_for_pdf(f"{tx['model_card_title']} {model_name}"),
+                f"{tx['pred_label']}: {clean_text_for_pdf(translated_pred_class)}\n"
+                f"{tx['conf_label']}: {pred['confidence']:.2%} ({confidence_level})\n"
+                f"{tx['state_label']}: {clean_text_for_pdf(status_text)}"
             )
 
-            # Insertar gráfico con altura dinámica calculada (figsize 6x3.5 -> aspect ratio 3.5/6 = 0.58)
+            # Insertar gráfico con altura dinámica calculada
             chart_width = 130
             chart_height = chart_width * 0.58
             
             if i < len(temp_graph_paths) and os.path.exists(temp_graph_paths[i]):
                 pdf.check_and_add_page(chart_height + 5)
-                # Centrar gráfico
                 pdf.image(temp_graph_paths[i], x=40, w=chart_width)
                 pdf.ln(chart_height + 2)
 
-            pdf.section_title("Probabilidades por clase:", "[DATA]")
-            for j, class_name in enumerate(CLASS_NAMES):
+            pdf.section_title(clean_text_for_pdf(tx["prob_per_class"]), "[DATA]")
+            for j, class_name in enumerate(["Mancha gris", "Roña común", "Tizón del norte", "Sano"]):
                 prob = pred['probabilities'][j]
                 marker = "=>" if j == np.argmax(pred['probabilities']) else "  "
-                pdf.normal_text(f"{marker} {clean_text_for_pdf(class_name)}: {prob:.2%}")
+                translated_cn = translate_class_lang(class_name, lang)
+                pdf.normal_text(clean_text_for_pdf(f"{marker} {translated_cn}: {prob:.2%}"))
             pdf.ln(4)
 
     except Exception as e:
-        pdf.normal_text(f"Error generando gráficas: {e}")
+        pdf.normal_text(clean_text_for_pdf(f"Error generando gráficas: {e}"))
     finally:
         for temp_path in temp_graph_paths:
             try:
@@ -709,178 +1377,90 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
                 pass
 
     # 5. ANÁLISIS COMPARATIVO
-    pdf.chapter_title("ANALISIS COMPARATIVO", "[COMP]")
-    pdf.section_title("Resumen de predicciones:", "[SUM]")
-    pdf.normal_text("Modelo                Prediccion           Confianza    Estado")
+    pdf.chapter_title(clean_text_for_pdf(tx["comp_title"]), "[COMP]")
+    pdf.section_title(clean_text_for_pdf(tx["comp_summary"]), "[SUM]")
+    pdf.normal_text(clean_text_for_pdf(tx["comp_table_header"]))
     pdf.normal_text("-" * 65)
 
     for model_name, pred in predictions.items():
-        status = "[OK] Sana" if pred['class'] == 'Sano' else "[!] Enferma"
-        clean_class = clean_text_for_pdf(pred['class'])
+        status = tx["state_healthy_lbl"] if pred['class'] == 'Sano' else tx["state_diseased_lbl"]
+        clean_class = clean_text_for_pdf(translate_class_lang(pred['class'], lang))
         line = f"{model_name:<15} {clean_class:<15} {pred['confidence']:>8.1%}    {status}"
-        pdf.normal_text(line)
+        pdf.normal_text(clean_text_for_pdf(line))
     pdf.ln(4)
 
     if consensus_reached:
+        consensus_reached_text = tx["consensus_reached_body"].format(diagnosis=consensus_diagnosis_cleaned)
         pdf.info_box(
-            "[OK] Consenso Alcanzado",
-            f"Los tres modelos coinciden en el diagnostico: {consensus_diagnosis}\n"
-            f"Esto indica alta confiabilidad en el resultado.\n"
-            f"Nivel de acuerdo: 100% (3/3 modelos)"
+            clean_text_for_pdf(tx["consensus_reached_title"]),
+            clean_text_for_pdf(consensus_reached_text)
         )
     else:
-        predictions_list = [pred['class'] for pred in predictions.values()]
+        predictions_list = [translate_class_lang(pred['class'], lang) for pred in predictions.values()]
         unique_predictions = list(set(predictions_list))
-        consensus_text = "Los modelos presentan diferentes diagnosticos:\n"
+        consensus_text = clean_text_for_pdf(tx["no_consensus_body_start"])
         for pred in unique_predictions:
             count = predictions_list.count(pred)
             clean_pred = clean_text_for_pdf(pred)
             consensus_text += f"- {clean_pred}: {count} modelo(s)\n"
-        consensus_text += "Se recomienda analisis adicional para confirmar."
-        pdf.info_box("[!] Sin Consenso", consensus_text)
+        consensus_text += clean_text_for_pdf(tx["no_consensus_body_end"])
+        pdf.info_box(clean_text_for_pdf(tx["no_consensus_title"]), consensus_text)
 
     # 6. RECOMENDACIONES
-    pdf.chapter_title("RECOMENDACIONES", "[REC]")
+    pdf.chapter_title(clean_text_for_pdf(tx["rec_title"]), "[REC]")
     if consensus_reached:
         if consensus_diagnosis == "Sano":
-            recommendations = [
-                "- Continuar con las practicas de manejo actuales",
-                "- Realizar monitoreos preventivos regulares cada 7-10 dias",
-                "- Mantener condiciones optimas de cultivo (riego, fertilizacion)",
-                "- Implementar rotacion de cultivos para prevenir enfermedades",
-                "- Vigilar plantas circundantes por posibles sintomas"
-            ]
+            recommendations = tx["rec_healthy"]
         else:
-            recommendations = [
-                "- Consultar inmediatamente con un especialista en fitopatologia",
-                "- Aislar las plantas afectadas si es posible",
-                "- Implementar medidas de control especificas para la enfermedad",
-                "- Monitorear la extension de la enfermedad en el cultivo",
-                "- Considerar tratamientos preventivos en plantas cercanas",
-                "- Documentar la evolucion con fotografias regulares",
-                "- Revisar condiciones ambientales que favorecen la enfermedad"
-            ]
+            recommendations = tx["rec_diseased"]
     else:
-        recommendations = [
-            "- Tomar una nueva imagen con mejor calidad e iluminacion",
-            "- Asegurar que la hoja este bien centrada y enfocada",
-            "- Consultar con un especialista para confirmacion visual",
-            "- Realizar analisis de laboratorio si persisten sintomas",
-            "- Considerar multiples muestras de diferentes partes de la planta"
-        ]
+        recommendations = tx["rec_no_consensus"]
+        
     for rec in recommendations:
-        pdf.normal_text(rec)
+        pdf.normal_text(clean_text_for_pdf(rec))
 
     # 7. INFORMACIÓN SOBRE ENFERMEDADES
     if consensus_reached and consensus_diagnosis != "Sano":
-        pdf.chapter_title("INFORMACION ESPECIFICA", "[DISEASE]")
-        disease_details = {
-            "Tizon del norte": {
-                "descripcion": "Enfermedad fungica causada por Exserohilum turcicum que afecta principalmente las hojas del maiz.",
-                "sintomas": [
-                    "- Lesiones alargadas en forma de cigarro",
-                    "- Color marron grisaceo con bordes definidos",
-                    "- Pueden alcanzar varios centimetros de longitud",
-                    "- Amarillamiento prematuro de hojas",
-                    "- En casos severos, marchitez de la planta"
-                ],
-                "condiciones": "Favorecido por alta humedad (>90%) y temperaturas de 18-27C",
-                "tratamiento": [
-                    "- Aplicacion de fungicidas especificos (azoles, estrobilurinas)",
-                    "- Uso de variedades resistentes",
-                    "- Rotacion de cultivos con especies no susceptibles",
-                    "- Manejo de residuos de cosecha",
-                    "- Espaciamiento adecuado para mejorar ventilacion"
-                ]
-            },
-            "Rona común": {
-                "descripcion": "Enfermedad fungica causada por Puccinia sorghi que produce pustulas caracteristicas en las hojas.",
-                "sintomas": [
-                    "- Pustulas pequenas y circulares de color marron-rojizo",
-                    "- Aparecen en ambas caras de la hoja",
-                    "- Pueden coalescer formando areas grandes",
-                    "- Amarillamiento prematuro del follaje",
-                    "- Reduccion en el vigor de la planta"
-                ],
-                "condiciones": "Temperaturas moderadas (16-25C) y presencia de rocio matutino",
-                "tratamiento": [
-                    "- Fungicidas preventivos antes de la aparicion de sintomas",
-                    "- Variedades con genes de resistencia",
-                    "- Eliminacion de hospederos alternativos",
-                    "- Monitoreo temprano y control oportuno",
-                    "- Aplicacion foliar de productos cupricos"
-                ]
-            },
-            "Mancha gris": {
-                "descripcion": "Enfermedad fungica causada por Cercospora zeae-maydis que produce manchas caracteristicas en las hojas.",
-                "sintomas": [
-                    "- Manchas rectangulares de color gris a marron",
-                    "- Delimitadas por las venas de las hojas",
-                    "- Pueden desarrollar un halo amarillento",
-                    "- Coalescencia causa muerte de tejido foliar",
-                    "- Afecta principalmente hojas inferiores"
-                ],
-                "condiciones": "Alta humedad relativa y temperaturas calidas (25-30C)",
-                "tratamiento": [
-                    "- Rotacion con cultivos no gramineas",
-                    "- Aplicacion de fungicidas sistemicos",
-                    "- Manejo de densidad de siembra",
-                    "- Eliminacion de residuos infectados",
-                    "- Mejoramiento de drenaje del suelo"
-                ]
-            }
-        }
-
-        if consensus_diagnosis in disease_details:
-            details = disease_details[consensus_diagnosis]
-            pdf.section_title(f"Enfermedad: {consensus_diagnosis}", "[PATHOGEN]")
-            pdf.normal_text(details['descripcion'])
+        pdf.chapter_title(clean_text_for_pdf(tx["disease_info_title"]), "[DISEASE]")
+        details_lang = tx["diseases"]
+        if consensus_diagnosis in details_lang:
+            details = details_lang[consensus_diagnosis]
+            pdf.section_title(clean_text_for_pdf(f"{tx['disease_header']}: {consensus_diagnosis_cleaned}"), "[PATHOGEN]")
+            pdf.normal_text(clean_text_for_pdf(details['descripcion']))
             pdf.ln(2)
 
-            pdf.section_title("Sintomas caracteristicos:", "[SYMP]")
+            pdf.section_title(clean_text_for_pdf(tx["symptoms_header"]), "[SYMP]")
             for sintoma in details['sintomas']:
-                pdf.normal_text(sintoma)
+                pdf.normal_text(clean_text_for_pdf(sintoma))
             pdf.ln(2)
 
-            pdf.section_title("Condiciones favorables:", "[ENV]")
-            pdf.normal_text(details['condiciones'])
+            pdf.section_title(clean_text_for_pdf(tx["conditions_header"]), "[ENV]")
+            pdf.normal_text(clean_text_for_pdf(details['condiciones']))
             pdf.ln(2)
 
-            pdf.section_title("Estrategias de manejo:", "[TREAT]")
+            pdf.section_title(clean_text_for_pdf(tx["treatments_header"]), "[TREAT]")
             for tratamiento in details['tratamiento']:
-                pdf.normal_text(tratamiento)
+                pdf.normal_text(clean_text_for_pdf(tratamiento))
 
     # 8. INFORMACIÓN TÉCNICA Y DISCLAIMER
-    pdf.chapter_title("INFORMACION TECNICA", "[TECH]")
-    pdf.section_title("Especificaciones del sistema:", "[SPEC]")
-    tech_info = [
-        "- Modelos basados en transfer learning con redes neuronales convolucionales",
-        "- Dataset de entrenamiento: PlantVillage Corn Leaf Disease",
-        "- Arquitecturas: MobileNetV2, ResNet50, EfficientNetB0",
-        "- Precision promedio en validacion: >95%",
-        f"- Resolucion de procesamiento: {IMG_SIZE}x{IMG_SIZE} pixeles",
-        "- Preprocesamiento especifico por modelo aplicado",
-        "- Analisis basado en caracteristicas visuales de la hoja"
-    ]
-    for info in tech_info:
-        pdf.normal_text(info)
-    pdf.ln(4)
+    pdf.chapter_title(clean_text_for_pdf(tx["tech_title"]), "[TECH]")
+    pdf.section_title(clean_text_for_pdf(tx["tech_spec_header"]), "[SPEC]")
+    
+    tech_info_list = [clean_text_for_pdf(item.format(size=IMG_SIZE)) for item in tx["tech_spec_list"]]
+    for tech in tech_info_list:
+        pdf.normal_text(tech)
 
+    pdf.ln(4)
     pdf.info_box(
-        "[!] IMPORTANTE - LIMITACIONES Y DISCLAIMER",
-        "- Este analisis automatizado debe ser validado por un profesional\n"
-        "- La precision del diagnostico depende de la calidad de la imagen\n"
-        "- Se recomienda tomar multiples muestras para mayor certeza\n"
-        "- Este sistema es una herramienta de apoyo, no un sustituto del diagnostico profesional\n"
-        "- En caso de dudas, consulte con un fitopatologo certificado\n"
-        "- Los resultados pueden variar segun condiciones de iluminacion y enfoque"
+        clean_text_for_pdf(tx["disclaimer_title"]),
+        clean_text_for_pdf(tx["disclaimer_text"])
     )
 
     # 9. PIE DE PÁGINA
-    pdf.section_title("Informacion del sistema:", "[SYS]")
-    pdf.normal_text("Sistema de Deteccion Automatica de Enfermedades en Maiz")
-    pdf.normal_text(f"Version: 2.0 | Fecha de generacion: {peru_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    pdf.normal_text("Desarrollado con tecnologia de Deep Learning")
+    pdf.section_title(clean_text_for_pdf(tx["system_info_title"]), "[SYS]")
+    pdf.normal_text(clean_text_for_pdf(tx["system_info_name"]))
+    pdf.normal_text(clean_text_for_pdf(tx["system_info_version"].format(date=peru_time.strftime('%Y-%m-%d %H:%M:%S'))))
+    pdf.normal_text(clean_text_for_pdf(tx["system_info_tech"]))
 
     # Generar PDF final
     try:
@@ -898,7 +1478,6 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
             os.remove(temp_pdf_path)
         except:
             pass
-
     return bytes(pdf_bytes)
 def plot_predictions(predictions):
     """Crea gráficos de las predicciones"""
@@ -1040,7 +1619,8 @@ def show_prediction_interface(models):
                                 predictions=predictions,
                                 uploaded_filename=uploaded_file.name,
                                 consensus_reached=consensus_reached,
-                                consensus_diagnosis=consensus_diagnosis
+                                consensus_diagnosis=consensus_diagnosis,
+                                lang=st.session_state.get('lang', 'es')
                             )
                             peru_time = get_peru_time()
                             timestamp = peru_time.strftime("%Y%m%d_%H%M%S")
@@ -1068,7 +1648,8 @@ def show_prediction_interface(models):
                                 uploaded_filename=uploaded_file.name,
                                 consensus_reached=consensus_reached,
                                 consensus_diagnosis=consensus_diagnosis,
-                                filepath=filepath
+                                filepath=filepath,
+                                lang=st.session_state.get('lang', 'es')
                             )
                             with open(filepath, "rb") as f:
                                 docx_bytes = f.read()
@@ -1082,7 +1663,7 @@ def show_prediction_interface(models):
                             st.success(t("pred_docx_ready"))
                         except Exception as e:
                             st.error(t("pred_err").format(err=str(e)))
-
+ 
             with col_rep3:
                 if st.button(t("pred_gen_xlsx"), type="primary", use_container_width=True, key="btn_img_xlsx"):
                     with st.spinner(t("verifying_pipeline")):
@@ -1095,7 +1676,8 @@ def show_prediction_interface(models):
                                 uploaded_filename=uploaded_file.name,
                                 consensus_reached=consensus_reached,
                                 consensus_diagnosis=consensus_diagnosis,
-                                filepath=filepath
+                                filepath=filepath,
+                                lang=st.session_state.get('lang', 'es')
                             )
                             with open(filepath, "rb") as f:
                                 xlsx_bytes = f.read()
@@ -1109,15 +1691,9 @@ def show_prediction_interface(models):
                             st.success(t("pred_xlsx_ready"))
                         except Exception as e:
                             st.error(t("pred_err").format(err=str(e)))
-                            st.info("💡 Asegúrate de que las librerías estén instaladas: `pip install fpdf2 pytz`")
+                            st.info(t("install_libraries_info"))
 
-            st.info("""
-            **📋 Los reportes descargables incluyen:**
-            - Imagen analizada
-            - Diagnóstico y confianza de cada modelo
-            - Tabla de probabilidades por clase
-            - Análisis de consenso y recomendaciones específicas
-            """)
+            st.info(t("info_reports_included"))
 
             # Información adicional sobre el diagnóstico
             if consensus_reached:
@@ -1324,66 +1900,246 @@ def show_training_reports():
 
 def show_model_comparison():
     """Muestra la comparación entre modelos"""
-    st.header("🔬 Comparación de Modelos")
+    lang = st.session_state.get('lang', 'es')
+    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
+    
+    # Translations dict
+    tx = {
+        'es': {
+            'header': "🔬 Comparación de Modelos",
+            'models_header': "### 🤖 Modelos Implementados",
+            'models_desc': (
+                "**MobileNetV2:**\n"
+                "- Arquitectura optimizada para dispositivos móviles\n"
+                "- Menos parámetros y mayor velocidad\n"
+                "- Ideal para aplicaciones en tiempo real\n\n"
+                "**ResNet50:**\n"
+                "- Arquitectura con conexiones residuales\n"
+                "- Excelente para tareas de clasificación complejas\n"
+                "- Mayor precisión en datasets desafiantes\n\n"
+                "**EfficientNetB0:**\n"
+                "- Arquitectura optimizada para eficiencia\n"
+                "- Balance entre precisión y velocidad\n"
+                "- Escalamiento uniforme de ancho, profundidad y resolución"
+            ),
+            'table_title': "📊 Tabla Comparativa",
+            'col_feature': "Característica",
+            'feat_params': "Parámetros (aprox.)",
+            'feat_time': "Tiempo de entrenamiento",
+            'feat_speed': "Velocidad de inferencia",
+            'feat_acc': "Precisión final",
+            'feat_val_acc': "Val Accuracy final",
+            'feat_mem': "Uso de memoria",
+            'feat_best': "Mejor para",
+            'val_very_fast': "Muy rápida",
+            'val_fast': "Rápida",
+            'val_moderate': "Moderada",
+            'val_low': "Bajo",
+            'val_high': "Alto",
+            'val_mod': "Moderado",
+            'val_mobile': "Aplicaciones móviles",
+            'val_max': "Precisión máxima",
+            'val_balance': "Balance eficiencia/precisión",
+            'efficiency_title': "⏱️ Análisis de Eficiencia Temporal",
+            'eff_col1': (
+                "**🥇 Mejor eficiencia tiempo/precisión:**\n"
+                "- **MobileNetV2**: Entrenamiento más rápido con buena precisión\n"
+                "- Ideal para desarrollo iterativo rápido\n\n"
+                "**🏆 Mejor precisión absoluta:**\n"
+                "- **ResNet50**: Máxima precisión de validación (98.83%)\n"
+                "- Tiempo considerable pero resultados superiores"
+            ),
+            'eff_col2': (
+                "**⚖️ Mejor balance:**\n"
+                "- **EfficientNetB0**: Buen balance tiempo/precisión\n"
+                "- Precisión alta con tiempo moderado\n\n"
+                "**📊 Ratio eficiencia:**\n"
+                "- MobileNetV2: 33.2% precisión/minuto\n"
+                "- EfficientNetB0: 17.7% precisión/minuto\n"
+                "- ResNet50: 6.1% precisión/minuto"
+            ),
+            'plot_title_time': "📈 Tiempo de Entrenamiento vs Precisión",
+            'plot_time_lbl': "Tiempo de Entrenamiento (minutos)",
+            'plot_val_acc': "Validation Accuracy (%)",
+            'plot_title_vs': "Tiempo vs Precisión de Validación",
+            'plot_model_lbl': "Modelos",
+            'plot_acc_lbl': "Accuracy (%)",
+            'plot_title_comp': "Comparación de Precisiones",
+            'plot_lbl_train': "Precisión de Entrenamiento",
+            'plot_lbl_val': "Precisión de Validación"
+        },
+        'en': {
+            'header': "🔬 Model Comparison",
+            'models_header': "### 🤖 Implemented Models",
+            'models_desc': (
+                "**MobileNetV2:**\n"
+                "- Architecture optimized for mobile devices\n"
+                "- Fewer parameters and faster speed\n"
+                "- Ideal for real-time applications\n\n"
+                "**ResNet50:**\n"
+                "- Architecture with residual connections\n"
+                "- Excellent for complex classification tasks\n"
+                "- Higher accuracy on challenging datasets\n\n"
+                "**EfficientNetB0:**\n"
+                "- Architecture optimized for efficiency\n"
+                "- Balance between accuracy and speed\n"
+                "- Uniform scaling of width, depth, and resolution"
+            ),
+            'table_title': "📊 Comparative Table",
+            'col_feature': "Feature",
+            'feat_params': "Parameters (approx.)",
+            'feat_time': "Training Time",
+            'feat_speed': "Inference Speed",
+            'feat_acc': "Final Accuracy",
+            'feat_val_acc': "Final Val Accuracy",
+            'feat_mem': "Memory Usage",
+            'feat_best': "Best for",
+            'val_very_fast': "Very fast",
+            'val_fast': "Fast",
+            'val_moderate': "Moderate",
+            'val_low': "Low",
+            'val_high': "High",
+            'val_mod': "Moderate",
+            'val_mobile': "Mobile applications",
+            'val_max': "Maximum precision",
+            'val_balance': "Efficiency/accuracy balance",
+            'efficiency_title': "⏱️ Temporal Efficiency Analysis",
+            'eff_col1': (
+                "**🥇 Best time/accuracy efficiency:**\n"
+                "- **MobileNetV2**: Fastest training with good accuracy\n"
+                "- Ideal for fast iterative development\n\n"
+                "**🏆 Best absolute precision:**\n"
+                "- **ResNet50**: Maximum validation accuracy (98.83%)\n"
+                "- Significant time but superior results"
+            ),
+            'eff_col2': (
+                "**⚖️ Best balance:**\n"
+                "- **EfficientNetB0**: Good time/accuracy balance\n"
+                "- High precision with moderate time\n\n"
+                "**📊 Efficiency ratio:**\n"
+                "- MobileNetV2: 33.2% accuracy/minute\n"
+                "- EfficientNetB0: 17.7% accuracy/minute\n"
+                "- ResNet50: 6.1% accuracy/minute"
+            ),
+            'plot_title_time': "📈 Training Time vs Accuracy",
+            'plot_time_lbl': "Training Time (minutes)",
+            'plot_val_acc': "Validation Accuracy (%)",
+            'plot_title_vs': "Time vs Validation Accuracy",
+            'plot_model_lbl': "Models",
+            'plot_acc_lbl': "Accuracy (%)",
+            'plot_title_comp': "Accuracy Comparison",
+            'plot_lbl_train': "Training Accuracy",
+            'plot_lbl_val': "Validation Accuracy"
+        },
+        'pt': {
+            'header': "🔬 Comparação de Modelos",
+            'models_header': "### 🤖 Modelos Implementados",
+            'models_desc': (
+                "**MobileNetV2:**\n"
+                "- Arquitetura otimizada para dispositivos móveis\n"
+                "- Menos parâmetros e maior velocidade\n"
+                "- Ideal para aplicações em tempo real\n\n"
+                "**ResNet50:**\n"
+                "- Arquitetura com conexões residuais\n"
+                "- Excelente para tarefas complexas de classificação\n"
+                "- Maior acurácia em conjuntos de dados desafiadores\n\n"
+                "**EfficientNetB0:**\n"
+                "- Arquitetura otimizada para eficiência\n"
+                "- Equilíbrio entre acurácia e velocidade\n"
+                "- Escalonamento uniforme de largura, profundidade e resolução"
+            ),
+            'table_title': "📊 Tabela Comparativa",
+            'col_feature': "Característica",
+            'feat_params': "Parâmetros (aprox.)",
+            'feat_time': "Tempo de Treinamento",
+            'feat_speed': "Velocidade de Inferência",
+            'feat_acc': "Acurácia final",
+            'feat_val_acc': "Val Accuracy final",
+            'feat_mem': "Uso de memória",
+            'feat_best': "Melhor para",
+            'val_very_fast': "Muito rápida",
+            'val_fast': "Rápida",
+            'val_moderate': "Moderada",
+            'val_low': "Baixo",
+            'val_high': "Alto",
+            'val_mod': "Moderado",
+            'val_mobile': "Aplicações móveis",
+            'val_max': "Precisão máxima",
+            'val_balance': "Equilíbrio eficiência/acurácia",
+            'efficiency_title': "⏱️ Análise de Eficiência Temporal",
+            'eff_col1': (
+                "**🥇 Melhor eficiência tempo/acurácia:**\n"
+                "- **MobileNetV2**: Treinamento mais rápido com boa acurácia\n"
+                "- Ideal para desenvolvimento iterativo rápido\n\n"
+                "**🏆 Melhor acurácia absoluta:**\n"
+                "- **ResNet50**: Acurácia máxima de validação (98.83%)\n"
+                "- Tempo considerável, mas resultados superiores"
+            ),
+            'eff_col2': (
+                "**⚖️ Melhor equilíbrio:**\n"
+                "- **EfficientNetB0**: Bom equilíbrio tempo/acurácia\n"
+                "- Acurácia alta com tempo moderado\n\n"
+                "**📊 Razão de eficiência:**\n"
+                "- MobileNetV2: 33.2% acurácia/minuto\n"
+                "- EfficientNetB0: 17.7% acurácia/minuto\n"
+                "- ResNet50: 6.1% acurácia/minuto"
+            ),
+            'plot_title_time': "📈 Tempo de Treinamento vs Acurácia",
+            'plot_time_lbl': "Tempo de Treinamento (minutos)",
+            'plot_val_acc': "Validation Accuracy (%)",
+            'plot_title_vs': "Tempo vs Acurácia de Validação",
+            'plot_model_lbl': "Modelos",
+            'plot_acc_lbl': "Acurácia (%)",
+            'plot_title_comp': "Comparação de Acurácias",
+            'plot_lbl_train': "Acurácia de Treinamento",
+            'plot_lbl_val': "Acurácia de Validação"
+        }
+    }
+    
+    t_data = tx[lang_key]
 
-    # Información general sobre los modelos
-    st.markdown("""
-    ### 🤖 Modelos Implementados
-
-    **MobileNetV2:**
-    - Arquitectura optimizada para dispositivos móviles
-    - Menos parámetros y mayor velocidad
-    - Ideal para aplicaciones en tiempo real
-
-    **ResNet50:**
-    - Arquitectura con conexiones residuales
-    - Excelente para tareas de clasificación complejas
-    - Mayor precisión en datasets desafiantes
-
-    **EfficientNetB0:**
-    - Arquitectura optimizada para eficiencia
-    - Balance entre precisión y velocidad
-    - Escalamiento uniforme de ancho, profundidad y resolución
-    """)
+    st.header(t_data['header'])
+    st.markdown(t_data['models_header'])
+    st.markdown(t_data['models_desc'])
 
     # Crear tabla comparativa con tiempos de entrenamiento
-    st.subheader("📊 Tabla Comparativa")
+    st.subheader(t_data['table_title'])
     comparison_data = {
-        "Característica": [
-            "Parámetros (aprox.)",
-            "Tiempo de entrenamiento",
-            "Velocidad de inferencia",
-            "Precisión final",
-            "Val Accuracy final",
-            "Uso de memoria",
-            "Mejor para"
+        t_data['col_feature']: [
+            t_data['feat_params'],
+            t_data['feat_time'],
+            t_data['feat_speed'],
+            t_data['feat_acc'],
+            t_data['feat_val_acc'],
+            t_data['feat_mem'],
+            t_data['feat_best']
         ],
         "MobileNetV2": [
             "3.5M",
             "46.97 min (2,818 seg)",
-            "Muy rápida",
+            t_data['val_very_fast'],
             "99.21%",
             "93.52%",
-            "Bajo",
-            "Aplicaciones móviles"
+            t_data['val_low'],
+            t_data['val_mobile']
         ],
         "ResNet50": [
             "25M",
             "162.8 min (9,768 seg)",
-            "Moderada",
+            t_data['val_moderate'],
             "99.54%",
             "98.83%",
-            "Alto",
-            "Precisión máxima"
+            t_data['val_high'],
+            t_data['val_max']
         ],
         "EfficientNetB0": [
             "5.3M",
             "55.61 min (3,337 seg)",
-            "Rápida",
+            t_data['val_fast'],
             "98.42%",
             "98.19%",
-            "Moderado",
-            "Balance eficiencia/precisión"
+            t_data['val_mod'],
+            t_data['val_balance']
         ]
     }
 
@@ -1391,35 +2147,16 @@ def show_model_comparison():
     st.dataframe(comparison_df, use_container_width=True)
 
     # Análisis de rendimiento por tiempo
-    st.subheader("⏱️ Análisis de Eficiencia Temporal")
+    st.subheader(t_data['efficiency_title'])
 
     col1, col2 = st.columns(2)
-
     with col1:
-        st.markdown("""
-        **🥇 Mejor eficiencia tiempo/precisión:**
-        - **MobileNetV2**: Entrenamiento más rápido con buena precisión
-        - Ideal para desarrollo iterativo rápido
-
-        **🏆 Mejor precisión absoluta:**
-        - **ResNet50**: Máxima precisión de validación (98.83%)
-        - Tiempo considerable pero resultados superiores
-        """)
-
+        st.markdown(t_data['eff_col1'])
     with col2:
-        st.markdown("""
-        **⚖️ Mejor balance:**
-        - **EfficientNetB0**: Buen balance tiempo/precisión
-        - Precisión alta con tiempo moderado
-
-        **📊 Ratio eficiencia:**
-        - MobileNetV2: 33.2% precisión/minuto
-        - EfficientNetB0: 17.7% precisión/minuto
-        - ResNet50: 6.1% precisión/minuto
-        """)
+        st.markdown(t_data['eff_col2'])
 
     # Gráfico de tiempo vs precisión
-    st.subheader("📈 Tiempo de Entrenamiento vs Precisión")
+    st.subheader(t_data['plot_title_time'])
 
     # Datos para el gráfico
     models_data = {
@@ -1429,6 +2166,9 @@ def show_model_comparison():
         'Training Accuracy (%)': [99.21, 98.42, 99.54]
     }
 
+    # Aplicar el tema actual antes de graficar
+    apply_theme_to_plot(st.session_state.get('theme', 'Oscuro'))
+
     # Crear gráfico con matplotlib
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
@@ -1436,9 +2176,9 @@ def show_model_comparison():
     colors = ['#FF6B6B', '#4ECDC4', '#45B7D1']
     ax1.scatter(models_data['Tiempo (minutos)'], models_data['Val Accuracy (%)'],
                c=colors, s=200, alpha=0.7)
-    ax1.set_xlabel('Tiempo de Entrenamiento (minutos)')
-    ax1.set_ylabel('Validation Accuracy (%)')
-    ax1.set_title('Tiempo vs Precisión de Validación')
+    ax1.set_xlabel(t_data['plot_time_lbl'])
+    ax1.set_ylabel(t_data['plot_val_acc'])
+    ax1.set_title(t_data['plot_title_vs'])
     ax1.grid(True, alpha=0.3)
 
     # Añadir etiquetas
@@ -1452,13 +2192,13 @@ def show_model_comparison():
     width = 0.35
 
     ax2.bar(x - width/2, models_data['Training Accuracy (%)'], width,
-           label='Training Accuracy', color='lightcoral', alpha=0.8)
+           label=t_data['plot_lbl_train'], color='lightcoral', alpha=0.8)
     ax2.bar(x + width/2, models_data['Val Accuracy (%)'], width,
-           label='Validation Accuracy', color='skyblue', alpha=0.8)
+           label=t_data['plot_lbl_val'], color='skyblue', alpha=0.8)
 
-    ax2.set_xlabel('Modelos')
-    ax2.set_ylabel('Accuracy (%)')
-    ax2.set_title('Comparación de Precisiones')
+    ax2.set_xlabel(t_data['plot_model_lbl'])
+    ax2.set_ylabel(t_data['plot_acc_lbl'])
+    ax2.set_title(t_data['plot_title_comp'])
     ax2.set_xticks(x)
     ax2.set_xticklabels(models_data['Modelo'])
     ax2.legend()
@@ -1499,10 +2239,88 @@ def check_login():
                 login_css = f.read()
             # Inyectar base64 dinámico de la imagen
             login_css = login_css.replace("__BG_IMAGE_BASE64__", bg_image_base64)
+            
+            # Aplicar tema visual al login
+            theme = st.session_state.get('theme', 'Oscuro')
+            is_dark = theme in ['Oscuro', 'Dark', 'escuro', 'Escuro']
+            if is_dark:
+                login_css += """
+                html, body, [data-testid="stAppViewContainer"] {
+                    background-color: #0f172a !important;
+                }
+                div[data-testid="stHorizontalBlock"] {
+                    background-color: #1e293b !important;
+                    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+                }
+                .login-right-form h2, .login-right-form p, label {
+                    color: #f8fafc !important;
+                }
+                input[id^="login_username"], input[id^="login_password"] {
+                    background-color: #1e293b !important;
+                    color: #f8fafc !important;
+                    border: 1.5px solid rgba(255, 255, 255, 0.1) !important;
+                }
+                div.st-key-btn_login_info button, button.ewrlt5x2,
+                div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlock"] > div.element-container button {
+                    background-color: #1e293b !important;
+                    border: 1.5px solid rgba(255, 255, 255, 0.1) !important;
+                    color: #f8fafc !important;
+                }
+                div.st-key-btn_login_info button:hover, button.ewrlt5x2:hover,
+                div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlock"] > div.element-container button:hover {
+                    background-color: rgba(255, 255, 255, 0.05) !important;
+                    color: #f8fafc !important;
+                    border-color: rgba(255, 255, 255, 0.25) !important;
+                }
+                """
+            else:
+                login_css += """
+                html, body, [data-testid="stAppViewContainer"] {
+                    background-color: #f8fafc !important;
+                }
+                div[data-testid="stHorizontalBlock"] {
+                    background-color: #ffffff !important;
+                    border: 1px solid #e2e8f0 !important;
+                }
+                .login-right-form h2, .login-right-form p, label {
+                    color: #0f172a !important;
+                }
+                input[id^="login_username"], input[id^="login_password"] {
+                    background-color: #f8fafc !important;
+                    color: #0f172a !important;
+                    border: 1.5px solid #cbd5e1 !important;
+                }
+                div.st-key-btn_login_info button, button.ewrlt5x2,
+                div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlock"] > div.element-container button {
+                    background-color: #ffffff !important;
+                    border: 1.5px solid #cbd5e1 !important;
+                    color: #0f172a !important;
+                }
+                div.st-key-btn_login_info button:hover, button.ewrlt5x2:hover,
+                div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlock"] > div.element-container button:hover {
+                    background-color: #f8fafc !important;
+                    color: #0f172a !important;
+                }
+                """
             st.markdown(f"<style>{login_css}</style>", unsafe_allow_html=True)
+            
+            # Evitar traducción automática en el login
+            meta_html = """
+            <script>
+                if (window.parent && window.parent.document) {
+                    if (!window.parent.document.querySelector('meta[name="google"][content="notranslate"]')) {
+                        const meta = window.parent.document.createElement('meta');
+                        meta.name = "google";
+                        meta.content = "notranslate";
+                        window.parent.document.head.appendChild(meta);
+                    }
+                }
+            </script>
+            """
+            st.components.v1.html(meta_html, height=0, width=0)
         else:
             # Fallback en caso de que no exista el archivo
-            st.warning("⚠️ Estilos de inicio de sesión no encontrados en assets/login_styles.css")
+            st.warning(t("login_styles_not_found"))
             
         col1, col2 = st.columns([45, 55])
         
@@ -1621,7 +2439,7 @@ def check_login():
 </div>""", unsafe_allow_html=True)
             
             # Formulario
-            username = st.text_input(t("email"), placeholder="ejemplo@correo.com", key="login_username")
+            username = st.text_input(t("email"), placeholder=t("email_placeholder"), key="login_username")
             password = st.text_input(t("password"), type="password", placeholder="******", key="login_password")
             
             st.markdown(f'<p class="forgot-link" style="text-align: right; margin: -5px 0 10px 0;"><a href="#">{t("forgot_pwd")}</a></p>', unsafe_allow_html=True)
@@ -1647,11 +2465,11 @@ def check_login():
 </div>""", unsafe_allow_html=True)
             
             if st.button(t("more_info_btn"), use_container_width=True, key="btn_login_info"):
-                st.info("Sistema inteligente de diagnóstico fitosanitario y AutoML para la optimización de cultivos de maíz.")
+                st.info(t("automl_system_info"))
                 
-            st.markdown("""
+            st.markdown(f"""
             <div class="login-footer" style="text-align: center; color: #94A3B8; font-size: 0.65rem; margin-top: 1.2rem; font-family: 'Poppins', sans-serif; line-height: 1.5;">
-                &copy; 2024 Detector de Enfermedades en Hojas de Maíz<br>
+                &copy; 2026 {t('title')}<br>
                 <span style="font-weight: 600; color: #64748B;">Versión 1.0.0</span>
             </div>
             """, unsafe_allow_html=True)
@@ -1709,6 +2527,99 @@ def show_fitosanitario_panel():
 
 def show_automl_panel():
     """Muestra la plataforma AutoML tabular modular."""
+    lang = st.session_state.get('lang', 'es')
+    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
+    
+    # Translations inside show_automl_panel
+    am_tx = {
+        'es': {
+            'eda_stats': "### Estadísticos Descriptivos Globales",
+            'eda_balance': "#### Balance y Distribución de Clases",
+            'eda_corr': "#### Mapa de Calor de Correlación",
+            'eda_dist': "#### Distribución de Variables por Clase",
+            'eda_interpret': "#### 💡 Interpretación del EDA",
+            'train_table': "### Tabla Comparativa de Rendimiento (Test Set)",
+            'train_roc': "#### Curvas ROC Comparativas",
+            'train_learning': "#### Curvas de Aprendizaje (Loss Evolution)",
+            'train_cm': "#### Matrices de Confusión por Modelo",
+            'train_cm_caption': "Matriz de Confusión - {name}",
+            'train_interpret': "#### 💡 Interpretación de Modelado",
+            'cv_title': "### Resultados de Validación Cruzada",
+            'cv_model': "Modelo",
+            'cv_mean_acc': "Precisión Media (Mean Accuracy)",
+            'cv_std_acc': "Desviación Estándar (Std Accuracy)",
+            'cv_mean_f1': "F1-Score Medio (Mean F1-Score)",
+            'cv_std_f1': "Desviación Estándar F1 (Std F1-Score)",
+            'cv_interpret': "#### 💡 Interpretación de Validación Cruzada",
+            'tuning_title': "### Resultados de Optimización (Random Forest)",
+            'tuning_params': "**Mejores Hiperparámetros:**",
+            'tuning_before': "Precisión Antes del Tuning",
+            'tuning_after': "Precisión Después del Tuning",
+            'tuning_interpret': "#### 💡 Interpretación del Tuning",
+            'stats_title': "### Resultados de las Pruebas Estadísticas",
+            'stats_hypothesis': "**Prueba de Hipótesis Utilizada:**",
+            'stats_interpret': "#### 💡 Interpretación Estadística Avanzada"
+        },
+        'en': {
+            'eda_stats': "### Global Descriptive Statistics",
+            'eda_balance': "#### Class Balance and Distribution",
+            'eda_corr': "#### Correlation Heatmap",
+            'eda_dist': "#### Feature Distribution by Class",
+            'eda_interpret': "#### 💡 EDA Interpretation",
+            'train_table': "### Performance Comparison Table (Test Set)",
+            'train_roc': "#### Comparative ROC Curves",
+            'train_learning': "#### Learning Curves (Loss Evolution)",
+            'train_cm': "#### Confusion Matrices by Model",
+            'train_cm_caption': "Confusion Matrix - {name}",
+            'train_interpret': "#### 💡 Modeling Interpretation",
+            'cv_title': "### Cross-Validation Results",
+            'cv_model': "Model",
+            'cv_mean_acc': "Mean Accuracy",
+            'cv_std_acc': "Std Accuracy",
+            'cv_mean_f1': "Mean F1-Score",
+            'cv_std_f1': "Std F1-Score",
+            'cv_interpret': "#### 💡 Cross-Validation Interpretation",
+            'tuning_title': "### Optimization Results (Random Forest)",
+            'tuning_params': "**Best Hyperparameters:**",
+            'tuning_before': "Accuracy Before Tuning",
+            'tuning_after': "Accuracy After Tuning",
+            'tuning_interpret': "#### 💡 Tuning Interpretation",
+            'stats_title': "### Statistical Test Results",
+            'stats_hypothesis': "**Hypothesis Test Used:**",
+            'stats_interpret': "#### 💡 Advanced Statistical Interpretation"
+        },
+        'pt': {
+            'eda_stats': "### Estatísticas Descritivas Globais",
+            'eda_balance': "#### Equilíbrio e Distribuição de Classes",
+            'eda_corr': "#### Mapa de Calor de Correlação",
+            'eda_dist': "#### Distribuição de Variáveis por Classe",
+            'eda_interpret': "#### 💡 Interpretação do EDA",
+            'train_table': "### Tabela Comparativa de Desempenho (Test Set)",
+            'train_roc': "#### Curvas ROC Comparativas",
+            'train_learning': "#### Curvas de Aprendizado (Loss Evolution)",
+            'train_cm': "#### Matrizes de Confusão por Modelo",
+            'train_cm_caption': "Matriz de Confusão - {name}",
+            'train_interpret': "#### 💡 Interpretação de Modelagem",
+            'cv_title': "### Resultados de Validação Cruzada",
+            'cv_model': "Modelo",
+            'cv_mean_acc': "Acurácia Média (Mean Accuracy)",
+            'cv_std_acc': "Desvio Padrão (Std Accuracy)",
+            'cv_mean_f1': "F1-Score Médio (Mean F1-Score)",
+            'cv_std_f1': "Desvio Padrão F1 (Std F1-Score)",
+            'cv_interpret': "#### 💡 Interpretação de Validação Cruzada",
+            'tuning_title': "### Resultados de Otimização (Random Forest)",
+            'tuning_params': "**Melhores Hiperparámetros:**",
+            'tuning_before': "Acurácia Antes do Tuning",
+            'tuning_after': "Acurácia Depois do Tuning",
+            'tuning_interpret': "#### 💡 Interpretação do Tuning",
+            'stats_title': "### Resultados dos Testes Estatísticos",
+            'stats_hypothesis': "**Teste de Hipótese Utilizado:**",
+            'stats_interpret': "#### 💡 Interpretação Estatística Avançada"
+        }
+    }
+    
+    t_am = am_tx[lang_key]
+
     st.markdown(t("automl_desc"))
     
     # 1. Cargar datos
@@ -1721,10 +2632,10 @@ def show_automl_panel():
         try:
             st.session_state.automl_df = pd.read_csv(uploaded_file)
         except Exception as e:
-            st.error(f"Error al leer el archivo: {e}")
+            st.error(f"{t('error_reading_file')}: {e}")
     else:
         if st.session_state.automl_df is None and os.path.exists("data/maize_crop_data.csv"):
-            st.info("💡 Se ha detectado el conjunto de datos de prueba pregenerado `maize_crop_data.csv` en el servidor local.")
+            st.info(t("test_dataset_detected"))
             if st.button(t("btn_load_test"), use_container_width=True):
                 st.session_state.automl_df = pd.read_csv("data/maize_crop_data.csv")
                 st.rerun()
@@ -1732,7 +2643,7 @@ def show_automl_panel():
     df = st.session_state.automl_df
                 
     if df is None:
-        st.warning("⚠️ Cargue un archivo CSV para iniciar el análisis.")
+        st.warning(t("upload_csv_warning"))
         return
         
     if st.button(t("clean_data_btn")):
@@ -1769,20 +2680,74 @@ def show_automl_panel():
             # 1. EDA
             df_cleaned, num_duplicates, imputed_nulls, outliers_detected = clean_data(df, target_col)
             df_eda, class_stats = get_descriptive_stats(df_cleaned, target_col)
-            eda_charts = plot_eda_charts(df_cleaned, target_col)
-            eda_interpret = interpret_eda(df_cleaned, target_col, num_duplicates, imputed_nulls, outliers_detected, df_eda)
+            eda_charts = plot_eda_charts(df_cleaned, target_col, lang=st.session_state.get('lang', 'es'))
+            eda_interpret = interpret_eda(df_cleaned, target_col, num_duplicates, imputed_nulls, outliers_detected, df_eda, lang=st.session_state.get('lang', 'es'))
             
             # 2. Entrenamiento
             results, X_train, X_test, y_train, y_test, classes = train_and_evaluate_all(
                 df_cleaned, target_col, split_ratio=split_ratio, seed=seed
             )
-            roc_chart, learning_chart = plot_training_charts(results, X_test, y_test, classes)
-            training_interpret = interpret_training(results)
+            roc_chart, learning_chart = plot_training_charts(results, X_test, y_test, classes, lang=st.session_state.get('lang', 'es'))
+            training_interpret = interpret_training(results, lang=st.session_state.get('lang', 'es'))
             
-            # Convertir resultados de entrenamiento a dataframe
-            training_metrics = []
-            for model_name, res in results.items():
-                training_metrics.append({
+            # 3. CV
+            cv_results = run_cross_validation(df_cleaned, target_col, cv_folds=cv_folds, seed=seed)
+            cv_chart = plot_cv_dispersion(cv_results, lang=st.session_state.get('lang', 'es'))
+            cv_interpret = interpret_cv(cv_results, lang=st.session_state.get('lang', 'es'))
+            
+            # 4. Tuning (Random Forest)
+            tuning_results = run_hyperparameter_tuning(
+                df_cleaned, target_col, method=tuning_method, seed=seed
+            )
+            tuning_interpret = interpret_tuning(tuning_results, lang=st.session_state.get('lang', 'es'))
+            
+            # 5. Stats - extraer predicciones del mejor clásico y mejor híbrido
+            classic_names = ['Regresión Logística (Clásico)', 'Random Forest (Clásico)', 'Red Neuronal MLP (Clásico)']
+            hybrid_names  = ['Híbrido Votación (RF+MLP)', 'Híbrido Stacking (Meta-GB)']
+            best_classic_name = max(
+                [n for n in classic_names if n in results],
+                key=lambda n: results[n]['accuracy'],
+                default=list(results.keys())[0]
+            )
+            best_hybrid_name = max(
+                [n for n in hybrid_names if n in results],
+                key=lambda n: results[n]['accuracy'],
+                default=list(results.keys())[-1]
+            )
+            y_pred_classic = results[best_classic_name]['y_pred']
+            y_pred_hybrid  = results[best_hybrid_name]['y_pred']
+            
+            stats_results = run_statistical_tests(
+                cv_results, y_test, y_pred_classic, y_pred_hybrid,
+                alpha=alpha, lang=st.session_state.get('lang', 'es')
+            )
+            stats_chart = stats_results.get('stats_chart', '')
+            stats_interpret = interpret_stats(stats_results, alpha=alpha, lang=st.session_state.get('lang', 'es'))
+            
+            # Recopilar rutas de gráficos para el reporte
+            image_paths = {
+                'balance':       eda_charts.get('balance', ''),
+                'correlation':   eda_charts.get('correlation', ''),
+                'distributions': eda_charts.get('distributions', ''),
+                'boxplots':      eda_charts.get('boxplots', ''),
+                'roc':           roc_chart if isinstance(roc_chart, str) else '',
+                'learning':      learning_chart if isinstance(learning_chart, str) else '',
+                'cv':            cv_chart if isinstance(cv_chart, str) else '',
+                'stats':         stats_chart if isinstance(stats_chart, str) else '',
+            }
+            
+            # Construir dict de interpretaciones ANTES de los reportes
+            interpretations = {
+                'eda': eda_interpret,
+                'training': training_interpret,
+                'cv': cv_interpret,
+                'tuning': tuning_interpret,
+                'stats': stats_interpret
+            }
+
+            # Construir DataFrame de entrenamiento para reportes
+            df_training_rep = pd.DataFrame({
+                name: {
                     'Accuracy': res['accuracy'],
                     'Precision': res['precision'],
                     'Recall': res['recall'],
@@ -1791,63 +2756,42 @@ def show_automl_panel():
                     'Tiempo de Entrenamiento (s)': res['train_time'],
                     'Tiempo de Inferencia (s)': res['inference_time'],
                     'No. Parámetros': res['param_count'],
-                    'Tamaño (KB)': res['model_size_kb']
-                })
-            df_training = pd.DataFrame(training_metrics, index=list(results.keys()))
+                    'Tamaño (KB)': res['model_size_kb'],
+                }
+                for name, res in results.items()
+            }).T
+
+            # Generar Reportes en PDF, Word y Excel
+            xlsx_report = generate_xlsx_report(
+                df_eda, df_training_rep, cv_results, tuning_results, stats_results,
+                filepath="reports/reporte_automl.xlsx", lang=st.session_state.get('lang', 'es')
+            )
+            docx_report = generate_docx_report(
+                df_eda, df_training_rep, cv_results, tuning_results, stats_results,
+                interpretations, image_paths,
+                filepath="reports/reporte_automl.docx", lang=st.session_state.get('lang', 'es')
+            )
+            pdf_report = generate_tabular_pdf_report(
+                df_eda, df_training_rep, cv_results, tuning_results, stats_results,
+                interpretations, image_paths,
+                filepath="reports/reporte_automl.pdf", lang=st.session_state.get('lang', 'es')
+            )
             
-            # Guardar mejor modelo
-            best_model_path, meta_path = save_best_model(results)
-            
-            # 3. Cross Validation
-            cv_results = run_cross_validation(df_cleaned, target_col, cv_folds=cv_folds, seed=seed)
-            cv_chart = plot_cv_dispersion(cv_results)
-            cv_interpret = interpret_cv(cv_results)
-            
-            # 4. Tuning
-            tuning_results = run_hyperparameter_tuning(df_cleaned, target_col, method=tuning_method, seed=seed)
-            tuning_interpret = interpret_tuning(tuning_results)
-            
-            # 5. Pruebas estadísticas
-            # Obtener predicciones del mejor clásico y mejor híbrido
-            classics_names = ['Regresión Logística (Clásico)', 'Random Forest (Clásico)', 'Red Neuronal MLP (Clásico)']
-            hybrids_names = ['Híbrido Votación (RF+MLP)', 'Híbrido Stacking (Meta-GB)']
-            best_classic = max(classics_names, key=lambda n: results[n]['accuracy'])
-            best_hybrid = max(hybrids_names, key=lambda n: results[n]['accuracy'])
-            y_pred_classic = results[best_classic]['y_pred']
-            y_pred_hybrid = results[best_hybrid]['y_pred']
-            
-            stats_results = run_statistical_tests(cv_results, y_test, y_pred_classic, y_pred_hybrid, alpha=alpha)
-            stats_interpret = interpret_stats(stats_results, alpha=alpha)
-            
-            # 6. Guardar interpretaciones agrupadas
-            interpretations = {
-                'eda': eda_interpret,
-                'training': training_interpret,
-                'cv': cv_interpret,
-                'tuning': tuning_interpret,
-                'stats': stats_interpret
-            }
-            
-            # 7. Generar reportes
-            image_paths = {
-                'balance': eda_charts['balance'],
-                'correlation': eda_charts.get('correlation', ''),
-                'distributions': eda_charts['distributions'],
-                'boxplots': eda_charts['boxplots'],
-                'roc': roc_chart,
-                'learning': learning_chart,
-                'cv': cv_chart,
-                'stats': stats_results['stats_chart']
-            }
-            
-            xlsx_report = generate_xlsx_report(df_eda, df_training, cv_results, tuning_results, stats_results)
-            docx_report = generate_docx_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths)
-            pdf_report = generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths)
-            
-            # Almacenar en session_state
             st.session_state.pipeline_executed = True
             st.session_state.df_eda = df_eda
-            st.session_state.df_training = df_training
+            st.session_state.df_training = pd.DataFrame({
+                name: {
+                    'Accuracy': f"{res['accuracy']:.4%}",
+                    'Precision': f"{res['precision']:.4%}",
+                    'Recall': f"{res['recall']:.4%}",
+                    'F1-Score': f"{res['f1-score']:.4f}",
+                    'AUC': f"{res['auc']:.4f}",
+                    'Train Time (s)': f"{res['train_time']:.4f}",
+                    'Params': res['param_count'],
+                    'Size (KB)': f"{res['model_size_kb']:.1f}",
+                }
+                for name, res in results.items()
+            }).T
             st.session_state.cv_results = cv_results
             st.session_state.tuning_results = tuning_results
             st.session_state.stats_results = stats_results
@@ -1857,12 +2801,12 @@ def show_automl_panel():
             st.session_state.docx_report = docx_report
             st.session_state.pdf_report = pdf_report
             
-            st.success("✅ ¡Pipeline completado con éxito! Revisa los resultados abajo.")
+            st.success(t("pipeline_completed_success"))
 
     # 4. Mostrar resultados guardados en session_state
     if st.session_state.get('pipeline_executed', False):
         st.markdown("---")
-        st.markdown("## 📥 Descarga de Reportes Integrales")
+        st.markdown(t("generate_reports_header"))
         
         col_d1, col_d2, col_d3 = st.columns(3)
         with col_d1:
@@ -1885,86 +2829,92 @@ def show_automl_panel():
         ])
         
         with tab_eda:
-            st.markdown("### Estadísticos Descriptivos Globales")
+            st.markdown(t_am['eda_stats'])
             st.dataframe(st.session_state.df_eda, use_container_width=True)
             
             col1, col2 = st.columns(2)
             with col1:
-                st.markdown("#### Balance y Distribución de Clases")
+                st.markdown(t_am['eda_balance'])
                 st.image(st.session_state.image_paths['balance'])
             with col2:
                 if st.session_state.image_paths.get('correlation'):
-                    st.markdown("#### Mapa de Calor de Correlación")
+                    st.markdown(t_am['eda_corr'])
                     st.image(st.session_state.image_paths['correlation'])
                     
-            st.markdown("#### Distribución de Variables por Clase")
+            st.markdown(t_am['eda_dist'])
             st.image(st.session_state.image_paths['distributions'])
             st.image(st.session_state.image_paths['boxplots'])
             
-            st.markdown("#### 💡 Interpretación del EDA")
+            st.markdown(t_am['eda_interpret'])
             st.info(st.session_state.interpretations['eda'])
             
         with tab_train:
-            st.markdown("### Tabla Comparativa de Rendimiento (Test Set)")
+            st.markdown(t_am['train_table'])
             st.dataframe(st.session_state.df_training, use_container_width=True)
             
             col_t1, col_t2 = st.columns(2)
             with col_t1:
-                st.markdown("#### Curvas ROC Comparativas")
+                st.markdown(t_am['train_roc'])
                 st.image(st.session_state.image_paths['roc'])
             with col_t2:
-                st.markdown("#### Curvas de Aprendizaje (Loss Evolution)")
+                st.markdown(t_am['train_learning'])
                 st.image(st.session_state.image_paths['learning'])
                 
-            st.markdown("#### Matrices de Confusión por Modelo")
+            st.markdown(t_am['train_cm'])
             for model_name in st.session_state.df_training.index:
                 filename = os.path.join("reports", f"confusion_{model_name.replace(' ', '_').replace('(', '').replace(')', '')}.png")
                 if os.path.exists(filename):
-                    st.image(filename, caption=f"Matriz de Confusión - {model_name}", width=400)
+                    st.image(filename, caption=t_am['train_cm_caption'].format(name=model_name), width=400)
                     
-            st.markdown("#### 💡 Interpretación de Modelado")
+            st.markdown(t_am['train_interpret'])
             st.info(st.session_state.interpretations['training'])
             
         with tab_cv:
-            st.markdown("### Resultados de Validación Cruzada")
+            st.markdown(t_am['cv_title'])
             cv_disp_data = []
             for name, res in st.session_state.cv_results.items():
                 cv_disp_data.append({
-                    'Modelo': name,
-                    'Mean Accuracy': f"{res['mean_accuracy']:.4%}",
-                    'Std Accuracy': f"{res['std_accuracy']:.4%}",
-                    'Mean F1-Score': f"{res['mean_f1']:.4f}",
-                    'Std F1-Score': f"{res['std_f1']:.4f}"
+                    t_am['cv_model']: name,
+                    t_am['cv_mean_acc']: f"{res['mean_accuracy']:.4%}",
+                    t_am['cv_std_acc']: f"{res['std_accuracy']:.4%}",
+                    t_am['cv_mean_f1']: f"{res['mean_f1']:.4f}",
+                    t_am['cv_std_f1']: f"{res['std_f1']:.4f}"
                 })
             st.dataframe(pd.DataFrame(cv_disp_data), use_container_width=True)
             st.image(st.session_state.image_paths['cv'])
             
-            st.markdown("#### 💡 Interpretación de Validación Cruzada")
+            st.markdown(t_am['cv_interpret'])
             st.info(st.session_state.interpretations['cv'])
             
         with tab_tuning:
-            st.markdown("### Resultados de Optimización (Random Forest)")
+            st.markdown(t_am['tuning_title'])
             t_res = st.session_state.tuning_results
-            st.markdown(f"**Mejores Hiperparámetros:** `{t_res['best_params']}`")
-            st.metric("Precisión Antes del Tuning", f"{t_res['accuracy_before']:.2%}")
-            st.metric("Precisión Después del Tuning", f"{t_res['accuracy_after']:.2%}", delta=f"{t_res['accuracy_after'] - t_res['accuracy_before']:+.2%}")
+            st.markdown(f"{t_am['tuning_params']} `{t_res['best_params']}`")
+            st.metric(t_am['tuning_before'], f"{t_res['accuracy_before']:.2%}")
+            st.metric(t_am['tuning_after'], f"{t_res['accuracy_after']:.2%}", delta=f"{t_res['accuracy_after'] - t_res['accuracy_before']:+.2%}")
             
-            st.markdown("#### 💡 Interpretación del Tuning")
+            st.markdown(t_am['tuning_interpret'])
             st.info(st.session_state.interpretations['tuning'])
             
         with tab_stats:
-            st.markdown("### Resultados de las Pruebas Estadísticas")
+            st.markdown(t_am['stats_title'])
             s_res = st.session_state.stats_results
-            st.markdown(f"**Prueba de Hipótesis Utilizada:** `{s_res['test_type']}`")
+            st.markdown(f"{t_am['stats_hypothesis']} `{s_res['test_type']}`")
             st.image(st.session_state.image_paths['stats'])
             
-            st.markdown("#### 💡 Interpretación Estadística Avanzada")
+            st.markdown(t_am['stats_interpret'])
             st.info(st.session_state.interpretations['stats'])
 
 def main():
     # Validar credenciales
     if not check_login():
         return
+
+    # Inicializar theme en st.session_state si no existe
+    if 'theme' not in st.session_state:
+        st.session_state.theme = 'Oscuro'
+        
+    inject_custom_css()
 
     # Selector de Idioma en el Sidebar para sincronización
     st.sidebar.markdown(t("language_selector_title"))
@@ -1981,6 +2931,24 @@ def main():
     else:
         st.session_state.lang = "pt"
 
+    # Selector de Tema en el Sidebar
+    st.sidebar.markdown(f"### {t('theme_label')}")
+    theme_opts = [t('theme_dark'), t('theme_light')]
+    theme_sel = st.sidebar.selectbox(
+        t('theme_label'),
+        theme_opts,
+        index=0 if st.session_state.get('theme', 'Oscuro') == 'Oscuro' else 1,
+        key="main_theme_selector",
+        label_visibility="collapsed"
+    )
+    if theme_sel == t('theme_dark'):
+        st.session_state.theme = 'Oscuro'
+    else:
+        st.session_state.theme = 'Claro'
+        
+    inject_custom_css()
+    apply_theme_to_plot(st.session_state.theme)
+
     # Encabezado principal
     st.markdown(f'<h1 class="main-header">{t("title")}</h1>',
                 unsafe_allow_html=True)
@@ -1992,6 +2960,147 @@ def main():
         [t("fitosanitario_panel"), t("automl_panel")]
     )
     
+    # Chatbot en el Sidebar
+    st.sidebar.markdown("---")
+    
+    # Inicialización del chat
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+        
+    st.sidebar.markdown(f"### {t('cb_title')}")
+    
+    # Mostrar historial en un contenedor con scroll
+    chat_container = st.sidebar.container(height=220)
+    with chat_container:
+        with st.chat_message("assistant"):
+            st.write(t("cb_intro"))
+        for msg in st.session_state.chat_history:
+            with st.chat_message(msg['role']):
+                st.write(msg['text'])
+                
+    # Callback para procesar chat
+    def process_chat():
+        query = st.session_state.get('cb_user_input', '')
+        if query:
+            st.session_state.chat_history.append({'role': 'user', 'text': query})
+            bot_response = get_chatbot_response(query, lang=st.session_state.lang)
+            st.session_state.chat_history.append({'role': 'assistant', 'text': bot_response})
+            st.session_state.speech_text = bot_response
+            st.session_state.speech_spoken = False
+            # Limpiar caja de entrada
+            st.session_state.cb_user_input = ""
+
+    # Entrada de texto con callback
+    user_query = st.sidebar.text_input(t("cb_placeholder"), key="cb_user_input", label_visibility="collapsed", on_change=process_chat)
+    
+    col_cb1, col_cb2 = st.sidebar.columns([3, 1])
+    with col_cb1:
+        st.button(t("cb_send"), use_container_width=True, key="btn_cb_send", on_click=process_chat)
+                
+    with col_cb2:
+        # Renderizar componente de micrófono
+        lang_code = {'es': 'es-ES', 'en': 'en-US', 'pt': 'pt-BR'}.get(st.session_state.lang, 'es-ES')
+        mic_html = f"""
+        <body style="margin:0; padding:0; background:transparent; overflow:hidden;">
+        <button id="mic_btn" style="
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+            transition: transform 0.2s;
+            outline: none;
+        " onclick="startRecognition()">🎙️</button>
+
+        <script>
+            function startRecognition() {{
+                const btn = document.getElementById('mic_btn');
+                btn.style.transform = 'scale(0.9)';
+                btn.style.background = '#ef4444';
+                
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) {{
+                    alert("Speech recognition not supported in this browser.");
+                    btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                    return;
+                }}
+                
+                const recognition = new SpeechRecognition();
+                recognition.lang = '{lang_code}';
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
+                
+                recognition.onresult = (event) => {{
+                    const text = event.results[0][0].transcript;
+                    try {{
+                        const parentDoc = window.parent.document;
+                        const input = parentDoc.querySelector('section[data-testid="stSidebar"] input[type="text"]');
+                        if (input) {{
+                            input.value = text;
+                            input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                            
+                            setTimeout(() => {{
+                                const buttons = Array.from(parentDoc.querySelectorAll('button'));
+                                const sendBtn = buttons.find(b => b.textContent.includes('Envia') || b.textContent.includes('Send') || b.textContent.includes('Enviar'));
+                                if (sendBtn) {{
+                                    sendBtn.click();
+                                }}
+                            }}, 500);
+                        }}
+                    }} catch (e) {{
+                        console.error("Parent document access failed:", e);
+                    }}
+                }};
+                
+                recognition.onspeechend = () => {{
+                    recognition.stop();
+                    btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                    btn.style.transform = 'scale(1)';
+                }};
+                
+                recognition.onerror = (event) => {{
+                    console.error("Speech recognition error:", event.error);
+                    btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                    btn.style.transform = 'scale(1)';
+                }};
+                
+                recognition.start();
+            }}
+        </script>
+        </body>
+        """
+        st.components.v1.html(mic_html, height=38, width=38)
+
+    # Speech synthesis player
+    if 'speech_text' in st.session_state and not st.session_state.get('speech_spoken', True):
+        clean_speech = st.session_state.speech_text.replace("*", "").replace("`", "").replace("#", "").replace("'", "\\'").replace("\n", " ")
+        lang_code = {'es': 'es-ES', 'en': 'en-US', 'pt': 'pt-BR'}.get(st.session_state.lang, 'es-ES')
+        tts_html = f"""
+        <script>
+            if ('speechSynthesis' in window) {{
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance('{clean_speech}');
+                utterance.lang = '{lang_code}';
+                setTimeout(() => {{
+                    const voices = window.speechSynthesis.getVoices();
+                    const voice = voices.find(v => v.lang.startsWith('{lang_code.split("-")[0]}'));
+                    if (voice) utterance.voice = voice;
+                    window.speechSynthesis.speak(utterance);
+                }}, 200);
+            }}
+        </script>
+        """
+        st.components.v1.html(tts_html, height=0, width=0)
+        st.session_state.speech_spoken = True
+
     st.sidebar.markdown("---")
     
     # Botón de cerrar sesión

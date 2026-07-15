@@ -13,3 +13,4 @@ scipy
 openpyxl
 python-docx
 pyyaml
+statsmodels

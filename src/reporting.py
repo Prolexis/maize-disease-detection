@@ -53,35 +53,62 @@ def format_excel_sheet(worksheet):
                 max_len = len(val_str)
         worksheet.column_dimensions[col_letter].width = max(max_len + 4, 14)
 
-def generate_xlsx_report(df_eda, df_training, cv_results, tuning_results, stats_results, filepath="reports/reporte_automl.xlsx"):
+def generate_xlsx_report(df_eda, df_training, cv_results, tuning_results, stats_results, filepath="reports/reporte_automl.xlsx", lang="es"):
     """
     Crea un archivo Excel organizado con una pestaña para cada fase del pipeline de ML.
     """
+    from src.translation import t_lang
+    
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     
+    # Mapeos de traducción
+    eda_cols_map = {
+        'es': {'media': 'Media', 'mediana': 'Mediana', 'desviación': 'Desviación', 'asimetría': 'Asimetría', 'curtosis': 'Curtosis'},
+        'en': {'media': 'Mean', 'mediana': 'Median', 'desviación': 'Std Dev', 'asimetría': 'Skewness', 'curtosis': 'Kurtosis'},
+        'pt': {'media': 'Média', 'mediana': 'Mediana', 'desviación': 'Desvio Padrão', 'asimetría': 'Assimetria', 'curtosis': 'Curtose'}
+    }
+    
+    train_cols_map = {
+        'es': {'Accuracy': 'Exactitud', 'Precision': 'Precisión', 'Recall': 'Sensibilidad (Recall)', 'F1-Score': 'F1-Score', 'AUC': 'AUC', 'Tiempo de Entrenamiento (s)': 'Tiempo Entrenamiento (s)', 'Tiempo de Inferencia (s)': 'Tiempo Inferencia (s)', 'No. Parámetros': 'No. Parámetros', 'Tamaño (KB)': 'Tamaño (KB)'},
+        'en': {'Accuracy': 'Accuracy', 'Precision': 'Precision', 'Recall': 'Recall', 'F1-Score': 'F1-Score', 'AUC': 'AUC', 'Tiempo de Entrenamiento (s)': 'Training Time (s)', 'Tiempo de Inferencia (s)': 'Inference Time (s)', 'No. Parámetros': 'Param Count', 'Tamaño (KB)': 'Size (KB)'},
+        'pt': {'Accuracy': 'Acurácia', 'Precision': 'Precisão', 'Recall': 'Revogação (Recall)', 'F1-Score': 'F1-Score', 'AUC': 'AUC', 'Tiempo de Entrenamiento (s)': 'Tempo Treinamento (s)', 'Tiempo de Inferencia (s)': 'Tempo Inferência (s)', 'No. Parámetros': 'Qtd Parâmetros', 'Tamaño (KB)': 'Tamanho (KB)'}
+    }
+
+    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
+
     with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
         # Pestaña 1: EDA
-        df_eda.reset_index().rename(columns={'index': 'Variable'}).to_excel(writer, sheet_name='EDA', index=False)
+        df_eda_renamed = df_eda.rename(columns=eda_cols_map[lang_key])
+        var_lbl = t_lang('rep_pdf_file', lang) if lang_key != 'es' else 'Variable'
+        df_eda_renamed.reset_index().rename(columns={'index': var_lbl}).to_excel(writer, sheet_name='EDA', index=False)
         
         # Pestaña 2: Entrenamiento (Métricas)
-        df_training.to_excel(writer, sheet_name='Entrenamiento', index=True)
+        df_training_renamed = df_training.rename(columns=train_cols_map[lang_key])
+        df_training_renamed.to_excel(writer, sheet_name=t_lang('tab_train', lang), index=True)
         
         # Pestaña 3: Validación Cruzada
         cv_data = []
         for model_name, res in cv_results.items():
             cv_data.append({
-                'Modelo': model_name,
-                'Mean Accuracy': res['mean_accuracy'],
-                'Std Accuracy': res['std_accuracy'],
-                'Mean F1': res['mean_f1'],
-                'Std F1': res['std_f1']
+                t_lang('pred_col_model', lang): model_name,
+                t_lang('plot_accuracy', lang) + ' CV': res['mean_accuracy'],
+                'Std Accuracy CV': res['std_accuracy'],
+                'Mean F1 CV': res['mean_f1'],
+                'Std F1 CV': res['std_f1']
             })
         pd.DataFrame(cv_data).to_excel(writer, sheet_name='Cross-Validation', index=False)
         
         # Pestaña 4: Tuning
+        tuning_labels = {
+            'es': ['Método de Búsqueda', 'Tiempo de Búsqueda (s)', 'Precisión Antes', 'Precisión Después', 'Mejores Hiperparámetros'],
+            'en': ['Search Method', 'Search Time (s)', 'Accuracy Before', 'Accuracy After', 'Best Hyperparameters'],
+            'pt': ['Método de Busca', 'Tempo de Busca (s)', 'Acurácia Antes', 'Acurácia Depois', 'Melhores Hiperparâmetros']
+        }
+        val_lbl = 'Valor' if lang_key == 'es' else ('Value' if lang_key == 'en' else 'Valor')
+        met_lbl = 'Métrica' if lang_key == 'es' else ('Metric' if lang_key == 'en' else 'Métrica')
         tuning_data = {
-            'Métrica': ['Método de Búsqueda', 'Tiempo de Búsqueda (s)', 'Precisión Antes', 'Precisión Después', 'Mejores Hiperparámetros'],
-            'Valor': [
+            met_lbl: tuning_labels[lang_key],
+            val_lbl: [
                 tuning_results['method'],
                 tuning_results['search_time'],
                 tuning_results['accuracy_before'],
@@ -93,23 +120,27 @@ def generate_xlsx_report(df_eda, df_training, cv_results, tuning_results, stats_
         
         # Pestaña 5: Pruebas Estadísticas
         shapiros = ", ".join([f"{k}: p={v:.3f}" for k, v in stats_results['shapiro_pvals'].items()])
+        stats_labels = {
+            'es': ['Tipo de Prueba Grupal', 'Estadístico Grupal', 'p-valor Grupal', 'Supuesto Shapiro-Wilk (p)', 'Supuesto Levene (p)', 'Prueba Wilcoxon (p)', 'Prueba McNemar (p)'],
+            'en': ['Group Test Type', 'Group Statistic', 'Group p-value', 'Shapiro-Wilk Assumption (p)', 'Levene Assumption (p)', 'Wilcoxon Test (p)', 'McNemar Test (p)'],
+            'pt': ['Tipo de Teste Grupal', 'Estatística Grupal', 'p-valor Grupal', 'Suposição Shapiro-Wilk (p)', 'Suposição Levene (p)', 'Teste Wilcoxon (p)', 'Teste McNemar (p)']
+        }
+        
+        test_lbl = 'Prueba' if lang_key == 'es' else ('Test' if lang_key == 'en' else 'Teste')
+        res_lbl = 'Resultado/Valor' if lang_key == 'es' else ('Result/Value' if lang_key == 'en' else 'Resultado/Valor')
         stats_data = {
-            'Prueba': [
-                'Tipo de Prueba Grupal', 'Estadístico Grupal', 'p-valor Grupal',
-                'Supuesto Shapiro-Wilk (p)', 'Supuesto Levene (p)',
-                'Prueba Wilcoxon (p)', 'Prueba McNemar (p)'
-            ],
-            'Resultado/Valor': [
+            test_lbl: stats_labels[lang_key],
+            res_lbl: [
                 stats_results['test_type'],
                 stats_results['overall_stat'],
                 stats_results['overall_pval'],
                 shapiros,
                 stats_results['levene_pval'],
                 f"Classic vs Hybrid: p={stats_results['wilcoxon']['p_val']:.4f}",
-                f"Aciertos/Fallos: p={stats_results['mcnemar']['p_val']:.4f}"
+                f"Hits/Failures: p={stats_results['mcnemar']['p_val']:.4f}"
             ]
         }
-        pd.DataFrame(stats_data).to_excel(writer, sheet_name='Pruebas Estadisticas', index=False)
+        pd.DataFrame(stats_data).to_excel(writer, sheet_name=t_lang('tab_stats', lang), index=False)
         
         # Aplicar formato a todas las pestañas creadas
         workbook = writer.book
@@ -120,12 +151,13 @@ def generate_xlsx_report(df_eda, df_training, cv_results, tuning_results, stats_
 # ---------------------------------------------------------
 # 2. GENERACIÓN DE WORD (.docx)
 # ---------------------------------------------------------
-def generate_docx_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths, filepath="reports/reporte_automl.docx"):
+def generate_docx_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths, filepath="reports/reporte_automl.docx", lang="es"):
     """
     Crea un reporte Word (.docx) formateado con portada, tablas e imágenes embebidas.
     """
     from docx import Document
     from docx.shared import Inches, Pt, RGBColor
+    from src.translation import t_lang
     
     doc = Document()
     
@@ -135,37 +167,141 @@ def generate_docx_report(df_eda, df_training, cv_results, tuning_results, stats_
     font.name = 'Arial'
     font.size = Pt(11)
     
+    # Textos localizados
+    title_lbl = t_lang("rep_title", lang)
+    sub_lbl = t_lang("rep_subtitle", lang)
+    gen_lbl = t_lang("rep_generated", lang).format(date=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    
+    eda_heading = t_lang("rep_eda_section", lang)
+    eda_desc = {
+        'es': "Estadísticas descriptivas generales de las variables numéricas analizadas:",
+        'en': "General descriptive statistics of the analyzed numerical variables:",
+        'pt': "Estatísticas descritivas gerais das variáveis numéricas analisadas:"
+    }.get(lang, "Estadísticas descriptivas generales de las variables numéricas analizadas:")
+    
+    train_heading = t_lang("rep_train_section", lang)
+    train_desc = {
+        'es': "Métricas obtenidas por los 3 modelos clásicos y 2 híbridos:",
+        'en': "Metrics obtained by the 3 classic and 2 hybrid models:",
+        'pt': "Métricas obtidas pelos 3 modelos clássicos e 2 híbridos:"
+    }.get(lang, "Métricas obtenidas por los 3 modelos clásicos y 2 híbridos:")
+    
+    cv_heading = t_lang("rep_cv_section", lang)
+    cv_desc = {
+        'es': "Estabilidad e hiperparámetros óptimos:",
+        'en': "Stability and optimal hyperparameters:",
+        'pt': "Estabilidade e hiperparâmetros ideais:"
+    }.get(lang, "Estabilidad e hiperparámetros óptimos:")
+    
+    stats_heading = t_lang("rep_stats_section", lang)
+    stats_desc = {
+        'es': "Validación estadística de los desempeños:",
+        'en': "Statistical validation of performance:",
+        'pt': "Validação estatística dos desempenhos:"
+    }.get(lang, "Validación estadística de los desempeños:")
+    
+    eda_headers = {
+        'es': ['Variable', 'Media', 'Mediana', 'Desviación', 'Asimetría', 'Curtosis'],
+        'en': ['Variable', 'Mean', 'Median', 'Deviation', 'Skewness', 'Kurtosis'],
+        'pt': ['Variável', 'Média', 'Mediana', 'Desvio', 'Assimetria', 'Curtose']
+    }.get(lang, ['Variable', 'Media', 'Mediana', 'Desviación', 'Asimetría', 'Curtosis'])
+
+    train_headers = {
+        'es': ['Modelo', 'Accuracy', 'Precision', 'Recall', 'F1-Score', 'AUC'],
+        'en': ['Model', 'Accuracy', 'Precision', 'Recall', 'F1-Score', 'AUC'],
+        'pt': ['Modelo', 'Acurácia', 'Precisão', 'Recall', 'F1-Score', 'AUC']
+    }.get(lang, ['Modelo', 'Accuracy', 'Precision', 'Recall', 'F1-Score', 'AUC'])
+
+    cv_headers = {
+        'es': ['Modelo', 'Accuracy CV', 'F1-Score CV'],
+        'en': ['Model', 'Accuracy CV', 'F1-Score CV'],
+        'pt': ['Modelo', 'Acurácia CV', 'F1-Score CV']
+    }.get(lang, ['Modelo', 'Accuracy CV', 'F1-Score CV'])
+
+    eda_lbl = {
+        'es': "\nDistribución y Balance de Clases del Dataset:",
+        'en': "\nClass Balance and Distribution of the Dataset:",
+        'pt': "\nDistribuição e Equilíbrio de Classes do Dataset:"
+    }.get(lang, "\nDistribución y Balance de Clases del Dataset:")
+
+    corr_lbl = {
+        'es': "\nMatriz de Correlación de Variables:",
+        'en': "\nVariables Correlation Matrix:",
+        'pt': "\nMatriz de Correlação de Variáveis:"
+    }.get(lang, "\nMatriz de Correlación de Variables:")
+
+    interp_eda_lbl = {
+        'es': "\n**Interpretación Técnica de EDA:**",
+        'en': "\n**EDA Technical Interpretation:**",
+        'pt': "\n**Interpretação Técnica do EDA:**"
+    }.get(lang, "\n**Interpretación Técnica de EDA:**")
+
+    roc_lbl = {
+        'es': "\nCurvas ROC comparativas:",
+        'en': "\nComparative ROC Curves:",
+        'pt': "\nCurvas ROC comparativas:"
+    }.get(lang, "\nCurvas ROC comparativas:")
+
+    interp_train_lbl = {
+        'es': "\n**Interpretación de Entrenamiento:**",
+        'en': "\n**Training Interpretation:**",
+        'pt': "\n**Interpretação do Treinamento:**"
+    }.get(lang, "\n**Interpretación de Entrenamiento:**")
+
+    cv_disp_lbl = {
+        'es': "\nDispersión de los Folds de Validación:",
+        'en': "\nValidation Folds Dispersion:",
+        'pt': "\nDispersão dos Folds de Validação:"
+    }.get(lang, "\nDispersión de los Folds de Validación:")
+
+    interp_cv_lbl = {
+        'es': "\n**Interpretación de Validación Cruzada:**",
+        'en': "\n**Cross Validation Interpretation:**",
+        'pt': "\n**Interpretação da Validação Cruzada:**"
+    }.get(lang, "\n**Interpretación de Validación Cruzada:**")
+
+    tuning_lbl = {
+        'es': "\n**Optimización (Tuning):**",
+        'en': "\n**Optimization (Tuning):**",
+        'pt': "\n**Otimização (Tuning):**"
+    }.get(lang, "\n**Optimización (Tuning):**")
+
+    interp_stats_lbl = {
+        'es': "\n**Interpretación de Pruebas Estadísticas:**",
+        'en': "\n**Statistical Tests Interpretation:**",
+        'pt': "\n**Interpretação dos Testes Estatísticos:**"
+    }.get(lang, "\n**Interpretación de Pruebas Estadísticas:**")
+
     # 1. Portada
     title_p = doc.add_paragraph()
     title_p.alignment = 1 # Centrado
-    run_title = title_p.add_run("\n\n\n\n🌽 INFORME INTEGRAL DE AUTOML FITOSANITARIO\n")
+    run_title = title_p.add_run(f"\n\n\n\n🌽 {title_lbl.upper()}\n")
     run_title.font.size = Pt(24)
     run_title.bold = True
     run_title.font.color.rgb = RGBColor(16, 185, 129) # Verde
     
     subtitle_p = doc.add_paragraph()
     subtitle_p.alignment = 1
-    run_sub = subtitle_p.add_run("Pipeline de Machine Learning Tabular y Auditoría Fitosanitaria\n\n\n\n")
+    run_sub = subtitle_p.add_run(f"{sub_lbl}\n\n\n\n")
     run_sub.font.size = Pt(14)
     run_sub.font.color.rgb = RGBColor(107, 114, 128) # Gris
     
     info_p = doc.add_paragraph()
     info_p.alignment = 1
-    run_info = info_p.add_run(f"Generado automáticamente el {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nHora local (Perú)\n")
+    run_info = info_p.add_run(f"{gen_lbl}\n")
     run_info.font.size = Pt(11)
     
     doc.add_page_break()
     
     # 2. Sección EDA
-    doc.add_heading("1. Análisis Exploratorio de Datos (EDA)", level=1)
-    doc.add_paragraph("Estadísticas descriptivas generales de las variables numéricas analizadas:")
+    doc.add_heading(eda_heading, level=1)
+    doc.add_paragraph(eda_desc)
     
     # Crear Tabla de EDA
     table_eda = doc.add_table(rows=1, cols=6)
     table_eda.style = 'Light Shading Accent 1'
     hdr_cells = table_eda.rows[0].cells
-    headers = ['Variable', 'Media', 'Mediana', 'Desviación', 'Asimetría', 'Curtosis']
-    for idx, name in enumerate(headers):
+    for idx, name in enumerate(eda_headers):
         hdr_cells[idx].text = name
         
     for var_name, row in df_eda.iterrows():
@@ -177,28 +313,27 @@ def generate_docx_report(df_eda, df_training, cv_results, tuning_results, stats_
         row_cells[4].text = f"{row['asimetría']:.2f}"
         row_cells[5].text = f"{row['curtosis']:.2f}"
         
-    doc.add_paragraph("\nDistribución y Balance de Clases del Dataset:")
+    doc.add_paragraph(eda_lbl)
     if 'balance' in image_paths and os.path.exists(image_paths['balance']):
         doc.add_picture(image_paths['balance'], width=Inches(4.5))
         
-    doc.add_paragraph("\nMatriz de Correlación de Variables:")
+    doc.add_paragraph(corr_lbl)
     if 'correlation' in image_paths and os.path.exists(image_paths['correlation']):
         doc.add_picture(image_paths['correlation'], width=Inches(4.5))
         
-    doc.add_paragraph("\n**Interpretación Técnica de EDA:**")
+    doc.add_paragraph(interp_eda_lbl)
     doc.add_paragraph(interpretations['eda'])
     
     doc.add_page_break()
     
     # 3. Sección Entrenamiento
-    doc.add_heading("2. Fase de Entrenamiento de Modelos", level=1)
-    doc.add_paragraph("Métricas obtenidas por los 3 modelos clásicos y 2 híbridos:")
+    doc.add_heading(train_heading, level=1)
+    doc.add_paragraph(train_desc)
     
     table_train = doc.add_table(rows=1, cols=6)
     table_train.style = 'Light Shading Accent 1'
     hdr_cells = table_train.rows[0].cells
-    hdr_names = ['Modelo', 'Accuracy', 'Precision', 'Recall', 'F1-Score', 'AUC']
-    for idx, name in enumerate(hdr_names):
+    for idx, name in enumerate(train_headers):
         hdr_cells[idx].text = name
         
     for model_name, row in df_training.iterrows():
@@ -210,53 +345,52 @@ def generate_docx_report(df_eda, df_training, cv_results, tuning_results, stats_
         row_cells[4].text = f"{row['F1-Score']:.4f}"
         row_cells[5].text = f"{row['AUC']:.4f}"
         
-    doc.add_paragraph("\nCurvas ROC comparativas:")
+    doc.add_paragraph(roc_lbl)
     if 'roc' in image_paths and os.path.exists(image_paths['roc']):
         doc.add_picture(image_paths['roc'], width=Inches(5.0))
         
-    doc.add_paragraph("\n**Interpretación de Entrenamiento:**")
+    doc.add_paragraph(interp_train_lbl)
     doc.add_paragraph(interpretations['training'])
     
     doc.add_page_break()
     
     # 4. Sección Cross Validation & Tuning
-    doc.add_heading("3. Validación Cruzada y Optimización de Hiperparámetros", level=1)
-    doc.add_paragraph("Estabilidad e hiperparámetros óptimos:")
+    doc.add_heading(cv_heading, level=1)
+    doc.add_paragraph(cv_desc)
     
     # Tabla CV
     table_cv = doc.add_table(rows=1, cols=3)
     table_cv.style = 'Light Shading Accent 1'
     hdr_cells = table_cv.rows[0].cells
-    hdr_cells[0].text = 'Modelo'
-    hdr_cells[1].text = 'Accuracy CV'
-    hdr_cells[2].text = 'F1-Score CV'
-    
+    for idx, name in enumerate(cv_headers):
+        hdr_cells[idx].text = name
+        
     for model_name, res in cv_results.items():
         row_cells = table_cv.add_row().cells
         row_cells[0].text = model_name
         row_cells[1].text = f"{res['mean_accuracy']:.4f} ± {res['std_accuracy']:.4f}"
         row_cells[2].text = f"{res['mean_f1']:.4f} ± {res['std_f1']:.4f}"
         
-    doc.add_paragraph("\nDispersión de los Folds de Validación:")
+    doc.add_paragraph(cv_disp_lbl)
     if 'cv' in image_paths and os.path.exists(image_paths['cv']):
         doc.add_picture(image_paths['cv'], width=Inches(4.5))
         
-    doc.add_paragraph("\n**Interpretación de Validación Cruzada:**")
+    doc.add_paragraph(interp_cv_lbl)
     doc.add_paragraph(interpretations['cv'])
     
-    doc.add_paragraph("\n**Optimización (Tuning):**")
+    doc.add_paragraph(tuning_lbl)
     doc.add_paragraph(interpretations['tuning'])
     
     doc.add_page_break()
     
     # 5. Sección Pruebas Estadísticas
-    doc.add_heading("4. Pruebas de Significancia Estadística", level=1)
-    doc.add_paragraph("Validación estadística de los desempeños:")
+    doc.add_heading(stats_heading, level=1)
+    doc.add_paragraph(stats_desc)
     
     if 'stats' in image_paths and os.path.exists(image_paths['stats']):
         doc.add_picture(image_paths['stats'], width=Inches(4.5))
         
-    doc.add_paragraph("\n**Interpretación de Pruebas Estadísticas:**")
+    doc.add_paragraph(interp_stats_lbl)
     doc.add_paragraph(interpretations['stats'])
     
     doc.save(filepath)
@@ -310,18 +444,33 @@ def clean_pdf_text(text):
 # ---------------------------------------------------------
 # 3. GENERACIÓN DE PDF (.pdf)
 # ---------------------------------------------------------
-def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths, filepath="reports/reporte_automl.pdf"):
+def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths, filepath="reports/reporte_automl.pdf", lang="es"):
     """
     Crea un reporte PDF utilizando fpdf2 que incluye portada, tablas, interpretaciones e imágenes embebidas.
     """
     from fpdf import FPDF
+    from src.translation import t_lang
     
+    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
+    
+    header_title = {
+        'es': 'Informe Integral de AutoML y Diagnóstico Fitosanitario',
+        'en': 'Comprehensive AutoML and Phytosanitary Diagnosis Report',
+        'pt': 'Relatório Integral de AutoML e Diagnóstico Fitossanitário'
+    }.get(lang_key, 'Informe Integral de AutoML y Diagnóstico Fitosanitario')
+
+    page_lbl = {
+        'es': 'Página',
+        'en': 'Page',
+        'pt': 'Página'
+    }.get(lang_key, 'Página')
+
     class AutoMLPDF(FPDF):
         def header(self):
             if self.page_no() > 1:
                 self.set_font('Helvetica', 'I', 8)
                 self.set_text_color(107, 114, 128)
-                self.cell(0, 10, 'Informe Integral de AutoML y Diagnóstico Fitosanitario', 0, 1, 'R')
+                self.cell(0, 10, clean_pdf_text(header_title), 0, 1, 'R')
                 self.set_draw_color(16, 185, 129)
                 self.line(10, 18, 200, 18)
                 self.ln(10)
@@ -330,45 +479,66 @@ def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results,
             self.set_y(-15)
             self.set_font('Helvetica', 'I', 8)
             self.set_text_color(107, 114, 128)
-            self.cell(0, 10, f'Página {self.page_no()}', 0, 0, 'C')
+            self.cell(0, 10, clean_pdf_text(f'{page_lbl} {self.page_no()}'), 0, 0, 'C')
             
     pdf = AutoMLPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     
+    # Textos localizados
+    main_title = t_lang("rep_title", lang)
+    sub_title = t_lang("rep_subtitle", lang)
+    gen_text = t_lang("rep_generated", lang).format(date=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    area_lbl = {
+        'es': 'Área de Sanidad Vegetal - Cultivos de Maíz',
+        'en': 'Plant Health Department - Maize Crops',
+        'pt': 'Área de Sanidade Vegetal - Culturas de Milho'
+    }.get(lang_key, 'Área de Sanidad Vegetal - Cultivos de Maíz')
+
     # --- Portada ---
     pdf.add_page()
-    pdf.set_font('Helvetica', 'B', 24)
+    pdf.set_font('Helvetica', 'B', 20)
     pdf.set_text_color(16, 185, 129) # Verde
     pdf.ln(50)
-    pdf.cell(0, 15, 'INFORME INTEGRAL DE AUTOML', ln=1, align='C')
-    pdf.set_font('Helvetica', 'B', 14)
+    pdf.cell(0, 15, clean_pdf_text(main_title.upper()), ln=1, align='C')
+    pdf.set_font('Helvetica', 'B', 12)
     pdf.set_text_color(107, 114, 128)
-    pdf.cell(0, 10, 'Detección Fitosanitaria y Pipeline Tabular de Maíz', ln=1, align='C')
+    pdf.cell(0, 10, clean_pdf_text(sub_title), ln=1, align='C')
     pdf.ln(60)
     pdf.set_font('Helvetica', '', 10)
     pdf.set_text_color(31, 41, 55)
-    pdf.cell(0, 6, f'Generado automáticamente: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', ln=1, align='C')
-    pdf.cell(0, 6, 'Área de Sanidad Vegetal - Cultivos de Maíz', ln=1, align='C')
+    pdf.cell(0, 6, clean_pdf_text(gen_text), ln=1, align='C')
+    pdf.cell(0, 6, clean_pdf_text(area_lbl), ln=1, align='C')
     
     # --- Página 2: EDA ---
     pdf.add_page()
     pdf.set_font('Helvetica', 'B', 16)
     pdf.set_text_color(16, 185, 129)
-    pdf.cell(0, 10, '1. Análisis Exploratorio de Datos (EDA)', ln=1)
+    pdf.cell(0, 10, clean_pdf_text(t_lang("rep_eda_section", lang)), ln=1)
     pdf.ln(5)
     
     pdf.set_font('Helvetica', '', 10)
     pdf.set_text_color(31, 41, 55)
-    pdf.multi_cell(0, 6, 'Estadísticos descriptivos de las variables numéricas del dataset de cultivo:')
+    eda_desc = {
+        'es': "Estadísticos descriptivos de las variables numéricas del dataset de cultivo:",
+        'en': "Descriptive statistics of the numerical variables of the crop dataset:",
+        'pt': "Estatísticas descritivas das variáveis numéricas do conjunto de dados de cultivo:"
+    }.get(lang_key, "Estadísticos descriptivos de las variables numéricas del dataset de cultivo:")
+    pdf.multi_cell(0, 6, clean_pdf_text(eda_desc))
     pdf.ln(3)
     
     # Tabla EDA en PDF
     pdf.set_font('Helvetica', 'B', 9)
     pdf.set_fill_color(240, 240, 240)
-    headers = ['Variable', 'Media', 'Mediana', 'Desv.', 'Asim.', 'Curt.']
+    
+    eda_headers = {
+        'es': ['Variable', 'Media', 'Mediana', 'Desv.', 'Asim.', 'Curt.'],
+        'en': ['Variable', 'Mean', 'Median', 'Std Dev', 'Skew', 'Kurt.'],
+        'pt': ['Variável', 'Média', 'Mediana', 'Desvio', 'Assim.', 'Curtose']
+    }.get(lang_key, ['Variable', 'Media', 'Mediana', 'Desv.', 'Asim.', 'Curt.'])
+
     col_widths = [45, 30, 30, 30, 25, 25]
-    for w, h in zip(col_widths, headers):
-        pdf.cell(w, 8, h, border=1, align='C', fill=True)
+    for w, h in zip(col_widths, eda_headers):
+        pdf.cell(w, 8, clean_pdf_text(h), border=1, align='C', fill=True)
     pdf.ln()
     
     pdf.set_font('Helvetica', '', 9)
@@ -396,7 +566,12 @@ def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results,
         pdf.ln(3)
         
     pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(0, 6, 'Interpretación Técnica del EDA:', ln=1)
+    interp_eda_title = {
+        'es': 'Interpretación Técnica del EDA:',
+        'en': 'EDA Technical Interpretation:',
+        'pt': 'Interpretação Técnica do EDA:'
+    }.get(lang_key, 'Interpretación Técnica del EDA:')
+    pdf.cell(0, 6, clean_pdf_text(interp_eda_title), ln=1)
     pdf.set_font('Helvetica', '', 9)
     pdf.multi_cell(0, 5, clean_pdf_text(interpretations['eda'].replace('**', '')))
     
@@ -404,16 +579,22 @@ def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results,
     pdf.add_page()
     pdf.set_font('Helvetica', 'B', 16)
     pdf.set_text_color(16, 185, 129)
-    pdf.cell(0, 10, '2. Fase de Entrenamiento y Comparación', ln=1)
+    pdf.cell(0, 10, clean_pdf_text(t_lang("rep_train_section", lang)), ln=1)
     pdf.ln(5)
     
     # Tabla Entrenamiento
     pdf.set_font('Helvetica', 'B', 8)
     pdf.set_fill_color(240, 240, 240)
-    hdr_train = ['Modelo', 'Accuracy', 'Precision', 'Recall', 'F1-Score', 'AUC']
+    
+    train_headers = {
+        'es': ['Modelo', 'Accuracy', 'Precision', 'Recall', 'F1-Score', 'AUC'],
+        'en': ['Model', 'Accuracy', 'Precision', 'Recall', 'F1-Score', 'AUC'],
+        'pt': ['Modelo', 'Acurácia', 'Precisão', 'Recall', 'F1-Score', 'AUC']
+    }.get(lang_key, ['Modelo', 'Accuracy', 'Precision', 'Recall', 'F1-Score', 'AUC'])
+
     col_w_train = [55, 27, 27, 27, 27, 27]
-    for w, h in zip(col_w_train, hdr_train):
-        pdf.cell(w, 8, h, border=1, align='C', fill=True)
+    for w, h in zip(col_w_train, train_headers):
+        pdf.cell(w, 8, clean_pdf_text(h), border=1, align='C', fill=True)
     pdf.ln()
     
     pdf.set_font('Helvetica', '', 8)
@@ -438,7 +619,12 @@ def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results,
         pdf.ln(3)
         
     pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(0, 6, 'Interpretación de Entrenamiento:', ln=1)
+    interp_train_title = {
+        'es': 'Interpretación de Entrenamiento:',
+        'en': 'Training Interpretation:',
+        'pt': 'Interpretação do Treinamento:'
+    }.get(lang_key, 'Interpretación de Entrenamiento:')
+    pdf.cell(0, 6, clean_pdf_text(interp_train_title), ln=1)
     pdf.set_font('Helvetica', '', 9)
     pdf.multi_cell(0, 5, clean_pdf_text(interpretations['training'].replace('**', '')))
     
@@ -446,7 +632,14 @@ def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results,
     pdf.add_page()
     pdf.set_font('Helvetica', 'B', 16)
     pdf.set_text_color(16, 185, 129)
-    pdf.cell(0, 10, '3. Validación Cruzada, Tuning y Pruebas Estadísticas', ln=1)
+    
+    section_3_title = {
+        'es': '3. Validación Cruzada, Tuning y Pruebas Estadísticas',
+        'en': '3. Cross Validation, Tuning and Statistical Tests',
+        'pt': '3. Validação Cruzada, Tuning e Testes Estatísticos'
+    }.get(lang_key, '3. Validación Cruzada, Tuning y Pruebas Estadísticas')
+    
+    pdf.cell(0, 10, clean_pdf_text(section_3_title), ln=1)
     pdf.ln(5)
     
     has_cv_stats = False
@@ -463,13 +656,23 @@ def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results,
         pdf.ln(3)
         
     pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(0, 6, 'Interpretación de Validación y Tuning:', ln=1)
+    interp_cv_title = {
+        'es': 'Interpretación de Validación y Tuning:',
+        'en': 'Validation and Tuning Interpretation:',
+        'pt': 'Interpretação de Validação e Tuning:'
+    }.get(lang_key, 'Interpretación de Validación y Tuning:')
+    pdf.cell(0, 6, clean_pdf_text(interp_cv_title), ln=1)
     pdf.set_font('Helvetica', '', 9)
     pdf.multi_cell(0, 5, clean_pdf_text(interpretations['cv'].replace('**', '') + "\n" + interpretations['tuning'].replace('**', '')))
     
     pdf.ln(5)
     pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(0, 6, 'Interpretación de Pruebas de Significancia Estadística:', ln=1)
+    interp_stats_title = {
+        'es': 'Interpretación de Pruebas de Significancia Estadística:',
+        'en': 'Statistical Significance Tests Interpretation:',
+        'pt': 'Interpretação de Testes de Significância Estatística:'
+    }.get(lang_key, 'Interpretación de Pruebas de Significancia Estadística:')
+    pdf.cell(0, 6, clean_pdf_text(interp_stats_title), ln=1)
     pdf.set_font('Helvetica', '', 9)
     pdf.multi_cell(0, 5, clean_pdf_text(interpretations['stats'].replace('**', '')))
     
@@ -478,13 +681,14 @@ def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results,
 # ---------------------------------------------------------
 # 4. REPORTES PARA DIAGNÓSTICO POR IMÁGENES (WORD & EXCEL)
 # ---------------------------------------------------------
-def generate_image_docx_report(image, predictions, uploaded_filename, consensus_reached, consensus_diagnosis, filepath="reports/reporte_imagen.docx"):
+def generate_image_docx_report(image, predictions, uploaded_filename, consensus_reached, consensus_diagnosis, filepath="reports/reporte_imagen.docx", lang="es"):
     from docx import Document
     from docx.shared import Inches, Pt, RGBColor
     import tempfile
     from datetime import datetime
     import matplotlib.pyplot as plt
     import numpy as np
+    from src.translation import t_lang, translate_class_lang
     
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     
@@ -496,38 +700,148 @@ def generate_image_docx_report(image, predictions, uploaded_filename, consensus_
     font.name = 'Arial'
     font.size = Pt(11)
     
+    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
+    
+    # Textos localizados
+    title_lbl = {
+        'es': "INFORME DE DIAGNÓSTICO FITOSANITARIO",
+        'en': "PHYTOSANITARY DIAGNOSIS REPORT",
+        'pt': "RELATÓRIO DE DIAGNÓSTICO FITOSSANITÁRIO"
+    }.get(lang_key, "INFORME DE DIAGNÓSTICO FITOSANITARIO")
+
+    sub_lbl = {
+        'es': "Detección Automática de Patologías en Hojas de Maíz",
+        'en': "Automatic Detection of Pathologies in Maize Leaves",
+        'pt': "Detecção Automática de Patologias em Folhas de Milho"
+    }.get(lang_key, "Detección Automática de Patologías en Hojas de Maíz")
+
+    info_lbl = {
+        'es': "Archivo analizado: {file}\nFecha y hora: {date} (Hora local)\nÁrea de Sanidad Vegetal\n",
+        'en': "Analyzed file: {file}\nDate and time: {date} (Local time)\nPlant Health Department\n",
+        'pt': "Arquivo analisado: {file}\nData e hora: {date} (Hora local)\nÁrea de Sanidade Vegetal\n"
+    }.get(lang_key)
+
+    section_1_title = {
+        'es': "1. Diagnóstico Principal por Consenso",
+        'en': "1. Main Consensus Diagnosis",
+        'pt': "1. Diagnóstico Principal por Consenso"
+    }.get(lang_key)
+
+    section_1_desc = {
+        'es': "Resultado de la clasificación combinada de múltiples redes neuronales convolucionales:",
+        'en': "Result of the combined classification of multiple convolutional neural networks:",
+        'pt': "Resultado da classificação combinada de múltiplas redes neurais convolucionais:"
+    }.get(lang_key)
+
+    section_2_title = {
+        'es': "2. Imagen de la Hoja de Maíz Analizada",
+        'en': "2. Image of the Analyzed Maize Leaf",
+        'pt': "2. Imagem da Folha de Milho Analisada"
+    }.get(lang_key)
+
+    err_img_lbl = {
+        'es': "[Error incrustando la imagen: {e}]",
+        'en': "[Error embedding image: {e}]",
+        'pt': "[Erro ao incorporar imagem: {e}]"
+    }.get(lang_key)
+
+    section_3_title = {
+        'es': "2. Resultados Detallados de los Modelos",
+        'en': "2. Detailed Model Results",
+        'pt': "2. Resultados Detalhados dos Modelos"
+    }.get(lang_key)
+
+    section_3_desc = {
+        'es': "Métricas y predicciones individuales de cada red neuronal entrenada:",
+        'en': "Individual metrics and predictions of each trained neural network:",
+        'pt': "Métricas e previsões individuais de cada rede neural treinada:"
+    }.get(lang_key)
+
+    section_4_title = {
+        'es': "3. Análisis Comparativo de Predicciones",
+        'en': "3. Comparative Prediction Analysis",
+        'pt': "3. Análise Comparativa de Previsões"
+    }.get(lang_key)
+
+    table_headers = {
+        'es': ['Modelo de IA', 'Diagnóstico', 'Confianza', 'Estado General'],
+        'en': ['AI Model', 'Diagnosis', 'Confidence', 'General Status'],
+        'pt': ['Modelo de IA', 'Diagnóstico', 'Confiança', 'Estado Geral']
+    }.get(lang_key)
+
+    healthy_lbl = {
+        'es': 'Saludable',
+        'en': 'Healthy',
+        'pt': 'Saudável'
+    }.get(lang_key)
+
+    infected_lbl = {
+        'es': 'Infección Detectada',
+        'en': 'Infection Detected',
+        'pt': 'Infecção Detectada'
+    }.get(lang_key)
+
+    general_recs_title = {
+        'es': "5. Recomendaciones Generales del Sistema",
+        'en': "5. General System Recommendations",
+        'pt': "5. Recomendações Gerais do Sistema"
+    }.get(lang_key)
+
+    disclaimer_title = {
+        'es': "⚠️ Limitaciones y Responsabilidad",
+        'en': "⚠️ Limitations and Liability",
+        'pt': "⚠️ Limitações e Responsabilidade"
+    }.get(lang_key)
+
+    disclaimer_text = {
+        'es': "Este sistema es una herramienta de soporte analítico basada en redes neuronales. Los resultados deben ser confirmados visualmente en campo por ingenieros agrónomos o técnicos fitosanitarios calificados antes de realizar aplicaciones masivas de tratamientos.",
+        'en': "This system is an analytical support tool based on neural networks. Results must be visually confirmed in the field by qualified agronomists or phytosanitary technicians before performing massive treatment applications.",
+        'pt': "Este sistema é uma ferramenta de suporte analítico baseada em redes neurais. Os resultados devem ser confirmados visualmente em campo por engenheiros agrônomos ou técnicos fitossanitários qualificados antes de realizar aplicações massivas de tratamentos."
+    }.get(lang_key)
+
     # --- PÁGINA 1: PORTADA ---
     title_p = doc.add_paragraph()
     title_p.alignment = 1 # Centrado
-    run_title = title_p.add_run("\n\n\n\n🌽 INFORME DE DIAGNÓSTICO FITOSANITARIO\n")
+    run_title = title_p.add_run(f"\n\n\n\n🌽 {title_lbl}\n")
     run_title.font.size = Pt(22)
     run_title.bold = True
     run_title.font.color.rgb = RGBColor(46, 139, 87) # Verde
     
     subtitle_p = doc.add_paragraph()
     subtitle_p.alignment = 1
-    run_sub = subtitle_p.add_run("Detección Automática de Patologías en Hojas de Maíz\n\n\n\n")
+    run_sub = subtitle_p.add_run(f"{sub_lbl}\n\n\n\n")
     run_sub.font.size = Pt(13)
     run_sub.font.color.rgb = RGBColor(100, 100, 100)
     
     info_p = doc.add_paragraph()
     info_p.alignment = 1
-    run_info = info_p.add_run(f"Archivo analizado: {uploaded_filename}\nFecha y hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} (Hora local)\nÁrea de Sanidad Vegetal\n")
+    run_info = info_p.add_run(info_lbl.format(file=uploaded_filename, date=datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     run_info.font.size = Pt(10)
     
     doc.add_page_break()
     
     # --- PÁGINA 2: DIAGNÓSTICO PRINCIPAL ---
-    doc.add_heading("1. Diagnóstico Principal por Consenso", level=1)
-    doc.add_paragraph("Resultado de la clasificación combinada de múltiples redes neuronales convolucionales:")
+    doc.add_heading(section_1_title, level=1)
+    doc.add_paragraph(section_1_desc)
     
     # Cuadro de Consenso
     p_cons = doc.add_paragraph()
     if consensus_reached:
-        res_text = f"DIAGNÓSTICO GENERAL: {consensus_diagnosis.upper()}"
+        translated_diag = translate_class_lang(consensus_diagnosis, lang_key)
+        diag_title = {
+            'es': 'DIAGNÓSTICO GENERAL',
+            'en': 'GENERAL DIAGNOSIS',
+            'pt': 'DIAGNÓSTICO GERAL'
+        }.get(lang_key, 'DIAGNÓSTICO GENERAL')
+        res_text = f"{diag_title}: {translated_diag.upper()}"
         color = RGBColor(46, 139, 87) if consensus_diagnosis == "Sano" else RGBColor(185, 28, 28)
     else:
-        res_text = "DIAGNÓSTICO GENERAL: SIN CONSENSO DEFINIDO"
+        no_cons_text = {
+            'es': 'DIAGNÓSTICO GENERAL: SIN CONSENSO DEFINIDO',
+            'en': 'GENERAL DIAGNOSIS: NO CONSENSUS DEFINED',
+            'pt': 'DIAGNÓSTICO GERAL: SEM CONSENSO DEFINIDO'
+        }.get(lang_key, 'DIAGNÓSTICO GENERAL: SIN CONSENSO DEFINIDO')
+        res_text = no_cons_text
         color = RGBColor(217, 119, 6)
     run_cons = p_cons.add_run(f"\n   {res_text}   \n")
     run_cons.bold = True
@@ -535,7 +849,7 @@ def generate_image_docx_report(image, predictions, uploaded_filename, consensus_
     run_cons.font.color.rgb = color
     
     # Imagen de la hoja
-    doc.add_heading("2. Imagen de la Hoja de Maíz Analizada", level=2)
+    doc.add_heading(section_2_title, level=2)
     try:
         from PIL import Image
         temp_img = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
@@ -547,13 +861,13 @@ def generate_image_docx_report(image, predictions, uploaded_filename, consensus_
         doc.add_picture(temp_img_name, width=Inches(3.2))
         os.remove(temp_img_name)
     except Exception as e:
-        doc.add_paragraph(f"[Error incrustando la imagen: {e}]")
+        doc.add_paragraph(err_img_lbl.format(e=e))
         
     doc.add_page_break()
     
     # --- PÁGINA 3: RESULTADOS DETALLADOS POR MODELO ---
-    doc.add_heading("2. Resultados Detallados de los Modelos", level=1)
-    doc.add_paragraph("Métricas y predicciones individuales de cada red neuronal entrenada:")
+    doc.add_heading(section_3_title, level=1)
+    doc.add_paragraph(section_3_desc)
     
     # Gráficos de barras individuales por modelo
     class_names = ["Mancha gris", "Roña común", "Tizón del norte", "Sano"]
@@ -563,7 +877,8 @@ def generate_image_docx_report(image, predictions, uploaded_filename, consensus_
         for model_name, pred in predictions.items():
             fig, ax = plt.subplots(figsize=(6, 3))
             colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#16A34A']
-            bars = ax.bar(class_names, pred['probabilities'], color=colors, alpha=0.8)
+            translated_class_names = [translate_class_lang(name, lang_key) for name in class_names]
+            bars = ax.bar(translated_class_names, pred['probabilities'], color=colors, alpha=0.8)
             ax.set_title(f'Modelo {model_name}', fontsize=10, fontweight='bold')
             ax.set_ylim(0, 1)
             ax.grid(True, alpha=0.2, axis='y')
@@ -585,7 +900,18 @@ def generate_image_docx_report(image, predictions, uploaded_filename, consensus_
         # Incrustar en Word
         for idx, (model_name, pred) in enumerate(predictions.items()):
             doc.add_heading(f"Modelo: {model_name}", level=2)
-            doc.add_paragraph(f"Predicción: {pred['class']} | Confianza: {pred['confidence']:.2%}")
+            trans_class = translate_class_lang(pred['class'], lang_key)
+            pred_lbl = {
+                'es': 'Predicción',
+                'en': 'Prediction',
+                'pt': 'Previsão'
+            }.get(lang_key, 'Predicción')
+            conf_lbl = {
+                'es': 'Confianza',
+                'en': 'Confidence',
+                'pt': 'Confiança'
+            }.get(lang_key, 'Confianza')
+            doc.add_paragraph(f"{pred_lbl}: {trans_class} | {conf_lbl}: {pred['confidence']:.2%}")
             if idx < len(temp_graph_paths) and os.path.exists(temp_graph_paths[idx]):
                 doc.add_picture(temp_graph_paths[idx], width=Inches(4.5))
                 os.remove(temp_graph_paths[idx])
@@ -593,121 +919,311 @@ def generate_image_docx_report(image, predictions, uploaded_filename, consensus_
     except Exception as e:
         doc.add_paragraph(f"[Error generando gráficos: {e}]")
         
-    # Eliminamos el salto de página forzado aquí para flujo continuo
-    
     # --- PÁGINA 4: TABLA COMPARATIVA Y ENFERMEDADES ---
-    doc.add_heading("3. Análisis Comparativo de Predicciones", level=1)
+    doc.add_heading(section_4_title, level=1)
     
     table = doc.add_table(rows=1, cols=4)
     table.style = 'Light Shading Accent 1'
     hdr_cells = table.rows[0].cells
-    hdr_cells[0].text = 'Modelo de IA'
-    hdr_cells[1].text = 'Diagnóstico'
-    hdr_cells[2].text = 'Confianza'
-    hdr_cells[3].text = 'Estado General'
-    
+    for i, h_name in enumerate(table_headers):
+        hdr_cells[i].text = h_name
+        
     for model_name, pred in predictions.items():
         row_cells = table.add_row().cells
         row_cells[0].text = model_name
-        row_cells[1].text = pred['class']
+        row_cells[1].text = translate_class_lang(pred['class'], lang_key)
         row_cells[2].text = f"{pred['confidence']:.2%}"
-        row_cells[3].text = 'Saludable' if pred['class'] == 'Sano' else 'Infección Detectada'
+        row_cells[3].text = healthy_lbl if pred['class'] == 'Sano' else infected_lbl
         
     # Información sobre la patología
     if consensus_reached and consensus_diagnosis != "Sano":
-        doc.add_heading(f"4. Información Técnica sobre: {consensus_diagnosis}", level=2)
+        info_tech_title = {
+            'es': "4. Información Técnica sobre: {diag}",
+            'en': "4. Technical Information on: {diag}",
+            'pt': "4. Informações Técnicas sobre: {diag}"
+        }.get(lang_key, "4. Información Técnica sobre: {diag}").format(diag=translate_class_lang(consensus_diagnosis, lang_key))
+        doc.add_heading(info_tech_title, level=2)
         
         disease_info = {
-            "Tizón del norte": {
-                "desc": "Causado por Exserohilum turcicum. Provoca lesiones alargadas en forma de cigarro de color marrón-grisáceo.",
-                "recs": ["Consultar con un fitopatólogo.", "Aplicación foliar preventiva de fungicidas.", "Uso de semillas híbridas con tolerancia genética."]
+            'es': {
+                "Tizón del norte": {
+                    "desc": "Causado por Exserohilum turcicum. Provoca lesiones alargadas en forma de cigarro de color marrón-grisáceo.",
+                    "recs": ["Consultar con un fitopatólogo.", "Aplicación foliar preventiva de fungicidas.", "Uso de semillas híbridas con tolerancia genética."]
+                },
+                "Roña común": {
+                    "desc": "Causado por Puccinia sorghi. Produce pústulas circulares de color rojizo-marrón en ambas caras de las hojas.",
+                    "recs": ["Eliminar malezas hospederas.", "Monitorear roció matutino.", "Aplicación temprana de compuestos cúpricos."]
+                },
+                "Roya común": {
+                    "desc": "Causado por Puccinia sorghi. Produce pústulas circulares de color rojizo-marrón en ambas caras de las hojas.",
+                    "recs": ["Eliminar malezas hospederas.", "Monitorear roció matutino.", "Aplicación temprana de compuestos cúpricos."]
+                },
+                "Mancha gris": {
+                    "desc": "Causado por Cercospora zeae-maydis. Provoca lesiones rectangulares delimitadas por las venas foliares.",
+                    "recs": ["Rotación de cultivos por 2 temporadas.", "Mejora del drenaje.", "Fungicidas sistémicos en etapas vegetativas."]
+                }
             },
-            "Roña común": {
-                "desc": "Causado por Puccinia sorghi. Produce pústulas circulares de color rojizo-marrón en ambas caras de las hojas.",
-                "recs": ["Eliminar malezas hospederas.", "Monitorear roció matutino.", "Aplicación temprana de compuestos cúpricos."]
+            'en': {
+                "Tizón del norte": {
+                    "desc": "Caused by Exserohilum turcicum. Causes elongated cigar-shaped, grayish-brown lesions.",
+                    "recs": ["Consult with a plant pathologist.", "Preventive foliar fungicide application.", "Use of hybrid seeds with genetic tolerance."]
+                },
+                "Roña común": {
+                    "desc": "Caused by Puccinia sorghi. Produces circular, reddish-brown pustules on both leaf surfaces.",
+                    "recs": ["Eliminate host weeds.", "Monitor morning dew.", "Early application of copper-based compounds."]
+                },
+                "Roya común": {
+                    "desc": "Caused by Puccinia sorghi. Produces circular, reddish-brown pustules on both leaf surfaces.",
+                    "recs": ["Eliminate host weeds.", "Monitor morning dew.", "Early application of copper-based compounds."]
+                },
+                "Mancha gris": {
+                    "desc": "Caused by Cercospora zeae-maydis. Causes rectangular lesions restricted by leaf veins.",
+                    "recs": ["Crop rotation for 2 seasons.", "Improve drainage.", "Systemic fungicides in vegetative stages."]
+                }
             },
-            "Mancha gris": {
-                "desc": "Causado por Cercospora zeae-maydis. Provoca lesiones rectangulares delimitadas por las venas foliares.",
-                "recs": ["Rotación de cultivos por 2 temporadas.", "Mejora del drenaje.", "Fungicidas sistémicos en etapas vegetativas."]
+            'pt': {
+                "Tizón del norte": {
+                    "desc": "Causado por Exserohilum turcicum. Provoca lesões alongadas em forma de charuto de cor marrom-acinzentada.",
+                    "recs": ["Consultar um fitopatologista.", "Aplicação foliar preventiva de fungicidas.", "Uso de sementes híbridas com tolerância genética."]
+                },
+                "Roña común": {
+                    "desc": "Causado por Puccinia sorghi. Produz pústulas circulares de cor marrom-avermelhada em ambas as superfícies da folha.",
+                    "recs": ["Eliminar ervas daninhas hospedeiras.", "Monitorar o orvalho matinal.", "Aplicação precoce de compostos à base de cobre."]
+                },
+                "Roya común": {
+                    "desc": "Causado por Puccinia sorghi. Produz pústulas circulares de cor marrom-avermelhada em ambas as superfícies da folha.",
+                    "recs": ["Eliminar ervas daninhas hospedeiras.", "Monitorar o orvalho matinal.", "Aplicação precoce de compostos à base de cobre."]
+                },
+                "Mancha gris": {
+                    "desc": "Causado por Cercospora zeae-maydis. Provoca lesões retangulares delimitadas pelas nervuras foliares.",
+                    "recs": ["Rotação de culturas por 2 safras.", "Melhoria da drenagem.", "Fungicidas sistêmicos nos estágios vegetativos."]
+                }
             }
-        }
+        }.get(lang_key, {})
         
-        if consensus_diagnosis in disease_info:
-            d = disease_info[consensus_diagnosis]
-            doc.add_paragraph(f"**Descripción:** {d['desc']}")
-            doc.add_heading("Recomendaciones de Manejo:", level=3)
+        # normalization of key
+        lookup_diag = consensus_diagnosis
+        if lookup_diag not in disease_info and lookup_diag == "Roya común" and "Roña común" in disease_info:
+            lookup_diag = "Roña común"
+        elif lookup_diag not in disease_info and lookup_diag == "Roña común" and "Roya común" in disease_info:
+            lookup_diag = "Roya común"
+            
+        if lookup_diag in disease_info:
+            d = disease_info[lookup_diag]
+            desc_lbl = {
+                'es': 'Descripción',
+                'en': 'Description',
+                'pt': 'Descrição'
+            }.get(lang_key, 'Descripción')
+            recs_mgmt_lbl = {
+                'es': 'Recomendaciones de Manejo:',
+                'en': 'Management Recommendations:',
+                'pt': 'Recomendações de Manejo:'
+            }.get(lang_key, 'Recomendaciones de Manejo:')
+            doc.add_paragraph(f"**{desc_lbl}:** {d['desc']}")
+            doc.add_heading(recs_mgmt_lbl, level=3)
             for r in d['recs']:
                 doc.add_paragraph(f"- {r}")
                 
-    # Eliminamos salto de página para flujo continuo
-    
     # --- RECOMENDACIONES GENERALES Y DISCLAIMER ---
-    doc.add_heading("5. Recomendaciones Generales del Sistema", level=1)
+    doc.add_heading(general_recs_title, level=1)
     
     if consensus_reached and consensus_diagnosis == "Sano":
-        recs = [
-            "Continuar con las prácticas de manejo actuales.",
-            "Realizar monitoreos preventivos regulares cada 7-10 días.",
-            "Mantener condiciones óptimas de cultivo (riego, fertilización).",
-            "Inspeccionar las hojas inferiores que tienen contacto directo con la humedad del suelo."
-        ]
+        recs = {
+            'es': [
+                "Continuar con las prácticas de manejo actuales.",
+                "Realizar monitoreos preventivos regulares cada 7-10 días.",
+                "Mantener condiciones óptimas de cultivo (riego, fertilización).",
+                "Inspeccionar las hojas inferiores que tienen contacto directo con la humedad del suelo."
+            ],
+            'en': [
+                "Continue with current management practices.",
+                "Perform regular preventive monitoring every 7-10 days.",
+                "Maintain optimal crop conditions (irrigation, fertilization).",
+                "Inspect lower leaves that have direct contact with soil moisture."
+            ],
+            'pt': [
+                "Continuar com as práticas de manejo atuais.",
+                "Realizar monitoramentos preventivos regulares a cada 7-10 dias.",
+                "Saúde ideal do milho (irrigação, fertilização).",
+                "Inspecionar as folhas inferiores que têm contato direto com a umidade do solo."
+            ]
+        }.get(lang_key, [])
     elif consensus_reached:
-        recs = [
-            "Aislar de inmediato la zona de cultivo afectada para evitar la propagación foliar por viento.",
-            "Considerar tratamientos preventivos con fungicidas orgánicos o químicos regulados.",
-            "Evitar el riego por aspersión directo al follaje en horas de la tarde para reducir humedad retenida.",
-            "Documentar la evolución de las hojas con fotografías diarias."
-        ]
+        recs = {
+            'es': [
+                "Aislar de inmediato la zona de cultivo afectada para evitar la propagación foliar por viento.",
+                "Considerar tratamientos preventivos con fungicidas orgánicos o químicos regulados.",
+                "Evitar el riego por aspersión directo al follaje en horas de la tarde para reducir humedad retenida.",
+                "Documentar la evolución de las hojas con fotografías diarias."
+            ],
+            'en': [
+                "Immediately isolate the affected crop area to prevent foliar spread by wind.",
+                "Consider preventive treatments with organic or regulated chemical fungicides.",
+                "Avoid overhead irrigation directly onto foliage in the late afternoon to reduce retained moisture.",
+                "Document the evolution of leaves with daily photographs."
+            ],
+            'pt': [
+                "Isolar imediatamente a área de cultivo afetada para evitar a propagação foliar pelo vento.",
+                "Considerar tratamentos preventivos com fungicidas orgânicos ou químicos regulamentados.",
+                "Evitar a irrigação por aspersão direta na folhagem no final da tarde para reduzir a umidade retida.",
+                "Documentar a evolução das folhas com fotografias diárias."
+            ]
+        }.get(lang_key, [])
     else:
-        recs = [
-            "Tomar una nueva imagen con mejor iluminación y enfoque central en la patología.",
-            "Asegurar que la hoja no tenga reflejos de luz solar excesivos al momento de capturar.",
-            "Realizar análisis de suelo para descartar deficiencias de nutrientes simulando necrosis foliar."
-        ]
+        recs = {
+            'es': [
+                "Tomar una nueva imagen con mejor iluminación y enfoque central en la patología.",
+                "Asegurar que la hoja no tenga reflejos de luz solar excesivos al momento de capturar.",
+                "Realizar análisis de suelo para descartar deficiencias de nutrientes simulando necrosis foliar."
+            ],
+            'en': [
+                "Take a new image with better lighting and a central focus on the pathology.",
+                "Ensure the leaf does not have excessive sunlight reflections when capturing.",
+                "Perform soil analysis to rule out nutrient deficiencies simulating leaf necrosis."
+            ],
+            'pt': [
+                "Tirar uma nova imagem com melhor iluminação e foco central na patologia.",
+                "Garantir que a folha não tenha reflexos excessivos de luz solar no momento da captura.",
+                "Realizar análise de solo para descartar deficiências de nutrientes simulando necrose foliar."
+            ]
+        }.get(lang_key, [])
         
     for r in recs:
         doc.add_paragraph(f"- {r}")
         
-    doc.add_heading("⚠️ Limitaciones y Responsabilidad", level=2)
-    doc.add_paragraph("Este sistema es una herramienta de soporte analítico basada en redes neuronales. Los resultados deben ser confirmados visualmente en campo por ingenieros agrónomos o técnicos fitosanitarios calificados antes de realizar aplicaciones masivas de tratamientos.")
+    doc.add_heading(disclaimer_title, level=2)
+    doc.add_paragraph(disclaimer_text)
     
     doc.save(filepath)
     return filepath
 
 
-def generate_image_xlsx_report(predictions, uploaded_filename, consensus_reached, consensus_diagnosis, filepath="reports/reporte_imagen.xlsx"):
+def generate_image_xlsx_report(predictions, uploaded_filename, consensus_reached, consensus_diagnosis, filepath="reports/reporte_imagen.xlsx", lang="es"):
     import pandas as pd
     from datetime import datetime
+    from src.translation import t_lang, translate_class_lang
     
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     
+    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
+    
+    # Textos localizados
+    var_col = {
+        'es': 'Variable',
+        'en': 'Variable',
+        'pt': 'Variável'
+    }.get(lang_key)
+    
+    val_col = {
+        'es': 'Valor',
+        'en': 'Value',
+        'pt': 'Valor'
+    }.get(lang_key)
+
+    variables = {
+        'es': ['Archivo Analizado', 'Fecha de Análisis', 'Consenso Alcanzado', 'Diagnóstico Final', 'Estado General'],
+        'en': ['Analyzed File', 'Analysis Date', 'Consensus Reached', 'Final Diagnosis', 'General Status'],
+        'pt': ['Arquivo Analisado', 'Data da Análise', 'Consenso Atingido', 'Diagnóstico Final', 'Estado Geral']
+    }.get(lang_key)
+
+    yes_lbl = {
+        'es': 'SÍ',
+        'en': 'YES',
+        'pt': 'SIM'
+    }.get(lang_key)
+
+    no_lbl = {
+        'es': 'NO',
+        'en': 'NO',
+        'pt': 'NÃO'
+    }.get(lang_key)
+
+    no_cons_lbl = {
+        'es': 'Sin Consenso',
+        'en': 'No Consensus',
+        'pt': 'Sem Consenso'
+    }.get(lang_key)
+
+    healthy_lbl = {
+        'es': 'Saludable (Sano)',
+        'en': 'Healthy',
+        'pt': 'Saudável'
+    }.get(lang_key)
+
+    infected_lbl = {
+        'es': 'Infectado (Enfermo)',
+        'en': 'Infected (Ill)',
+        'pt': 'Infectado (Doente)'
+    }.get(lang_key)
+
+    not_det_lbl = {
+        'es': 'No Determinado',
+        'en': 'Not Determined',
+        'pt': 'Não Determinado'
+    }.get(lang_key)
+
+    # Diagnostico values
+    final_diag = translate_class_lang(consensus_diagnosis, lang_key) if consensus_diagnosis else no_cons_lbl
+    general_status = healthy_lbl if consensus_diagnosis == 'Sano' else infected_lbl if consensus_reached else not_det_lbl
+    
+    resumen_sheet = {
+        'es': 'Diagnostico',
+        'en': 'Diagnosis',
+        'pt': 'Diagnóstico'
+    }.get(lang_key)
+
+    preds_sheet = {
+        'es': 'Predicciones por Modelo',
+        'en': 'Predictions by Model',
+        'pt': 'Previsões por Modelo'
+    }.get(lang_key)
+
+    model_hdr = {
+        'es': 'Modelo',
+        'en': 'Model',
+        'pt': 'Modelo'
+    }.get(lang_key)
+
+    pred_class_hdr = {
+        'es': 'Clase Predicha',
+        'en': 'Predicted Class',
+        'pt': 'Classe Prevista'
+    }.get(lang_key)
+
+    confidence_hdr = {
+        'es': 'Confianza',
+        'en': 'Confidence',
+        'pt': 'Confiança'
+    }.get(lang_key)
+
     with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
         # Pestaña 1: Resumen de Diagnóstico
         resumen_data = {
-            'Variable': ['Archivo Analizado', 'Fecha de Análisis', 'Consenso Alcanzado', 'Diagnóstico Final', 'Estado General'],
-            'Valor': [
+            var_col: variables,
+            val_col: [
                 uploaded_filename,
                 datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'SÍ' if consensus_reached else 'NO',
-                consensus_diagnosis if consensus_diagnosis else 'Sin Consenso',
-                'Saludable (Sano)' if consensus_diagnosis == 'Sano' else 'Infectado (Enfermo)' if consensus_reached else 'No Determinado'
+                yes_lbl if consensus_reached else no_lbl,
+                final_diag,
+                general_status
             ]
         }
-        pd.DataFrame(resumen_data).to_excel(writer, sheet_name='Diagnostico', index=False)
+        pd.DataFrame(resumen_data).to_excel(writer, sheet_name=resumen_sheet, index=False)
         
         # Pestaña 2: Predicciones Detalladas
         preds_data = []
         for model_name, pred in predictions.items():
             preds_data.append({
-                'Modelo': model_name,
-                'Clase Predicha': pred['class'],
-                'Confianza': pred['confidence'],
-                'Prob_Mancha_Gris': pred['probabilities'][0],
-                'Prob_Rona_Comun': pred['probabilities'][1],
-                'Prob_Tizon_Norte': pred['probabilities'][2],
-                'Prob_Sano': pred['probabilities'][3]
+                model_hdr: model_name,
+                pred_class_hdr: translate_class_lang(pred['class'], lang_key),
+                confidence_hdr: pred['confidence'],
+                f"Prob_{translate_class_lang('Mancha gris', lang_key).replace(' ', '_')}": pred['probabilities'][0],
+                f"Prob_{translate_class_lang('Roya común', lang_key).replace(' ', '_')}": pred['probabilities'][1],
+                f"Prob_{translate_class_lang('Tizón del norte', lang_key).replace(' ', '_')}": pred['probabilities'][2],
+                f"Prob_{translate_class_lang('Sano', lang_key).replace(' ', '_')}": pred['probabilities'][3]
             })
-        pd.DataFrame(preds_data).to_excel(writer, sheet_name='Predicciones por Modelo', index=False)
+        pd.DataFrame(preds_data).to_excel(writer, sheet_name=preds_sheet, index=False)
         
         # Aplicar formato y autoajustes
         workbook = writer.book

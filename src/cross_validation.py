@@ -79,29 +79,50 @@ def run_cross_validation(df, target_col, cv_folds=5, seed=42, save_path="reports
         
     return cv_results
 
-def plot_cv_dispersion(cv_results, save_path="reports"):
+def plot_cv_dispersion(cv_results, save_path="reports", lang="es"):
     """
     Dibuja y guarda un boxplot mostrando la dispersión de precisión en los k-folds por modelo.
     """
     os.makedirs(save_path, exist_ok=True)
     
+    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
+    
+    # Translations
+    title_lbl = {
+        'es': 'Variabilidad de Precisión (Accuracy) en Stratified K-Fold',
+        'en': 'Accuracy Variability in Stratified K-Fold',
+        'pt': 'Variabilidade de Acurácia (Accuracy) em Stratified K-Fold'
+    }.get(lang_key)
+    
+    model_lbl = {
+        'es': 'Modelo',
+        'en': 'Model',
+        'pt': 'Modelo'
+    }.get(lang_key)
+    
+    acc_lbl = {
+        'es': 'Accuracy (Precisión)',
+        'en': 'Accuracy',
+        'pt': 'Acurácia (Accuracy)'
+    }.get(lang_key)
+
     # Construir dataframe plano para seaborn
     data = []
     for name, res in cv_results.items():
         for acc in res['accuracies']:
             data.append({
-                'Modelo': name,
-                'Accuracy': acc
+                model_lbl: name,
+                acc_lbl: acc
             })
             
     df_plot = pd.DataFrame(data)
     
     plt.figure(figsize=(10, 6))
-    sns.boxplot(x='Modelo', y='Accuracy', data=df_plot, palette="Set3")
-    sns.stripplot(x='Modelo', y='Accuracy', data=df_plot, color='black', size=5, jitter=0.2, alpha=0.6)
-    plt.title('Variabilidad de Precisión (Accuracy) en Stratified K-Fold')
-    plt.xlabel('Modelo')
-    plt.ylabel('Accuracy')
+    sns.boxplot(x=model_lbl, y=acc_lbl, data=df_plot, palette="Set3")
+    sns.stripplot(x=model_lbl, y=acc_lbl, data=df_plot, color='black', size=5, jitter=0.2, alpha=0.6)
+    plt.title(title_lbl)
+    plt.xlabel(model_lbl)
+    plt.ylabel(acc_lbl)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     cv_chart = os.path.join(save_path, 'cv_dispersion.png')
@@ -110,16 +131,30 @@ def plot_cv_dispersion(cv_results, save_path="reports"):
     
     return cv_chart
 
-def interpret_cv(cv_results):
+def interpret_cv(cv_results, lang='es'):
     """
     Genera interpretación automática sobre la estabilidad y sobreajuste de los modelos.
     """
     sorted_cv = sorted(cv_results.items(), key=lambda x: x[1]['mean_accuracy'], reverse=True)
     best_name, best_res = sorted_cv[0]
+    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
     
-    interpretations = [
-        f"**Validación Cruzada ({len(best_res['accuracies'])}-Folds):** Tras realizar validación cruzada estratificada, el modelo **{best_name}** consolida la precisión media más alta con un **{best_res['mean_accuracy']:.2%} ± {best_res['std_accuracy']:.2%}**.",
-        f"La baja desviación estándar en **{best_name}** ({best_res['std_accuracy']:.4f}) indica una excelente **estabilidad** y robustez del modelo frente a cambios en la distribución de las muestras.",
-        "El gráfico de caja y bigotes muestra que los modelos híbridos reducen la dispersión de aciertos en comparación con los clasificadores clásicos individuales, actuando como un regulador efectivo contra el sobreajuste (overfitting)."
-    ]
+    if lang_key == 'en':
+        interpretations = [
+            f"**Cross Validation ({len(best_res['accuracies'])}-Folds):** After performing stratified cross validation, the **{best_name}** model consolidates the highest mean accuracy of **{best_res['mean_accuracy']:.2%} ± {best_res['std_accuracy']:.2%}**.",
+            f"The low standard deviation in **{best_name}** ({best_res['std_accuracy']:.4f}) indicates excellent **stability** and robustness of the model against changes in the sample distribution.",
+            "The box and whisker plot shows that the hybrid models reduce the dispersion of accuracy compared to the individual classic classifiers, acting as an effective regulator against overfitting."
+        ]
+    elif lang_key == 'pt':
+        interpretations = [
+            f"**Validação Cruzada ({len(best_res['accuracies'])}-Folds):** Após realizar a validação cruzada estratificada, o modelo **{best_name}** consolida a maior acurácia média com **{best_res['mean_accuracy']:.2%} ± {best_res['std_accuracy']:.2%}**.",
+            f"O baixo desvio padrão em **{best_name}** ({best_res['std_accuracy']:.4f}) indica excelente **estabilidade** e robustez do modelo frente a alterações na distribuição das amostras.",
+            "O gráfico de caixa e bigodes mostra que os modelos híbridos reduzem a dispersão de acertos em comparação com os classificadores clássicos individuais, atuando como um regulador eficaz contra o sobreajuste (overfitting)."
+        ]
+    else:
+        interpretations = [
+            f"**Validación Cruzada ({len(best_res['accuracies'])}-Folds):** Tras realizar validación cruzada estratificada, el modelo **{best_name}** consolida la precisión media más alta con un **{best_res['mean_accuracy']:.2%} ± {best_res['std_accuracy']:.2%}**.",
+            f"La baja desviación estándar en **{best_name}** ({best_res['std_accuracy']:.4f}) indica una excelente **estabilidad** y robustez del modelo frente a cambios en la distribución de las muestras.",
+            "El gráfico de caja y bigotes muestra que los modelos híbridos reducen la dispersión de aciertos en comparación con los clasificadores clásicos individuales, actuando como un regulador efectivo contra el sobreajuste (overfitting)."
+        ]
     return "\n\n".join(interpretations)

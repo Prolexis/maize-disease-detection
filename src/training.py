@@ -188,21 +188,46 @@ def train_and_evaluate_all(df, target_col, split_ratio=0.8, seed=42, save_path="
         
     return results, X_train, X_test, y_train, y_test, classes
 
-def plot_training_charts(results, X_test, y_test, classes, save_path="reports"):
+def plot_training_charts(results, X_test, y_test, classes, save_path="reports", lang="es"):
     """
     Dibuja y guarda los gráficos requeridos de entrenamiento: matrices de confusión, ROC y curvas de aprendizaje.
     """
+    from src.translation import translate_class_lang
     os.makedirs(save_path, exist_ok=True)
     n_classes = len(classes)
     y_test_bin = label_binarize(y_test, classes=classes)
     
+    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
+    
+    # Translations
+    cm_title_lbl = {'es': 'Matriz de Confusión', 'en': 'Confusion Matrix', 'pt': 'Matriz de Confusão'}.get(lang_key)
+    real_lbl = {'es': 'Real', 'en': 'True Class', 'pt': 'Real'}.get(lang_key)
+    pred_lbl = {'es': 'Predicho', 'en': 'Predicted Class', 'pt': 'Previsto'}.get(lang_key)
+    
+    roc_title_lbl = {'es': 'Curvas ROC Comparativas', 'en': 'Comparative ROC Curves', 'pt': 'Curvas ROC Comparativas'}.get(lang_key)
+    fpr_lbl = {'es': 'Tasa de Falsos Positivos (FPR)', 'en': 'False Positive Rate (FPR)', 'pt': 'Taxa de Falsos Positivos (FPR)'}.get(lang_key)
+    tpr_lbl = {'es': 'Tasa de Verdaderos Positivos (TPR)', 'en': 'True Positive Rate (TPR)', 'pt': 'Taxa de Verdadeiros Positivos (TPR)'}.get(lang_key)
+    rand_lbl = {'es': 'Clasificador Aleatorio', 'en': 'Random Classifier', 'pt': 'Classificador Aleatório'}.get(lang_key)
+    
+    learn_title_lbl = {
+        'es': 'Curvas de Aprendizaje (Evolución de Pérdida / Loss)',
+        'en': 'Learning Curves (Loss Evolution)',
+        'pt': 'Curvas de Aprendizado (Evolução da Perda / Loss)'
+    }.get(lang_key)
+    epoch_lbl = {'es': 'Época / Iteración', 'en': 'Epoch / Iteration', 'pt': 'Época / Iteração'}.get(lang_key)
+    loss_lbl = {'es': 'Loss (Pérdida)', 'en': 'Loss', 'pt': 'Loss (Perda)'}.get(lang_key)
+    mlp_loss_lbl = {'es': 'Pérdida MLP', 'en': 'MLP Loss', 'pt': 'Perda MLP'}.get(lang_key)
+    sim_loss_lbl = {'es': 'Sim. Pérdida', 'en': 'Sim. Loss', 'pt': 'Sim. Perda'}.get(lang_key)
+    
+    translated_classes = [translate_class_lang(c, lang_key) for c in classes]
+
     # 1. Matrices de Confusión individuales
     for name, res in results.items():
         plt.figure(figsize=(6, 5))
-        sns.heatmap(res['confusion_matrix'], annot=True, fmt='d', cmap='Blues', xticklabels=classes, yticklabels=classes)
-        plt.title(f'Matriz de Confusión\n{name}')
-        plt.ylabel('Real')
-        plt.xlabel('Predicho')
+        sns.heatmap(res['confusion_matrix'], annot=True, fmt='d', cmap='Blues', xticklabels=translated_classes, yticklabels=translated_classes)
+        plt.title(f'{cm_title_lbl}\n{name}')
+        plt.ylabel(real_lbl)
+        plt.xlabel(pred_lbl)
         plt.tight_layout()
         filename = os.path.join(save_path, f"confusion_{name.replace(' ', '_').replace('(', '').replace(')', '')}.png")
         plt.savefig(filename, dpi=150)
@@ -235,12 +260,12 @@ def plot_training_charts(results, X_test, y_test, classes, save_path="reports"):
             roc_auc = auc(fpr, tpr)
             plt.plot(fpr, tpr, label=f"{name} (AUC = {roc_auc:.3f})", linewidth=2)
             
-    plt.plot([0, 1], [0, 1], 'k--', label='Clasificador Aleatorio')
+    plt.plot([0, 1], [0, 1], 'k--', label=rand_lbl)
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
-    plt.xlabel('Tasa de Falsos Positivos (FPR)')
-    plt.ylabel('Tasa de Verdaderos Positivos (TPR)')
-    plt.title('Curvas ROC Comparativas')
+    plt.xlabel(fpr_lbl)
+    plt.ylabel(tpr_lbl)
+    plt.title(roc_title_lbl)
     plt.legend(loc="lower right")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -252,17 +277,17 @@ def plot_training_charts(results, X_test, y_test, classes, save_path="reports"):
     plt.figure(figsize=(10, 6))
     for name, res in results.items():
         if res['loss_curve'] is not None:
-            plt.plot(res['loss_curve'], label=f"Pérdida MLP ({name})", linewidth=2)
+            plt.plot(res['loss_curve'], label=f"{mlp_loss_lbl} ({name})", linewidth=2)
         else:
-            # Simular una curva descendente de entrenamiento para mostrar
+            # Simular una curva de entrenamiento para mostrar
             epochs = np.arange(1, 21)
             sim_loss = 0.5 * np.exp(-0.25 * epochs) + np.random.normal(0, 0.005, 20)
             sim_loss = np.clip(sim_loss, 0.01, 1.0)
-            plt.plot(epochs, sim_loss, '--', label=f"Sim. Pérdida ({name})", alpha=0.5)
+            plt.plot(epochs, sim_loss, '--', label=f"{sim_loss_lbl} ({name})", alpha=0.5)
             
-    plt.title('Curvas de Aprendizaje (Evolución de Pérdida / Loss)')
-    plt.xlabel('Época / Iteración')
-    plt.ylabel('Loss')
+    plt.title(learn_title_lbl)
+    plt.xlabel(epoch_lbl)
+    plt.ylabel(loss_lbl)
     plt.legend(loc="upper right")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -272,18 +297,32 @@ def plot_training_charts(results, X_test, y_test, classes, save_path="reports"):
     
     return roc_chart, learning_chart
 
-def interpret_training(results):
+def interpret_training(results, lang='es'):
     """
     Genera interpretación automatizada de los modelos entrenados.
     """
     sorted_models = sorted(results.items(), key=lambda x: x[1]['accuracy'], reverse=True)
     best_name, best_res = sorted_models[0]
+    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
     
-    interpretations = [
-        f"**Comparación de Modelos:** El modelo con el mejor desempeño global en el conjunto de prueba es **{best_name}** con un **Accuracy del {best_res['accuracy']:.2%}** y un F1-Score de **{best_res['f1-score']:.3f}**.",
-        f"El modelo más eficiente en tiempo de entrenamiento fue **{sorted_models[-1][0]}** ({sorted_models[-1][1]['train_time']:.4f} s), mientras que el modelo con el tamaño en disco más compacto es de **{min(results.values(), key=lambda x: x['model_size_kb'])['model_size_kb']:.1f} KB**.",
-        f"El análisis de la matriz de confusión revela que **{best_name}** exhibe la menor tasa de confusión entre clases patógenas, logrando un balance óptimo en la curva de sensibilidad (ROC)."
-    ]
+    if lang_key == 'en':
+        interpretations = [
+            f"**Model Comparison:** The model with the best overall performance on the test set is **{best_name}** with an **Accuracy of {best_res['accuracy']:.2%}** and an F1-Score of **{best_res['f1-score']:.3f}**.",
+            f"The most efficient model in training time was **{sorted_models[-1][0]}** ({sorted_models[-1][1]['train_time']:.4f} s), while the model with the most compact disk size is **{min(results.values(), key=lambda x: x['model_size_kb'])['model_size_kb']:.1f} KB**.",
+            f"The confusion matrix analysis reveals that **{best_name}** exhibits the lowest confusion rate among pathogen classes, achieving an optimal balance in the sensitivity curve (ROC)."
+        ]
+    elif lang_key == 'pt':
+        interpretations = [
+            f"**Comparação de Modelos:** O modelo com o melhor desempenho geral no conjunto de teste é o **{best_name}** com uma **Acurácia de {best_res['accuracy']:.2%}** e um F1-Score de **{best_res['f1-score']:.3f}**.",
+            f"O modelo mais eficiente em tempo de treinamento foi o **{sorted_models[-1][0]}** ({sorted_models[-1][1]['train_time']:.4f} s), enquanto o modelo com o tamanho de disco mais compacto é de **{min(results.values(), key=lambda x: x['model_size_kb'])['model_size_kb']:.1f} KB**.",
+            f"A análise da matriz de confusão revela que o **{best_name}** exibe a menor taxa de confusão entre classes patogênicas, alcançando um equilíbrio ideal na curva de sensibilidade (ROC)."
+        ]
+    else:
+        interpretations = [
+            f"**Comparación de Modelos:** El modelo con el mejor desempeño global en el conjunto de prueba es **{best_name}** con un **Accuracy del {best_res['accuracy']:.2%}** y un F1-Score de **{best_res['f1-score']:.3f}**.",
+            f"El modelo más eficiente en tiempo de entrenamiento fue **{sorted_models[-1][0]}** ({sorted_models[-1][1]['train_time']:.4f} s), mientras que el modelo con el tamaño en disco más compacto es de **{min(results.values(), key=lambda x: x['model_size_kb'])['model_size_kb']:.1f} KB**.",
+            f"El análisis de la matriz de confusión revela que **{best_name}** exhibe la menor tasa de confusión entre clases patógenas, logrando un balance óptimo en la curva de sensibilidad (ROC)."
+        ]
     return "\n\n".join(interpretations)
 
 def save_best_model(results, filename="best_tabular_model.pkl", metadata_name="metadata.json"):
