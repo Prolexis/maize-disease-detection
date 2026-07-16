@@ -1,14 +1,14 @@
 import os
 import time
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, train_test_split
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.pipeline import Pipeline
 from src.training import get_preprocessor
 
 def run_hyperparameter_tuning(df, target_col, method='grid', seed=42):
     """
-    Optimiza el modelo Random Forest como ejemplo de tuning para evitar sobrecargas de tiempo.
+    Optimiza el modelo Red Neuronal MLP.
     Compara resultados antes y después del tuning.
     """
     X = df.drop(columns=[target_col])
@@ -19,10 +19,10 @@ def run_hyperparameter_tuning(df, target_col, method='grid', seed=42):
     preprocessor = get_preprocessor(df, target_col)
     
     # 1. Modelo Base (Sin tuning)
-    base_rf = RandomForestClassifier(random_state=seed)
+    base_mlp = MLPClassifier(hidden_layer_sizes=(64, 32), max_iter=1000, random_state=seed)
     base_pipeline = Pipeline(steps=[
         ('preprocessor', preprocessor),
-        ('classifier', base_rf)
+        ('classifier', base_mlp)
     ])
     
     base_pipeline.fit(X_train, y_train)
@@ -31,15 +31,15 @@ def run_hyperparameter_tuning(df, target_col, method='grid', seed=42):
     
     # 2. Espacio de hiperparámetros
     param_grid = {
-        'classifier__n_estimators': [50, 100],
-        'classifier__max_depth': [5, 8, 12],
-        'classifier__min_samples_split': [2, 5]
+        'classifier__hidden_layer_sizes': [(64, 32), (32, 16)],
+        'classifier__activation': ['relu', 'tanh'],
+        'classifier__alpha': [0.0001, 0.001]
     }
     
-    tuned_rf = RandomForestClassifier(random_state=seed)
+    tuned_mlp = MLPClassifier(max_iter=1000, random_state=seed)
     tuned_pipeline = Pipeline(steps=[
         ('preprocessor', preprocessor),
-        ('classifier', tuned_rf)
+        ('classifier', tuned_mlp)
     ])
     
     start_time = time.time()
@@ -79,19 +79,19 @@ def interpret_tuning(tuning_results, lang='es'):
     if lang_key == 'en':
         interpretations = [
             f"**Hyperparameter Tuning ({tuning_results['method'].upper()}):** The optimization process took **{tuning_results['search_time']:.3f} seconds**.",
-            f"The best parameters found for Random Forest are: **{best_params_str}**.",
+            f"The best parameters found for the MLP Neural Network are: **{best_params_str}**.",
             f"The accuracy on the test set went from **{tuning_results['accuracy_before']:.2%}** to **{tuning_results['accuracy_after']:.2%}** (a net increase of **{diff*100:+.2f}%**)."
         ]
     elif lang_key == 'pt':
         interpretations = [
             f"**Ajuste de Hiperparâmetros ({tuning_results['method'].upper()}):** O processo de otimização levou **{tuning_results['search_time']:.3f} segundos**.",
-            f"Os melhores parâmetros encontrados para Random Forest são: **{best_params_str}**.",
+            f"Os melhores parâmetros encontrados para a Rede Neural MLP são: **{best_params_str}**.",
             f"A acurácia no conjunto de teste passou de **{tuning_results['accuracy_before']:.2%}** para **{tuning_results['accuracy_after']:.2%}** (um aumento líquido de **{diff*100:+.2f}%**)."
         ]
     else:
         interpretations = [
             f"**Ajuste de Hiperparámetros ({tuning_results['method'].upper()}):** El proceso de optimización tomó **{tuning_results['search_time']:.3f} segundos**.",
-            f"Los mejores parámetros encontrados para Random Forest son: **{best_params_str}**.",
+            f"Los mejores parámetros encontrados para la Red Neuronal MLP son: **{best_params_str}**.",
             f"La precisión en el conjunto de prueba pasó de **{tuning_results['accuracy_before']:.2%}** a **{tuning_results['accuracy_after']:.2%}** (un incremento neto de **{diff*100:+.2f}%**)."
         ]
     return "\n\n".join(interpretations)

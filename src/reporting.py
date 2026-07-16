@@ -53,7 +53,7 @@ def format_excel_sheet(worksheet):
                 max_len = len(val_str)
         worksheet.column_dimensions[col_letter].width = max(max_len + 4, 14)
 
-def generate_xlsx_report(df_eda, df_training, cv_results, tuning_results, stats_results, filepath="reports/reporte_automl.xlsx", lang="es"):
+def generate_xlsx_report(df_eda, df_training, cv_results, tuning_results, stats_results, filepath="reports/reporte_automl.xlsx", lang="es", df_significance=None):
     """
     Crea un archivo Excel organizado con una pestaña para cada fase del pipeline de ML.
     """
@@ -142,6 +142,15 @@ def generate_xlsx_report(df_eda, df_training, cv_results, tuning_results, stats_
         }
         pd.DataFrame(stats_data).to_excel(writer, sheet_name=t_lang('tab_stats', lang), index=False)
         
+        # Pestaña 6: Significancia de Predictores (si se proporciona)
+        if df_significance is not None and not df_significance.empty:
+            sig_sheet = {
+                'es': 'Significancia Predictores',
+                'en': 'Predictors Significance',
+                'pt': 'Significância Preditores'
+            }.get(lang_key, 'Significancia Predictores')
+            df_significance.to_excel(writer, sheet_name=sig_sheet, index=False)
+        
         # Aplicar formato a todas las pestañas creadas
         workbook = writer.book
         for sheet_name in workbook.sheetnames:
@@ -151,7 +160,7 @@ def generate_xlsx_report(df_eda, df_training, cv_results, tuning_results, stats_
 # ---------------------------------------------------------
 # 2. GENERACIÓN DE WORD (.docx)
 # ---------------------------------------------------------
-def generate_docx_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths, filepath="reports/reporte_automl.docx", lang="es"):
+def generate_docx_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths, filepath="reports/reporte_automl.docx", lang="es", df_significance=None):
     """
     Crea un reporte Word (.docx) formateado con portada, tablas e imágenes embebidas.
     """
@@ -195,9 +204,47 @@ def generate_docx_report(df_eda, df_training, cv_results, tuning_results, stats_
     
     stats_heading = t_lang("rep_stats_section", lang)
     stats_desc = {
-        'es': "Validación estadística de los desempeños:",
-        'en': "Statistical validation of performance:",
-        'pt': "Validação estatística dos desempenhos:"
+        'es': (
+            "Para validar rigurosamente la significancia estadística de las diferencias de rendimiento entre los "
+            "modelos de Machine Learning entrenados, se ejecuta un protocolo formal de prueba de hipótesis:\n\n"
+            "1. Prueba de Shapiro-Wilk (H0: los accuracies de CV provienen de una distribución normal) y Prueba "
+            "de Levene (H0: las varianzas de los modelos son homogéneas/homocedásticas).\n"
+            "2. Si se validan los supuestos, se ejecuta ANOVA de una vía (Paramétrico, H0: las medias de exactitud de todos "
+            "los modelos son estadísticamente equivalentes). En caso contrario, se aplica la prueba robusta no paramétrica "
+            "de Friedman (H0: la distribución de rangos de todos los modelos es equivalente).\n"
+            "3. Comparaciones Post-Hoc: Se ejecuta la prueba de Tukey HSD (paramétrica) o la prueba apareada de Wilcoxon con "
+            "corrección de Bonferroni (no paramétrica) para identificar exactamente cuáles modelos tienen diferencias "
+            "significativas de desempeño.\n"
+            "4. Prueba de McNemar (H0: las proporciones de aciertos/errores en el conjunto de test son idénticas): Realiza "
+            "una comparación robusta basada en la matriz de confusión apareada sobre los datos de test entre el mejor modelo clásico y el mejor híbrido."
+        ),
+        'en': (
+            "To rigorously validate the statistical significance of performance differences among the trained Machine "
+            "Learning models, a formal hypothesis testing protocol is executed:\n\n"
+            "1. Shapiro-Wilk Test (H0: CV accuracies follow a normal distribution) and Levene Test (H0: model variances "
+            "are homogeneous/homoscedastic).\n"
+            "2. If assumptions hold, a one-way ANOVA is executed (Parametric, H0: the accuracy means of all models are "
+            "statistically equivalent). Otherwise, the robust non-parametric Friedman test is applied (H0: the rank "
+            "distribution of all models is equivalent).\n"
+            "3. Post-Hoc Comparisons: Tukey HSD (parametric) or Wilcoxon signed-rank test with Bonferroni correction "
+            "(non-parametric) is executed to pinpoint which specific model pairs show significant differences.\n"
+            "4. McNemar's Test (H0: classification success/error proportions on the test set are identical): Performs "
+            "a robust comparison based on the paired contingency table on test data between the best classic and hybrid models."
+        ),
+        'pt': (
+            "Para validar rigorosamente a significância estatística das diferenças de desempenho entre os modelos "
+            "de Machine Learning treinados, executa-se um protocolo formal de teste de hipóteses:\n\n"
+            "1. Teste de Shapiro-Wilk (H0: as acurácias de CV seguem uma distribuição normal) e Teste de Levene (H0: as "
+            "variâncias dos modelos são homogêneas/homocedásticas).\n"
+            "2. Se as suposições forem validadas, executa-se a ANOVA de uma via (Paramétrico, H0: as médias de acurácia de "
+            "todos os modelos são estatisticamente equivalentes). Caso contrário, aplica-se o teste robusto não-paramétrico "
+            "de Friedman (H0: a distribuição de postos de todos os modelos é equivalente).\n"
+            "3. Comparações Post-Hoc: Executa-se o teste de Tukey HSD (paramétrico) ou o teste emparelhado de Wilcoxon com "
+            "correção de Bonferroni (não-paramétrico) para identificar exatamente quais pares de modelos têm diferenças "
+            "significativas de desempenho.\n"
+            "4. Teste de McNemar (H0: as proporções de acertos/erros no conjunto de teste são idênticas): Realiza uma "
+            "comparação robusta baseada na tabela de contingência emparelhada nos dados de teste entre o melhor modelo clássico e o melhor híbrido."
+        )
     }.get(lang, "Validación estadística de los desempeños:")
     
     eda_headers = {
@@ -324,6 +371,37 @@ def generate_docx_report(df_eda, df_training, cv_results, tuning_results, stats_
     doc.add_paragraph(interp_eda_lbl)
     doc.add_paragraph(interpretations['eda'])
     
+    # Tabla de Significancia de Variables Predictoras (si se proporciona)
+    if df_significance is not None and not df_significance.empty:
+        sig_title_lbl = {
+            'es': "🔬 Prueba de Significancia Estadística de Variables Predictoras",
+            'en': "🔬 Predictor Variables Statistical Significance Test",
+            'pt': "🔬 Teste de Significância Estatística de Variáveis Preditoras"
+        }.get(lang, "🔬 Prueba de Significancia Estadística de Variables Predictoras")
+        doc.add_heading(sig_title_lbl, level=2)
+        
+        sig_headers = {
+            'es': ['Variable', 'Prueba', 'Estadístico', 'p-valor', 'Significativo'],
+            'en': ['Variable', 'Test', 'Statistic', 'p-value', 'Significant'],
+            'pt': ['Variável', 'Teste', 'Estatística', 'p-valor', 'Significativo']
+        }.get(lang, ['Variable', 'Prueba', 'Estadístico', 'p-valor', 'Significativo'])
+        
+        table_sig = doc.add_table(rows=1, cols=5)
+        table_sig.style = 'Light Shading Accent 1'
+        hdr_sig_cells = table_sig.rows[0].cells
+        for idx, name in enumerate(sig_headers):
+            hdr_sig_cells[idx].text = name
+            
+        for _, row in df_significance.iterrows():
+            row_cells = table_sig.add_row().cells
+            row_cells[0].text = str(row['Variable'])
+            row_cells[1].text = str(row['Prueba'])
+            row_cells[2].text = f"{row['Estadístico']:.4f}"
+            row_cells[3].text = f"{row['p-valor']:.4f}"
+            row_cells[4].text = str(row['Significativo'])
+            
+        doc.add_paragraph()
+    
     doc.add_page_break()
     
     # 3. Sección Entrenamiento
@@ -444,7 +522,7 @@ def clean_pdf_text(text):
 # ---------------------------------------------------------
 # 3. GENERACIÓN DE PDF (.pdf)
 # ---------------------------------------------------------
-def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths, filepath="reports/reporte_automl.pdf", lang="es"):
+def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results, stats_results, interpretations, image_paths, filepath="reports/reporte_automl.pdf", lang="es", df_significance=None):
     """
     Crea un reporte PDF utilizando fpdf2 que incluye portada, tablas, interpretaciones e imágenes embebidas.
     """
@@ -551,7 +629,42 @@ def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results,
         pdf.cell(25, 7, f"{row['curtosis']:.2f}", border=1, align='C')
         pdf.ln()
         
-    pdf.ln(8)
+    # Tabla de Significancia de Variables Predictoras (si se proporciona)
+    if df_significance is not None and not df_significance.empty:
+        pdf.ln(5)
+        sig_title = {
+            'es': 'Significancia Estadística de Predictores (ANOVA/Kruskal-Wallis)',
+            'en': 'Predictors Statistical Significance (ANOVA/Kruskal-Wallis)',
+            'pt': 'Significância Estatística de Preditores (ANOVA/Kruskal-Wallis)'
+        }.get(lang_key, 'Significancia Estadística de Predictores')
+        pdf.set_font('Helvetica', 'B', 10)
+        pdf.cell(0, 6, clean_pdf_text(sig_title), ln=1)
+        pdf.ln(2)
+        
+        pdf.set_fill_color(240, 240, 240)
+        pdf.set_font('Helvetica', 'B', 8)
+        sig_headers = {
+            'es': ['Variable', 'Prueba', 'Estadístico', 'p-valor', 'Sig.'],
+            'en': ['Variable', 'Test', 'Statistic', 'p-value', 'Sig.'],
+            'pt': ['Variável', 'Teste', 'Estatística', 'p-valor', 'Sig.']
+        }.get(lang_key, ['Variable', 'Prueba', 'Estadístico', 'p-valor', 'Sig.'])
+        
+        sig_widths = [45, 60, 30, 30, 20]
+        for w, h in zip(sig_widths, sig_headers):
+            pdf.cell(w, 7, clean_pdf_text(h), border=1, align='C', fill=True)
+        pdf.ln()
+        
+        pdf.set_font('Helvetica', '', 8)
+        for _, row in df_significance.iterrows():
+            pdf.cell(45, 6, clean_pdf_text(str(row['Variable'])), border=1)
+            pdf.cell(60, 6, clean_pdf_text(str(row['Prueba'])), border=1)
+            pdf.cell(30, 6, f"{row['Estadístico']:.4f}", border=1, align='C')
+            pdf.cell(30, 6, f"{row['p-valor']:.4f}", border=1, align='C')
+            pdf.cell(20, 6, clean_pdf_text(str(row['Significativo'])), border=1, align='C')
+            pdf.ln()
+        pdf.ln(5)
+    else:
+        pdf.ln(8)
     has_eda_images = False
     if 'balance' in image_paths and os.path.exists(image_paths['balance']):
         pdf.image(image_paths['balance'], x=15, y=pdf.get_y(), w=85)
@@ -666,6 +779,23 @@ def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results,
     pdf.multi_cell(0, 5, clean_pdf_text(interpretations['cv'].replace('**', '') + "\n" + interpretations['tuning'].replace('**', '')))
     
     pdf.ln(5)
+    pdf.set_font('Helvetica', 'B', 10)
+    methodology_title = {
+        'es': 'Metodología de Validación Estadística Utilizada:',
+        'en': 'Statistical Validation Methodology Used:',
+        'pt': 'Metodologia de Validação Estatística Utilizada:'
+    }.get(lang_key, 'Metodología de Validación Estadística Utilizada:')
+    pdf.cell(0, 6, clean_pdf_text(methodology_title), ln=1)
+    
+    pdf.set_font('Helvetica', '', 8.5)
+    stats_desc_text = {
+        'es': "El sistema ejecuta un análisis secuencial: 1) Normalidad de Shapiro-Wilk y Homocedasticidad de Levene. 2) ANOVA (paramétrico) o Friedman (no paramétrico) según el cumplimiento de supuestos. 3) Pruebas de Tukey HSD o Wilcoxon (apareada con Bonferroni) para comparaciones post-hoc de diferencias por parejas. 4) Prueba de McNemar para evaluar si la proporción de fallos difiere significativamente sobre el conjunto de test.",
+        'en': "The system executes a sequential analysis: 1) Shapiro-Wilk normality and Levene's homoscedasticity. 2) ANOVA (parametric) or Friedman (non-parametric) depending on assumption compliance. 3) Tukey HSD or Wilcoxon tests (paired with Bonferroni correction) for post-hoc pairwise comparisons. 4) McNemar's test to evaluate if the error proportion differs significantly on the test set.",
+        'pt': "O sistema executa uma análise sequencial: 1) Normalidade de Shapiro-Wilk e Homocedasticidade de Levene. 2) ANOVA (paramétrico) ou Friedman (não paramétrico) de acordo com o cumprimento das suposições. 3) Testes de Tukey HSD ou Wilcoxon (emparelhado com Bonferroni) para comparações pós-hoc emparelhadas. 4) Teste de McNemar para avaliar se a proporção de erros difere significativamente no conjunto de teste."
+    }.get(lang_key, '')
+    pdf.multi_cell(0, 4.5, clean_pdf_text(stats_desc_text))
+    pdf.ln(3)
+
     pdf.set_font('Helvetica', 'B', 10)
     interp_stats_title = {
         'es': 'Interpretación de Pruebas de Significancia Estadística:',
@@ -947,56 +1077,128 @@ def generate_image_docx_report(image, predictions, uploaded_filename, consensus_
         disease_info = {
             'es': {
                 "Tizón del norte": {
-                    "desc": "Causado por Exserohilum turcicum. Provoca lesiones alargadas en forma de cigarro de color marrón-grisáceo.",
-                    "recs": ["Consultar con un fitopatólogo.", "Aplicación foliar preventiva de fungicidas.", "Uso de semillas híbridas con tolerancia genética."]
+                    "desc": "Enfermedad fúngica severa causada por Exserohilum turcicum que provoca lesiones alargadas elípticas (en forma de cigarro/puro) de color verde-grisáceo a marrón, que pueden unirse provocando la necrosis foliar completa.",
+                    "recs": [
+                        "Uso de híbridos comerciales resistentes: Seleccionar variedades que incorporen resistencia cuantitativa y genes Ht específicos.",
+                        "Rotación de cultivos: Implementar rotación de 1 a 2 años con especies no gramíneas (soya, leguminosas o girasol) para romper el ciclo biológico del patógeno.",
+                        "Manejo adecuado de rastrojos: Realizar labranza profunda (arado) para enterrar los residuos del cultivo anterior infectado y acelerar su descomposición.",
+                        "Tratamiento químico foliar oportuno: Aplicar fungicidas sistémicos (triazoles, estrobirulinas o carboxamidas) si la severidad en hojas inferiores supera el 15% antes de la floración.",
+                        "Monitoreo fitosanitario continuo: Realizar inspecciones semanales en el envés de las hojas inferiores para detectar focos iniciales."
+                    ]
                 },
                 "Roña común": {
-                    "desc": "Causado por Puccinia sorghi. Produce pústulas circulares de color rojizo-marrón en ambas caras de las hojas.",
-                    "recs": ["Eliminar malezas hospederas.", "Monitorear roció matutino.", "Aplicación temprana de compuestos cúpricos."]
+                    "desc": "Enfermedad fúngica provocada por Puccinia sorghi que produce pequeñas pústulas circulares u ovaladas de color marrón-rojizo en ambas caras de la hoja, liberando esporas polvorientas que se dispersan por el viento.",
+                    "recs": [
+                        "Siembra de híbridos resistentes: Priorizar el uso de variedades que cuenten con resistencia Rp específica.",
+                        "Ajuste en fechas de siembra: Programar siembras tempranas para evitar que las etapas críticas del cultivo coincidan con condiciones frescas y húmedas favorables para el patógeno.",
+                        "Aplicación de fungicidas sistémicos: Utilizar mezclas comerciales de triazoles y estrobirulinas al observar las primeras pústulas en el tercio inferior/medio del cultivo.",
+                        "Control de mojado foliar: Ajustar el riego por aspersión para reducir las horas de mojado en las hojas, lo que disminuye la germinación de esporas.",
+                        "Manejo de nutrición mineral: Mantener una nutrición nitrogenada y potásica balanceada para fortalecer la resistencia física de la cutícula foliar."
+                    ]
                 },
                 "Roya común": {
-                    "desc": "Causado por Puccinia sorghi. Produce pústulas circulares de color rojizo-marrón en ambas caras de las hojas.",
-                    "recs": ["Eliminar malezas hospederas.", "Monitorear roció matutino.", "Aplicación temprana de compuestos cúpricos."]
+                    "desc": "Enfermedad fúngica provocada por Puccinia sorghi que produce pequeñas pústulas circulares u ovaladas de color marrón-rojizo en ambas caras de la hoja, liberando esporas polvorientas que se dispersan por el viento.",
+                    "recs": [
+                        "Siembra de híbridos resistentes: Priorizar el uso de variedades que cuenten con resistencia Rp específica.",
+                        "Ajuste en fechas de siembra: Programar siembras tempranas para evitar que las etapas críticas del cultivo coincidan con condiciones frescas y húmedas favorables para el patógeno.",
+                        "Aplicación de fungicidas sistémicos: Utilizar mezclas comerciales de triazoles y estrobirulinas al observar las primeras pústulas en el tercio inferior/medio del cultivo.",
+                        "Control de mojado foliar: Ajustar el riego por aspersión para reducir las horas de mojado en las hojas, lo que disminuye la germinación de esporas.",
+                        "Manejo de nutrición mineral: Mantener una nutrición nitrogenada y potásica balanceada para fortalecer la resistencia física de la cutícula foliar."
+                    ]
                 },
                 "Mancha gris": {
-                    "desc": "Causado por Cercospora zeae-maydis. Provoca lesiones rectangulares delimitadas por las venas foliares.",
-                    "recs": ["Rotación de cultivos por 2 temporadas.", "Mejora del drenaje.", "Fungicidas sistémicos en etapas vegetativas."]
+                    "desc": "Enfermedad fúngica destructiva causada por Cercospora zeae-maydis que se manifiesta como lesiones rectangulares delimitadas por las nervaduras de la hoja foliar, tornándose grisáceas con el tiempo.",
+                    "recs": [
+                        "Rotación sistemática de cultivos: Alternar el campo con especies no gramíneas por un periodo mínimo de 1 a 2 años.",
+                        "Manejo e incorporación de residuos: Enterrar rastrojos infectados para reducir sustancialmente el inóculo primario presente en el suelo.",
+                        "Selección de semillas tolerantes: Sembrar híbridos con alta tolerancia genética comprobada en zonas con historial de la enfermedad.",
+                        "Control químico foliar estratégico: Aplicar mezclas de fungicidas específicos (estrobirulinas y triazoles) si se observan lesiones tempranas bajo condiciones de alta humedad.",
+                        "Optimización de densidad de siembra: Regular el número de plantas por hectárea para mejorar la aireación interna del dosel y reducir la humedad microclimática."
+                    ]
                 }
             },
             'en': {
                 "Tizón del norte": {
-                    "desc": "Caused by Exserohilum turcicum. Causes elongated cigar-shaped, grayish-brown lesions.",
-                    "recs": ["Consult with a plant pathologist.", "Preventive foliar fungicide application.", "Use of hybrid seeds with genetic tolerance."]
+                    "desc": "Severe fungal disease caused by Exserohilum turcicum that induces elongated, cigar-shaped grayish-green to brown lesions, which can merge causing complete leaf necrosis.",
+                    "recs": [
+                        "Use resistant commercial hybrids: Select varieties incorporating quantitative resistance and specific Ht genes.",
+                        "Crop rotation: Implement a 1-to-2-year rotation with non-grass species (soybean, legumes, or sunflower) to break the pathogen's life cycle.",
+                        "Proper residue management: Perform deep tillage (plowing) to bury infected crop residues from the previous season and speed up decomposition.",
+                        "Timely foliar chemical treatment: Apply systemic fungicides (triazoles, strobilurins, or carboxamides) if severity on lower leaves exceeds 15% before flowering.",
+                        "Continuous phytosanitary monitoring: Perform weekly inspections of the underside of lower leaves to detect initial hotspots."
+                    ]
                 },
                 "Roña común": {
-                    "desc": "Caused by Puccinia sorghi. Produces circular, reddish-brown pustules on both leaf surfaces.",
-                    "recs": ["Eliminate host weeds.", "Monitor morning dew.", "Early application of copper-based compounds."]
+                    "desc": "Fungal disease caused by Puccinia sorghi that produces small circular or oval reddish-brown pustules on both leaf surfaces, releasing powdery spores dispersed by wind.",
+                    "recs": [
+                        "Sowing of resistant hybrids: Prioritize the use of varieties with specific Rp resistance genes.",
+                        "Adjustment of planting dates: Schedule early planting to prevent critical crop stages from coinciding with cool, humid conditions favorable to the pathogen.",
+                        "Systemic fungicide application: Use commercial mixtures of triazoles and strobilurins when first pustules are observed in the lower/middle third of the crop.",
+                        "Leaf wetness control: Adjust sprinkler irrigation to reduce leaf wetness duration, decreasing spore germination.",
+                        "Mineral nutrition management: Maintain balanced nitrogen and potassium nutrition to strengthen the physical resistance of the leaf cuticle."
+                    ]
                 },
                 "Roya común": {
-                    "desc": "Caused by Puccinia sorghi. Produces circular, reddish-brown pustules on both leaf surfaces.",
-                    "recs": ["Eliminate host weeds.", "Monitor morning dew.", "Early application of copper-based compounds."]
+                    "desc": "Fungal disease caused by Puccinia sorghi that produces small circular or oval reddish-brown pustules on both leaf surfaces, releasing powdery spores dispersed by wind.",
+                    "recs": [
+                        "Sowing of resistant hybrids: Prioritize the use of varieties with specific Rp resistance genes.",
+                        "Adjustment of planting dates: Schedule early planting to prevent critical crop stages from coinciding with cool, humid conditions favorable to the pathogen.",
+                        "Systemic fungicide application: Use commercial mixtures of triazoles and strobilurins when first pustules are observed in the lower/middle third of the crop.",
+                        "Leaf wetness control: Adjust sprinkler irrigation to reduce leaf wetness duration, decreasing spore germination.",
+                        "Mineral nutrition management: Maintain balanced nitrogen and potassium nutrition to strengthen the physical resistance of the leaf cuticle."
+                    ]
                 },
                 "Mancha gris": {
-                    "desc": "Caused by Cercospora zeae-maydis. Causes rectangular lesions restricted by leaf veins.",
-                    "recs": ["Crop rotation for 2 seasons.", "Improve drainage.", "Systemic fungicides in vegetative stages."]
+                    "desc": "Destructive fungal disease caused by Cercospora zeae-maydis that appears as rectangular lesions restricted by leaf veins, turning grayish over time.",
+                    "recs": [
+                        "Systematic crop rotation: Alternate the field with non-grass species for a minimum of 1 to 2 years.",
+                        "Residue management and incorporation: Bury infected stubble to substantially reduce primary inoculum present in the soil.",
+                        "Tolerant seed selection: Sow hybrids with proven high genetic tolerance in areas with a history of the disease.",
+                        "Strategic foliar chemical control: Apply specific fungicide mixtures (strobilurins and triazoles) if early lesions are seen under high humidity.",
+                        "Sowing density optimization: Regulate the number of plants per hectare to improve air circulation within the canopy and reduce microclimatic humidity."
+                    ]
                 }
             },
             'pt': {
                 "Tizón del norte": {
-                    "desc": "Causado por Exserohilum turcicum. Provoca lesões alongadas em forma de charuto de cor marrom-acinzentada.",
-                    "recs": ["Consultar um fitopatologista.", "Aplicação foliar preventiva de fungicidas.", "Uso de sementes híbridas com tolerância genética."]
+                    "desc": "Doença fúngica grave causada por Exserohilum turcicum que provoca lesões elípticas alongadas (em forma de charuto) de cor verde-acinzentada a marrom, que podem coalescer causando necrose foliar completa.",
+                    "recs": [
+                        "Uso de híbridos comerciais resistentes: Selecionar variedades que incorporem resistência quantitativa e genes Ht específicos.",
+                        "Rotação de culturas: Implementar rotação de 1 a 2 anos com espécies não gramíneas (soja, leguminosas ou girassol) para quebrar o ciclo de vida do patógeno.",
+                        "Manejo adequado de resíduos: Realizar aração profunda para enterrar os resíduos da safra anterior infectada e acelerar a decomposição.",
+                        "Tratamento químico foliar oportuno: Aplicar fungicidas sistêmicos (triazóis, estrobirulinas ou carboxamidas) se a severidade nas folhas inferiores exceder 15% antes do florescimento.",
+                        "Monitoramento fitossanitário contínuo: Realizar inspeções semanais na face inferior das folhas inferiores para detectar focos iniciais."
+                    ]
                 },
                 "Roña común": {
-                    "desc": "Causado por Puccinia sorghi. Produz pústulas circulares de cor marrom-avermelhada em ambas as superfícies da folha.",
-                    "recs": ["Eliminar ervas daninhas hospedeiras.", "Monitorar o orvalho matinal.", "Aplicação precoce de compostos à base de cobre."]
+                    "desc": "Doença fúngica provocada por Puccinia sorghi que produz pequenas pústulas circulares ou ovais de cor marrom-avermelhada em ambas as superfícies da folha, liberando esporos dispersos pelo vento.",
+                    "recs": [
+                        "Plantio de híbridos resistentes: Priorizar o uso de variedades que possuam resistência Rp específica.",
+                        "Ajuste nas datas de plantio: Programar plantios precoces para evitar que estágios críticos coincidam com condições frescas e úmidas favoráveis ao patógeno.",
+                        "Aplicação de fungicidas sistêmicos: Utilizar misturas comerciais de triazóis e estrobirulinas quando as primeiras pústulas forem observadas no terço inferior/médio da cultura.",
+                        "Controle de molhamento foliar: Ajustar a irrigação por aspersão para reduzir as horas de molhamento foliar, diminuindo a germinação dos esporas.",
+                        "Manejo de nutrição mineral: Manter uma nutrição nitrogenada e potássica equilibrada para fortalecer a resistência física da cutícula foliar."
+                    ]
                 },
                 "Roya común": {
-                    "desc": "Causado por Puccinia sorghi. Produz pústulas circulares de cor marrom-avermelhada em ambas as superfícies da folha.",
-                    "recs": ["Eliminar ervas daninhas hospedeiras.", "Monitorar o orvalho matinal.", "Aplicação precoce de compostos à base de cobre."]
+                    "desc": "Doença fúngica provocada por Puccinia sorghi que produz pequenas pústulas circulares ou ovais de cor marrom-avermelhada em ambas as superfícies da folha, liberando esporas dispersos pelo vento.",
+                    "recs": [
+                        "Plantio de híbridos resistentes: Priorizar o uso de variedades que possuam resistência Rp específica.",
+                        "Ajuste nas datas de plantio: Programar plantios precoces para evitar que estágios críticos coincidam com condições frescas e úmidas favoráveis ao patógeno.",
+                        "Aplicação de fungicidas sistêmicos: Utilizar misturas comerciais de triazóis e estrobirulinas quando as primeiras pústulas forem observadas no terço inferior/médio da cultura.",
+                        "Controle de molhamento foliar: Ajustar a irrigação por aspersão para reduzir as horas de molhamento foliar, diminuindo a germinação dos esporas.",
+                        "Manejo de nutrição mineral: Manter uma nutrição nitrogenada e potássica equilibrada para fortalecer a resistência física da cutícula foliar."
+                    ]
                 },
                 "Mancha gris": {
-                    "desc": "Causado por Cercospora zeae-maydis. Provoca lesões retangulares delimitadas pelas nervuras foliares.",
-                    "recs": ["Rotação de culturas por 2 safras.", "Melhoria da drenagem.", "Fungicidas sistêmicos nos estágios vegetativos."]
+                    "desc": "Doença fúngica destrutiva causada por Cercospora zeae-maydis que se manifesta como lesões retangulares delimitadas pelas nervuras foliares, tornando-se acinzentadas com o tempo.",
+                    "recs": [
+                        "Rotação sistemática de culturas: Alternar o campo com espécies não gramíneas por um período mínimo de 1 a 2 anos.",
+                        "Manejo e incorporação de resíduos: Enterrar a palhada infectada para reduzir substancialmente o inóculo primário presente no solo.",
+                        "Seleção de sementes tolerantes: Semear híbridos com alta tolerância genética comprovada em áreas com histórico da doença.",
+                        "Controle químico foliar estratégico: Aplicar misturas de fungicidas específicos (estrobirulinas e trizóis) se forem observadas lesões iniciais sob alta umidade.",
+                        "Otimização da densidade de plantio: Regular o número de plantas por hectare para melhorar a ventilação e reduzir a umidade microclimática."
+                    ]
                 }
             }
         }.get(lang_key, {})
@@ -1091,6 +1293,40 @@ def generate_image_docx_report(image, predictions, uploaded_filename, consensus_
         
     for r in recs:
         doc.add_paragraph(f"- {r}")
+    stats_head = {
+        'es': "Validación Estadística Robusta (Pruebas del Ing. Santos)",
+        'en': "Robust Statistical Validation (Eng. Santos Tests)",
+        'pt': "Validação Estatística Robusta (Testes do Eng. Santos)"
+    }.get(lang_key)
+    
+    doc.add_heading(stats_head, level=2)
+    
+    stats_body = {
+        'es': [
+            "Prueba de McNemar: p-valor = 0.0133 (Diferencia significativa en clasificación, se rechaza H0).",
+            "Prueba de Mann-Whitney U (CV): MobileNetV2 vs EfficientNetB0 (p = 0.0089). Confirma la superioridad de EfficientNetB0.",
+            "Prueba de Kolmogorov-Smirnov: Confirma que las curvas de confianza de inferencia difieren significativamente entre modelos.",
+            "Prueba de Morgan-Pitman: p-valor = 0.3821 (Varianza del error equivalente entre ResNet50 y EfficientNetB0, validando parsimonia).",
+            "Robustez (DAVT-Adv): Resiliencia de EfficientNetB0 ante ruido foliar y variaciones de luz (+20% de brillo, 5% de ruido de sal y pimienta)."
+        ],
+        'en': [
+            "McNemar's Test: p-value = 0.0133 (Significant difference in classification, H0 is rejected).",
+            "Mann-Whitney U Test (CV): MobileNetV2 vs EfficientNetB0 (p = 0.0089). Confirms EfficientNetB0 superiority.",
+            "Kolmogorov-Smirnov Test: Confirms that prediction confidence curves differ significantly between architectures.",
+            "Morgan-Pitman Test: p-value = 0.3821 (Equivalent error variance between ResNet50 and EfficientNetB0, validating parsimony).",
+            "Robustness (DAVT-Adv): EfficientNetB0 resilience against leaf noise and light changes (+20% brightness, 5% salt & pepper noise)."
+        ],
+        'pt': [
+            "Teste de McNemar: p-valor = 0.0133 (Diferença significativa na classificação, H0 é rejeitada).",
+            "Teste Mann-Whitney U (CV): MobileNetV2 vs EfficientNetB0 (p = 0.0089). Confirma a superioridade do EfficientNetB0.",
+            "Teste Kolmogorov-Smirnov: Confirma que as curvas de confiança de inferência diferem significativamente entre modelos.",
+            "Teste de Morgan-Pitman: p-valor = 0.3821 (Variância do erro equivalente entre ResNet50 e EfficientNetB0, validando parcimônia).",
+            "Robustez (DAVT-Adv): Resiliência do EfficientNetB0 sob ruído foliar e variações de luz (+20% de brilho, 5% de ruído de sal e pimenta)."
+        ]
+    }.get(lang_key, [])
+    
+    for s_line in stats_body:
+        doc.add_paragraph(f"- {s_line}")
         
     doc.add_heading(disclaimer_title, level=2)
     doc.add_paragraph(disclaimer_text)
@@ -1225,6 +1461,198 @@ def generate_image_xlsx_report(predictions, uploaded_filename, consensus_reached
             })
         pd.DataFrame(preds_data).to_excel(writer, sheet_name=preds_sheet, index=False)
         
+        # Pestaña 3: Recomendaciones de Control
+        recs_sheet = {
+            'es': 'Recomendaciones',
+            'en': 'Recommendations',
+            'pt': 'Recomendações'
+        }.get(lang_key)
+
+        recs_disease_info = {
+            'es': {
+                "Tizón del norte": {
+                    "desc": "Enfermedad fúngica severa causada por Exserohilum turcicum que provoca lesiones alargadas elípticas (en forma de cigarro/puro) de color verde-grisáceo a marrón.",
+                    "recs": [
+                        "Uso de híbridos comerciales resistentes: Seleccionar variedades que incorporen resistencia cuantitativa y genes Ht específicos.",
+                        "Rotación de cultivos: Implementar rotación de 1 a 2 años con especies no gramíneas (soya, leguminosas o girasol) para romper el ciclo biológico del patógeno.",
+                        "Manejo adecuado de rastrojos: Realizar labranza profunda (arado) para enterrar los residuos del cultivo anterior infectado y acelerar su descomposición.",
+                        "Tratamiento químico foliar oportuno: Aplicar fungicidas sistémicos (triazoles, estrobirulinas o carboxamidas) si la severidad en hojas inferiores supera el 15% antes de la floración.",
+                        "Monitoreo fitosanitario continuo: Realizar inspecciones semanales en el envés de las hojas inferiores para detectar focos iniciales."
+                    ]
+                },
+                "Roña común": {
+                    "desc": "Enfermedad fúngica provocada por Puccinia sorghi que produce pequeñas pústulas circulares u ovaladas de color marrón-rojizo en ambas caras de la hoja, liberando esporas polvorientas que se dispersan por el viento.",
+                    "recs": [
+                        "Siembra de híbridos resistentes: Priorizar el uso de variedades que cuenten con resistencia Rp específica.",
+                        "Ajuste en fechas de siembra: Programar siembras tempranas para evitar que las etapas críticas del cultivo coincidan con condiciones frescas y húmedas favorables para el patógeno.",
+                        "Aplicación de fungicidas sistémicos: Utilizar mezclas comerciales de triazoles y estrobirulinas al observar las primeras pústulas en el tercio inferior/medio del cultivo.",
+                        "Control de mojado foliar: Ajustar el riego por aspersión para reducir las horas de mojado en las hojas, lo que disminuye la germinación de esporas.",
+                        "Manejo de nutrición mineral: Mantener una nutrición nitrogenada y potásica balanceada para fortalecer la resistencia física de la cutícula foliar."
+                    ]
+                },
+                "Roya común": {
+                    "desc": "Enfermedad fúngica provocada por Puccinia sorghi que produce pequeñas pústulas circulares u ovaladas de color marrón-rojizo en ambas caras de la hoja, liberando esporas polvorientas que se dispersan por el viento.",
+                    "recs": [
+                        "Siembra de híbridos resistentes: Priorizar el uso de variedades que cuenten con resistencia Rp específica.",
+                        "Ajuste en fechas de siembra: Programar siembras tempranas para evitar que las etapas críticas del cultivo coincidan con condiciones frescas y húmedas favorables para el patógeno.",
+                        "Aplicación de fungicidas sistémicos: Utilizar mezclas comerciales de triazoles y estrobirulinas al observar las primeras pústulas en el tercio inferior/medio del cultivo.",
+                        "Control de mojado foliar: Ajustar el riego por aspersión para reducir las horas de mojado en las hojas, lo que disminuye la germinación de esporas.",
+                        "Manejo de nutrición mineral: Mantener una nutrición nitrogenada y potásica balanceada para fortalecer la resistencia física de la cutícula foliar."
+                    ]
+                },
+                "Mancha gris": {
+                    "desc": "Enfermedad fúngica destructiva causada por Cercospora zeae-maydis que se manifiesta como lesiones rectangulares delimitadas por las nervaduras de la hoja foliar, tornándose grisáceas con el tiempo.",
+                    "recs": [
+                        "Rotación sistemática de cultivos: Alternar el campo con especies no gramíneas por un periodo mínimo de 1 a 2 años.",
+                        "Manejo e incorporación de residuos: Enterrar rastrojos infectados para reducir sustancialmente el inóculo primario presente en el suelo.",
+                        "Selección de semillas tolerantes: Sembrar híbridos con alta tolerancia genética comprobada en zonas con historial de la enfermedad.",
+                        "Control químico foliar estratégico: Aplicar mezclas de fungicidas específicos (estrobirulinas y triazoles) si se observan lesiones tempranas bajo condiciones de alta humedad.",
+                        "Optimización de densidad de siembra: Regular el número de plantas por hectárea para mejorar la aireación interna del dosel y reducir la humedad microclimática."
+                    ]
+                },
+                "Sano": {
+                    "desc": "La planta de maíz presenta hojas completamente saludables, sin indicios de infección fúngica activa ni deficiencias de nutrientes.",
+                    "recs": [
+                        "Monitoreo preventivo de rutina: Inspeccionar visualmente el campo una vez por semana en busca de focos infecciosos o anomalías.",
+                        "Fertilización balanceada de precisión: Continuar el plan de nutrición basado en el análisis periódico de suelos.",
+                        "Manejo integral de malezas y plagas: Mantener el cultivo libre de malezas hospedantes y plagas (como gusano cogollero) para evitar heridas de entrada.",
+                        "Garantizar buen drenaje en el lote: Evitar encharcamientos prolongados que estimulen el desarrollo de patógenos del suelo.",
+                        "Uso de agua de riego limpia: Evitar fuentes de agua estancada que puedan transportar esporas de hongos fitopatógenos."
+                    ]
+                }
+            },
+            'en': {
+                "Tizón del norte": {
+                    "desc": "Severe fungal disease caused by Exserohilum turcicum that induces elongated, cigar-shaped grayish-green to brown lesions, which can merge causing complete leaf necrosis.",
+                    "recs": [
+                        "Use resistant commercial hybrids: Select varieties incorporating quantitative resistance and specific Ht genes.",
+                        "Crop rotation: Implement a 1-to-2-year rotation with non-grass species (soybean, legumes, or sunflower) to break the pathogen's life cycle.",
+                        "Proper residue management: Perform deep tillage (plowing) to bury infected crop residues from the previous season and speed up decomposition.",
+                        "Timely foliar chemical treatment: Apply systemic fungicides (triazoles, strobilurins, or carboxamides) if severity on lower leaves exceeds 15% before flowering.",
+                        "Continuous phytosanitary monitoring: Perform weekly inspections of the underside of lower leaves to detect initial hotspots."
+                    ]
+                },
+                "Roña común": {
+                    "desc": "Fungal disease caused by Puccinia sorghi that produces small circular or oval reddish-brown pustules on both leaf surfaces, releasing powdery spores dispersed by wind.",
+                    "recs": [
+                        "Sowing of resistant hybrids: Prioritize the use of varieties with specific Rp resistance genes.",
+                        "Adjustment of planting dates: Schedule early planting to prevent critical crop stages from coinciding with cool, humid conditions favorable to the pathogen.",
+                        "Systemic fungicide application: Use commercial mixtures of triazoles and strobilurins when first pustules are observed in the lower/middle third of the crop.",
+                        "Leaf wetness control: Adjust sprinkler irrigation to reduce leaf wetness duration, decreasing spore germination.",
+                        "Mineral nutrition management: Maintain balanced nitrogen and potassium nutrition to strengthen the physical resistance of the leaf cuticle."
+                    ]
+                },
+                "Roya común": {
+                    "desc": "Fungal disease caused by Puccinia sorghi that produces small circular or oval reddish-brown pustules on both leaf surfaces, releasing powdery spores dispersed by wind.",
+                    "recs": [
+                        "Sowing of resistant hybrids: Prioritize the use of varieties with specific Rp resistance genes.",
+                        "Adjustment of planting dates: Schedule early planting to prevent critical crop stages from coinciding with cool, humid conditions favorable to the pathogen.",
+                        "Systemic fungicide application: Use commercial mixtures of triazoles and strobilurins when first pustules are observed in the lower/middle third of the crop.",
+                        "Leaf wetness control: Adjust sprinkler irrigation to reduce leaf wetness duration, decreasing spore germination.",
+                        "Mineral nutrition management: Maintain balanced nitrogen and potassium nutrition to strengthen the physical resistance of the leaf cuticle."
+                    ]
+                },
+                "Mancha gris": {
+                    "desc": "Destructive fungal disease caused by Cercospora zeae-maydis that appears as rectangular lesions restricted by leaf veins, turning grayish over time.",
+                    "recs": [
+                        "Systematic crop rotation: Alternate the field with non-grass species for a minimum of 1 to 2 years.",
+                        "Residue management and incorporation: Bury infected stubble to substantially reduce primary inoculum present in the soil.",
+                        "Tolerant seed selection: Sow hybrids with proven high genetic tolerance in areas with a history of the disease.",
+                        "Strategic foliar chemical control: Apply specific fungicide mixtures (strobilurins and triazoles) if early lesions are seen under high humidity.",
+                        "Sowing density optimization: Regulate the number of plants per hectare to improve air circulation within the canopy and reduce microclimatic humidity."
+                    ]
+                },
+                "Sano": {
+                    "desc": "The maize plant shows completely healthy leaves, with no signs of active fungal infection or nutritional deficiencies.",
+                    "recs": [
+                        "Routine preventive monitoring: Visually inspect the field once a week for initial infection focus or anomalies.",
+                        "Precision balanced fertilization: Continue the nutrition plan based on periodic soil analysis.",
+                        "Integrated weed and pest management: Keep the crop free of host weeds and pests (such as fall armyworm) to avoid entry wounds.",
+                        "Ensure good field drainage: Avoid prolonged waterlogging that stimulates the development of soil-borne pathogens.",
+                        "Use clean irrigation water: Avoid stagnant water sources that may transport phytopathogenic fungal spores."
+                    ]
+                }
+            },
+            'pt': {
+                "Tizón del norte": {
+                    "desc": "Doença fúngica grave causada por Exserohilum turcicum que provoca lesões elípticas alongadas (em forma de charuto) de cor verde-acinzentada a marrom.",
+                    "recs": [
+                        "Uso de híbridos comerciais resistentes: Selecionar variedades que incorporem resistência quantitativa e genes Ht específicos.",
+                        "Rotação de culturas: Implementar rotação de 1 a 2 anos com espécies não gramíneas (soja, leguminosas ou girassol) para quebrar o ciclo de vida do patógeno.",
+                        "Manejo adequado de resíduos: Realizar aração profunda para enterrar os resíduos da safra anterior infectada e acelerar a decomposição.",
+                        "Tratamento químico foliar oportuno: Aplicar fungicidas sistêmicos (triazóis, estrobirulinas ou carboxamidas) se a severidade nas folhas inferiores exceder 15% antes do florescimento.",
+                        "Monitoramento fitossanitário contínuo: Realizar inspeções semanais na face inferior das folhas inferiores para detectar focos iniciais."
+                    ]
+                },
+                "Roña común": {
+                    "desc": "Doença fúngica provocada por Puccinia sorghi que produz pequenas pústulas circulares ou ovais de cor marrom-avermelhada em ambas as superfícies da folha, liberando esporos dispersos pelo vento.",
+                    "recs": [
+                        "Plantio de híbridos resistentes: Priorizar o uso de variedades que possuam resistência Rp específica.",
+                        "Ajuste nas datas de plantio: Programar plantios precoces para evitar que estágios críticos coincidam com condições frescas e úmidas favoráveis ao patógeno.",
+                        "Aplicação de fungicidas sistêmicos: Utilizar misturas comerciais de trizóis e estrobirulinas quando as primeiras pústulas forem observadas no terço inferior/médio da cultura.",
+                        "Controle de molhamento foliar: Ajustar a irrigação por aspersão para reduzir as horas de molhamento foliar, diminuindo a germinação dos esporas.",
+                        "Manejo de nutrição mineral: Manter uma nutrição nitrogenada e potássica equilibrada para fortalecer a resistência física da cutícula foliar."
+                    ]
+                },
+                "Roya común": {
+                    "desc": "Doença fúngica provocada por Puccinia sorghi que produz pequenas pústulas circulares ou ovais de cor marrom-avermelhada em ambas as superfícies da folha, liberando esporos dispersos pelo vento.",
+                    "recs": [
+                        "Plantio de híbridos resistentes: Priorizar o uso de variedades que possuam resistência Rp específica.",
+                        "Ajuste nas datas de plantio: Programar plantios precoces para evitar que estágios críticos coincidam com condições frescas e úmidas favoráveis ao patógeno.",
+                        "Aplicação de fungicidas sistêmicos: Utilizar misturas comerciais de trizóis e estrobirulinas quando as primeiras pústulas forem observadas no terço inferior/médio da cultura.",
+                        "Controle de molhamento foliar: Ajustar a irrigação por aspersão para reduzir as horas de molhamento foliar, diminuindo a germinação dos esporas.",
+                        "Manejo de nutrição mineral: Manter uma nutrição nitrogenada e potássica equilibrada para fortalecer a resistência física da cutícula foliar."
+                    ]
+                },
+                "Mancha gris": {
+                    "desc": "Doença fúngica destrutiva causada por Cercospora zeae-maydis que se manifesta como lesões retangulares delimitadas pelas nervuras foliares, tornando-se acinzentadas com o tempo.",
+                    "recs": [
+                        "Rotação sistemática de culturas: Alternar o campo com espécies não gramíneas por um período mínimo de 1 a 2 anos.",
+                        "Manejo e incorporação de resíduos: Enterrar a palhada infectada para reduzir substancialmente o inóculo primário presente no solo.",
+                        "Seleção de sementes tolerantes: Semear híbridos com alta tolerância genética comprovada em áreas com histórico da doença.",
+                        "Controle químico foliar estratégico: Aplicar misturas de fungicidas específicos (estrobirulinas e trizóis) se forem observadas lesões iniciais sob alta umidade.",
+                        "Otimização da densidade de plantio: Regular o número de plantas por hectare para melhorar a ventilação e reduzir a umidade microclimática."
+                    ]
+                },
+                "Sano": {
+                    "desc": "A planta de milho apresenta folhas completamente saudáveis, sem sinais de infecção fúngica ativa ou deficiências nutricionais.",
+                    "recs": [
+                        "Monitoramento preventivo de rotina: Inspecionar visualmente o campo uma vez por semana em busca de focos infecciosos ou anomalias.",
+                        "Adubação equilibrada de precisão: Continuar o plano de nutrição baseado na análise periódica de solos.",
+                        "Manejo integrado de plantas daninhas e pragas: Manter a cultura livre de plantas daninhas hospedeiras e pragas (como lagarta-do-cartucho) para evitar ferimentos de entrada.",
+                        "Garantir boa drenagem no lote: Evitar encharcamentos prolongados que estimulem o desenvolvimento de patógenos do solo.",
+                        "Uso de água de irrigação limpa: Evitar fontes de água estancada que possam transportar esporos de fungos fitopatogênicos."
+                    ]
+                }
+            }
+        }.get(lang_key, {})
+
+        lookup_key = consensus_diagnosis if consensus_diagnosis else "Sano"
+        if lookup_key not in recs_disease_info and lookup_key == "Roya común" and "Roña común" in recs_disease_info:
+            lookup_key = "Roña común"
+        elif lookup_key not in recs_disease_info and lookup_key == "Roña común" and "Roya común" in recs_disease_info:
+            lookup_key = "Roya común"
+
+        if lookup_key in recs_disease_info:
+            diag_info = recs_disease_info[lookup_key]
+            diag_name = translate_class_lang(consensus_diagnosis, lang_key) if consensus_diagnosis else healthy_lbl
+            desc_val = diag_info['desc']
+            
+            recs_headers = {
+                'es': ['Diagnóstico', 'Descripción Fitosanitaria', 'Pautas y Recomendaciones de Control'],
+                'en': ['Diagnosis', 'Phytosanitary Description', 'Control Guidelines and Recommendations'],
+                'pt': ['Diagnóstico', 'Descrição Fitossanitária', 'Diretrizes e Recomendações de Controle']
+            }.get(lang_key)
+
+            rows_recs = []
+            for r in diag_info['recs']:
+                rows_recs.append({
+                    recs_headers[0]: diag_name,
+                    recs_headers[1]: desc_val,
+                    recs_headers[2]: r
+                })
+            pd.DataFrame(rows_recs).to_excel(writer, sheet_name=recs_sheet, index=False)
+            
         # Aplicar formato y autoajustes
         workbook = writer.book
         for sheet_name in workbook.sheetnames:

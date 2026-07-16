@@ -538,3 +538,72 @@ def plot_eda_charts(df, target_col, save_path="reports", lang="es"):
     charts['boxplots'] = boxplot_fig
     
     return charts
+
+def run_predictor_significance_tests(df, target_col, alpha=0.05):
+    """
+    Ejecuta pruebas estadísticas de significancia (ANOVA o Kruskal-Wallis)
+    para cada variable numérica respecto a las clases del target.
+    """
+    num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    if target_col in num_cols:
+        num_cols.remove(target_col)
+        
+    classes = df[target_col].unique()
+    significance_results = []
+    
+    for col in num_cols:
+        # Agrupar datos por clase
+        groups = [df[df[target_col] == c][col].dropna().values for c in classes]
+        # Filtrar grupos vacíos o con muy pocos datos
+        groups = [g for g in groups if len(g) >= 3]
+        if len(groups) < 2:
+            continue
+            
+        # 1. Validar normalidad por grupo
+        normality_holds = True
+        for g in groups:
+            try:
+                _, p_val = stats.shapiro(g)
+                if p_val < alpha:
+                    normality_holds = False
+                    break
+            except:
+                normality_holds = False
+                break
+                
+        # 2. Validar homocedasticidad
+        variance_holds = True
+        try:
+            _, p_val_lev = stats.levene(*groups)
+            if p_val_lev < alpha:
+                variance_holds = False
+        except:
+            variance_holds = False
+            
+        # 3. Elegir prueba
+        if normality_holds and variance_holds:
+            # ANOVA
+            try:
+                stat_val, p_val = stats.f_oneway(*groups)
+                test_name = "ANOVA (Paramétrico)"
+            except:
+                stat_val, p_val = 0.0, 1.0
+                test_name = "ANOVA (Fallo)"
+        else:
+            # Kruskal-Wallis
+            try:
+                stat_val, p_val = stats.kruskal(*groups)
+                test_name = "Kruskal-Wallis (No Paramétrico)"
+            except:
+                stat_val, p_val = 0.0, 1.0
+                test_name = "Kruskal-Wallis (Fallo)"
+                
+        significance_results.append({
+            'Variable': col,
+            'Prueba': test_name,
+            'Estadístico': stat_val,
+            'p-valor': p_val,
+            'Significativo': "SÍ" if p_val < alpha else "NO"
+        })
+        
+    return pd.DataFrame(significance_results)

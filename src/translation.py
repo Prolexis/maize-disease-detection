@@ -2,7 +2,7 @@
 
 TRANSLATIONS = {
     "es": {
-        "title": "🌽 Detector de Enfermedades en Hojas de Maíz",
+        "title": "🌽 Detector de Enfermedades de Hojas de Maíz usando Redes Neuronales",
         "welcome": "Bienvenido",
         "login_desc": "Inicie sesión para acceder al sistema.",
         "email": "Correo electrónico",
@@ -220,7 +220,7 @@ TRANSLATIONS = {
         "tinyml_running": "Convirtiendo y cuantizando modelo... por favor espere."
     },
     "en": {
-        "title": "🌽 Maize Leaf Disease Detector",
+        "title": "🌽 Maize Leaf Disease Detector using Neural Networks",
         "welcome": "Welcome",
         "login_desc": "Log in to access the system.",
         "email": "Email Address",
@@ -438,7 +438,7 @@ TRANSLATIONS = {
         "tinyml_running": "Converting and quantizing model... please wait."
     },
     "pt": {
-        "title": "🌽 Detector de Doenças em Folhas de Milho",
+        "title": "🌽 Detector de Doenças em Folhas de Milho usando Redes Neurais",
         "welcome": "Bem-vindo",
         "login_desc": "Inicie sessão para acessar o sistema.",
         "email": "E-mail",
