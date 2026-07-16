@@ -44,6 +44,19 @@ def t(key):
     except:
         return key
 
+def st_image_safe(image_path, **kwargs):
+    """Muestra una imagen de forma segura abriéndola con PIL para evitar problemas de caché de Streamlit"""
+    if not image_path:
+        return
+    if isinstance(image_path, str) and os.path.exists(image_path):
+        try:
+            img = Image.open(image_path)
+            st.image(img, **kwargs)
+        except Exception as e:
+            st.error(f"Error cargando imagen ({image_path}): {e}")
+    else:
+        st.image(image_path, **kwargs)
+
 # Configuración de la página
 st.set_page_config(
     page_title="🌽 Detector de Enfermedades de Hojas de Maíz usando Redes Neuronales",
@@ -569,8 +582,8 @@ IMG_SIZE = 128
 CLASS_NAMES = [
     "Mancha gris",
     "Roña común",
-    "Tizón del norte",
-    "Sano"
+    "Sano",
+    "Tizón del norte"
 ]
 
 @st.cache_resource
@@ -587,7 +600,7 @@ def load_models():
         model_path = os.path.join(MODEL_PATH, filename)
         if os.path.exists(model_path):
             try:
-                models[name] = load_model(model_path)
+                models[name] = load_model(model_path, compile=False)
                 st.success(t("model_load_success").format(name=name))
             except Exception as e:
                 st.error(t("model_load_error").format(name=name, err=str(e)))
@@ -2055,7 +2068,7 @@ def show_training_reports():
     st.subheader(t_rep['sub_comparison'])
     comparison_file = reports_path / "modelos_comparacion_completa.png"
     if comparison_file.exists():
-        st.image(str(comparison_file), caption=t_rep['caption_comparison'])
+        st_image_safe(str(comparison_file), caption=t_rep['caption_comparison'])
     else:
         st.error(t_rep['err_comparison'])
 
@@ -2063,7 +2076,7 @@ def show_training_reports():
     st.subheader(t_rep['sub_cm_comparative'])
     matrices_file = reports_path / "matrices_confusion_todos.png"
     if matrices_file.exists():
-        st.image(str(matrices_file), caption=t_rep['caption_cm_comparative'])
+        st_image_safe(str(matrices_file), caption=t_rep['caption_cm_comparative'])
     else:
         st.error(t_rep['err_cm_comparative'])
 
@@ -2081,7 +2094,7 @@ def show_training_reports():
         with cols[idx]:
             matrix_path = reports_path / filename
             if matrix_path.exists():
-                st.image(str(matrix_path), caption=t_rep['caption_cm_indiv'].format(name=model_name))
+                st_image_safe(str(matrix_path), caption=t_rep['caption_cm_indiv'].format(name=model_name))
             else:
                 st.error(t_rep['err_cm_indiv'].format(name=model_name))
 
@@ -2089,7 +2102,7 @@ def show_training_reports():
     st.subheader(t_rep['sub_metrics'])
     metrics_file = reports_path / "metricas_detalladas_por_clase.png"
     if metrics_file.exists():
-        st.image(str(metrics_file), caption=t_rep['caption_metrics'])
+        st_image_safe(str(metrics_file), caption=t_rep['caption_metrics'])
     else:
         st.error(t_rep['err_metrics'])
 
@@ -2097,7 +2110,7 @@ def show_training_reports():
     st.subheader(t_rep['sub_mcnemar'])
     mcnemar_file = reports_path / "mcnemar_analysis.png"
     if mcnemar_file.exists():
-        st.image(str(mcnemar_file), caption=t_rep['caption_mcnemar'])
+        st_image_safe(str(mcnemar_file), caption=t_rep['caption_mcnemar'])
     else:
         st.error(t_rep['err_mcnemar'])
 
@@ -3344,15 +3357,15 @@ def show_automl_panel():
             col1, col2 = st.columns(2)
             with col1:
                 st.markdown(t_am['eda_balance'])
-                st.image(st.session_state.image_paths['balance'])
+                st_image_safe(st.session_state.image_paths['balance'])
             with col2:
                 if st.session_state.image_paths.get('correlation'):
                     st.markdown(t_am['eda_corr'])
-                    st.image(st.session_state.image_paths['correlation'])
+                    st_image_safe(st.session_state.image_paths['correlation'])
                     
             st.markdown(t_am['eda_dist'])
-            st.image(st.session_state.image_paths['distributions'])
-            st.image(st.session_state.image_paths['boxplots'])
+            st_image_safe(st.session_state.image_paths['distributions'])
+            st_image_safe(st.session_state.image_paths['boxplots'])
             
             st.markdown(t_am['eda_interpret'])
             st.info(st.session_state.interpretations['eda'])
@@ -3364,16 +3377,16 @@ def show_automl_panel():
             col_t1, col_t2 = st.columns(2)
             with col_t1:
                 st.markdown(t_am['train_roc'])
-                st.image(st.session_state.image_paths['roc'])
+                st_image_safe(st.session_state.image_paths['roc'])
             with col_t2:
                 st.markdown(t_am['train_learning'])
-                st.image(st.session_state.image_paths['learning'])
+                st_image_safe(st.session_state.image_paths['learning'])
                 
             st.markdown(t_am['train_cm'])
             for model_name in st.session_state.df_training.index:
                 filename = os.path.join("reports", f"confusion_{model_name.replace(' ', '_').replace('(', '').replace(')', '')}.png")
                 if os.path.exists(filename):
-                    st.image(filename, caption=t_am['train_cm_caption'].format(name=model_name), width=400)
+                    st_image_safe(filename, caption=t_am['train_cm_caption'].format(name=model_name), width=400)
                     
             st.markdown(t_am['train_interpret'])
             st.info(st.session_state.interpretations['training'])
@@ -3390,7 +3403,7 @@ def show_automl_panel():
                     t_am['cv_std_f1']: f"{res['std_f1']:.4f}"
                 })
             st.dataframe(pd.DataFrame(cv_disp_data), use_container_width=True)
-            st.image(st.session_state.image_paths['cv'])
+            st_image_safe(st.session_state.image_paths['cv'])
             
             st.markdown(t_am['cv_interpret'])
             st.info(st.session_state.interpretations['cv'])
@@ -3409,7 +3422,7 @@ def show_automl_panel():
             st.markdown(t_am['stats_title'])
             s_res = st.session_state.stats_results
             st.markdown(f"{t_am['stats_hypothesis']} `{s_res['test_type']}`")
-            st.image(st.session_state.image_paths['stats'])
+            st_image_safe(st.session_state.image_paths['stats'])
             
             st.markdown(t_am['stats_interpret'])
             st.info(st.session_state.interpretations['stats'])
