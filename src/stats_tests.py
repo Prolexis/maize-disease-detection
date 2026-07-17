@@ -5,7 +5,42 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
 
-def run_statistical_tests(cv_results, y_test, y_pred_classic, y_pred_hybrid, alpha=0.05, save_path="reports", lang="es"):
+def compute_bootstrap_ci(y_true, y_pred, metric='accuracy', n_bootstraps=1000, confidence_level=0.95):
+    """
+    Calcula el intervalo de confianza por bootstrap para la métrica especificada
+    (accuracy o f1-score) del modelo sobre el conjunto de prueba.
+    """
+    from sklearn.metrics import accuracy_score, f1_score
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+    bootstrapped_metrics = []
+    
+    rng = np.random.default_rng(42)
+    n_samples = len(y_true)
+    
+    for _ in range(n_bootstraps):
+        indices = rng.integers(0, n_samples, n_samples)
+        sample_true = y_true[indices]
+        sample_pred = y_pred[indices]
+        if n_samples > 0:
+            if metric == 'f1-score':
+                val = f1_score(sample_true, sample_pred, average='macro', zero_division=0)
+            else:
+                val = accuracy_score(sample_true, sample_pred)
+        else:
+            val = 0.0
+        bootstrapped_metrics.append(val)
+        
+    sorted_metrics = np.sort(bootstrapped_metrics)
+    lower_pct = (1 - confidence_level) / 2
+    upper_pct = 1 - lower_pct
+    
+    lower_idx = int(lower_pct * n_bootstraps)
+    upper_idx = int(upper_pct * n_bootstraps)
+    
+    return [float(sorted_metrics[lower_idx]), float(sorted_metrics[upper_idx])]
+
+def run_statistical_tests(cv_results, y_test, y_pred_classic=None, y_pred_hybrid=None, alpha=0.05, save_path="reports", lang="es", results=None):
     """
     Ejecuta un análisis estadístico completo sobre los resultados de validación cruzada y test.
     """
@@ -21,7 +56,11 @@ def run_statistical_tests(cv_results, y_test, y_pred_classic, y_pred_hybrid, alp
     normality_holds = True
     for name, accs in cv_results.items():
         try:
-            _, p_val = stats.shapiro(accs)
+            vals = accs['accuracies'] if isinstance(accs, dict) and 'accuracies' in accs else accs
+            _, p_val = stats.shapiro(vals)
+            import math
+            if math.isnan(p_val):
+                p_val = 1.0
         except Exception:
             p_val = 1.0  # asumir normalidad si el test falla (pocas muestras)
         shapiro_pvals[name] = p_val
@@ -69,25 +108,40 @@ def run_statistical_tests(cv_results, y_test, y_pred_classic, y_pred_hybrid, alp
         overall_pval = p_val
         test_type = "Friedman (No paramétrico)"
         
-        # Fallback a Wilcoxon para comparaciones post-hoc apareadas con corrección Bonferroni
-        from statsmodels.stats.multitest import multipletests
-        p_vals_temp = []
-        keys_temp = []
-        for i in range(len(model_names)):
-            for j in range(i+1, len(model_names)):
+        # Test post-hoc de Nemenyi manual utilizando diferencias de rangos
+        matrix_accs = np.array(data_acc).T # Shape: (n_folds, n_models)
+        ranks = np.array([stats.rankdata(-row) for row in matrix_accs]) # Rango 1 para el mejor valor
+        mean_ranks = np.mean(ranks, axis=0) # Rango promedio de cada modelo
+        
+        n_folds = matrix_accs.shape[0]
+        n_models = len(model_names)
+        
+        # Error estándar para comparación de rangos promedio en Nemenyi:
+        # SE = sqrt( k * (k + 1) / (6 * N) )
+        se = np.sqrt(n_models * (n_models + 1) / (6.0 * n_folds))
+        
+        for i in range(n_models):
+            for j in range(i+1, n_models):
                 m1 = model_names[i]
                 m2 = model_names[j]
-                _, pval = stats.wilcoxon(cv_results[m1]['accuracies'], cv_results[m2]['accuracies'])
-                p_vals_temp.append(pval)
-                keys_temp.append(f"{m1} vs {m2}")
-        if p_vals_temp:
-            rejects, p_adjusted, _, _ = multipletests(p_vals_temp, alpha=alpha, method='bonferroni')
-            for key, pval, rej in zip(keys_temp, p_adjusted, rejects):
-                m1, m2 = key.split(" vs ")
+                
+                # Estadístico Z de Nemenyi
+                rank_diff = abs(mean_ranks[i] - mean_ranks[j])
+                z_stat = rank_diff / se
+                
+                # p-valor bilateral a partir de la normal estándar
+                pval = 2.0 * (1.0 - stats.norm.cdf(z_stat))
+                
+                # Ajuste de Bonferroni-Dunn (multiplicar por número total de comparaciones: k * (k - 1) / 2)
+                num_comparisons = n_models * (n_models - 1) / 2
+                pval_adj = min(pval * num_comparisons, 1.0)
+                
+                key = f"{m1} vs {m2}"
                 posthoc_results[key] = {
                     'diff': np.mean(cv_results[m1]['accuracies']) - np.mean(cv_results[m2]['accuracies']),
-                    'p_val': pval,
-                    'significant': rej
+                    'p_val': pval_adj,
+                    'significant': bool(pval_adj < alpha),
+                    'rank_diff': rank_diff
                 }
                     
     # 3. Prueba T de Wilcoxon (Comparación directa del mejor clásico vs mejor híbrido)
@@ -102,7 +156,7 @@ def run_statistical_tests(cv_results, y_test, y_pred_classic, y_pred_hybrid, alp
         existing_classics = [n for n in cv_results.keys() if 'clásico' in n.lower() or 'clasico' in n.lower()]
     if not existing_hybrids:
         existing_hybrids = [n for n in cv_results.keys() if 'híbrido' in n.lower() or 'hibrido' in n.lower()]
-        
+    
     if not existing_classics:
         existing_classics = list(cv_results.keys())[:3]
     if not existing_hybrids:
@@ -111,27 +165,98 @@ def run_statistical_tests(cv_results, y_test, y_pred_classic, y_pred_hybrid, alp
     best_classic = max(existing_classics, key=lambda n: np.mean(cv_results[n]['accuracies']))
     best_hybrid = max(existing_hybrids, key=lambda n: np.mean(cv_results[n]['accuracies']))
     
-    _, wilc_pval = stats.wilcoxon(cv_results[best_classic]['accuracies'], cv_results[best_hybrid]['accuracies'])
-    wilc_stat, _ = stats.wilcoxon(cv_results[best_classic]['accuracies'], cv_results[best_hybrid]['accuracies'])
+    # Si no se proveen predicciones de test, buscar del diccionario de resultados
+    if y_pred_classic is None and results is not None and best_classic in results:
+        y_pred_classic = results[best_classic]['y_pred']
+    if y_pred_hybrid is None and results is not None and best_hybrid in results:
+        y_pred_hybrid = results[best_hybrid]['y_pred']
+        
+    # Ejecutar comparación best_classic vs best_hybrid
+    if y_pred_classic is not None and y_pred_hybrid is not None:
+        _, wilc_pval = stats.wilcoxon(cv_results[best_classic]['accuracies'], cv_results[best_hybrid]['accuracies'])
+        wilc_stat, _ = stats.wilcoxon(cv_results[best_classic]['accuracies'], cv_results[best_hybrid]['accuracies'])
+        
+        # 4. Prueba de McNemar (Consistencia de clasificaciones en el Test set)
+        contingency = [[0, 0], [0, 0]]
+        for true, pred1, pred2 in zip(y_test, y_pred_classic, y_pred_hybrid):
+            c1 = (pred1 == true)
+            c2 = (pred2 == true)
+            if c1 and c2:
+                contingency[0][0] += 1
+            elif c1 and not c2:
+                contingency[0][1] += 1
+            elif not c1 and c2:
+                contingency[1][0] += 1
+            else:
+                contingency[1][1] += 1
+                
+        b = contingency[0][1]
+        c = contingency[1][0]
+        mcnemar_stat = (abs(b - c) - 1)**2 / (b + c) if (b + c) > 0 else 0.0
+        mcnemar_pval = 1.0 - stats.chi2.cdf(mcnemar_stat, df=1) if (b + c) > 0 else 1.0
+    else:
+        wilc_stat, wilc_pval = 0.0, 1.0
+        contingency = [[0, 0], [0, 0]]
+        mcnemar_stat, mcnemar_pval = 0.0, 1.0
     
-    # 4. Prueba de McNemar (Consistencia de clasificaciones en el Test set)
-    contingency = [[0, 0], [0, 0]]
-    for true, pred1, pred2 in zip(y_test, y_pred_classic, y_pred_hybrid):
-        c1 = (pred1 == true)
-        c2 = (pred2 == true)
-        if c1 and c2:
-            contingency[0][0] += 1
-        elif c1 and not c2:
-            contingency[0][1] += 1
-        elif not c1 and c2:
-            contingency[1][0] += 1
-        else:
-            contingency[1][1] += 1
+    # 5. Bootstrap Confidence Intervals (para todos los modelos si 'results' existe)
+    bootstrap_ci = {}
+    bootstrap_ci_f1 = {}
+    if results is not None:
+        for name, res in results.items():
+            bootstrap_ci[name] = compute_bootstrap_ci(y_test, res['y_pred'], metric='accuracy')
+            bootstrap_ci_f1[name] = compute_bootstrap_ci(y_test, res['y_pred'], metric='f1-score')
+    else:
+        if y_pred_classic is not None:
+            bootstrap_ci[best_classic] = compute_bootstrap_ci(y_test, y_pred_classic, metric='accuracy')
+            bootstrap_ci_f1[best_classic] = compute_bootstrap_ci(y_test, y_pred_classic, metric='f1-score')
+        if y_pred_hybrid is not None:
+            bootstrap_ci[best_hybrid] = compute_bootstrap_ci(y_test, y_pred_hybrid, metric='accuracy')
+            bootstrap_ci_f1[best_hybrid] = compute_bootstrap_ci(y_test, y_pred_hybrid, metric='f1-score')
             
-    b = contingency[0][1]
-    c = contingency[1][0]
-    mcnemar_stat = (abs(b - c) - 1)**2 / (b + c) if (b + c) > 0 else 0.0
-    mcnemar_pval = 1.0 - stats.chi2.cdf(mcnemar_stat, df=1) if (b + c) > 0 else 1.0
+    # 6. Comparaciones pareadas dinámicas (T-Student vs Wilcoxon según Shapiro-Wilk)
+    best_model_name = max(cv_results.keys(), key=lambda n: np.mean(cv_results[n]['accuracies']))
+    pairwise_comparisons = {}
+    
+    for model_name in model_names:
+        if model_name == best_model_name:
+            continue
+            
+        acc_a = cv_results[best_model_name]['accuracies']
+        acc_b = cv_results[model_name]['accuracies']
+        
+        # Verificar normalidad de ambos
+        norm_a = shapiro_pvals.get(best_model_name, 1.0) >= alpha
+        norm_b = shapiro_pvals.get(model_name, 1.0) >= alpha
+        
+        if norm_a and norm_b:
+            # T-Student pareada
+            try:
+                t_stat, p_val = stats.ttest_rel(acc_a, acc_b)
+                test_name = "T-Student pareada (Paramétrica)"
+                reason = "Ambos grupos cumplen supuesto de normalidad"
+            except Exception:
+                t_stat, p_val = 0.0, 1.0
+                test_name = "T-Student pareada (Fallo)"
+                reason = "Fallo en la prueba T-Student"
+        else:
+            # Wilcoxon signed-rank
+            try:
+                t_stat, p_val = stats.wilcoxon(acc_a, acc_b)
+                test_name = "Wilcoxon signed-rank (No Paramétrica)"
+                reason = "Al menos un grupo no cumple normalidad"
+            except Exception:
+                t_stat, p_val = 0.0, 1.0
+                test_name = "Wilcoxon signed-rank (Fallo)"
+                reason = "Fallo en la prueba de Wilcoxon"
+                
+        pairwise_comparisons[f"{best_model_name} vs {model_name}"] = {
+            'test_name': test_name,
+            'stat': float(t_stat),
+            'p_val': float(p_val),
+            'significant': bool(p_val < alpha),
+            'reason': reason
+        }
     
     # Graficar heatmap de p-valores post-hoc
     plt.figure(figsize=(8, 6))
@@ -184,6 +309,9 @@ def run_statistical_tests(cv_results, y_test, y_pred_classic, y_pred_hybrid, alp
         'levene_pval': levene_pval,
         'use_parametric': use_parametric,
         'posthoc_results': posthoc_results,
+        'bootstrap_ci': bootstrap_ci,
+        'bootstrap_ci_f1': bootstrap_ci_f1,
+        'pairwise_comparisons': pairwise_comparisons,
         'wilcoxon': {
             'best_classic': best_classic,
             'best_hybrid': best_hybrid,
@@ -202,45 +330,6 @@ def interpret_stats(results, alpha=0.05, lang='es'):
     """
     Genera interpretación automática en lenguaje natural de las pruebas estadísticas.
     """
-    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
-    
-    if lang_key == 'en':
-        interpretations = [
-            f"**Global Statistical Tests ({results['test_type']}):** Group differences in cross validation were evaluated. The global p-value is **{results['overall_pval']:.4f}**.",
-            f"Since the global p-value is {'less' if results['overall_pval'] < alpha else 'greater'} than the configurable significance level alpha = {alpha}, we conclude that **{'there are' if results['overall_pval'] < alpha else 'there are no'} statistically significant differences** in the performance of the 5 models."
-        ]
-        w_res = results['wilcoxon']
-        interpretations.append(
-            f"**Wilcoxon Test (Classic vs Hybrid):** When comparing the best classic ({w_res['best_classic']}) against the best hybrid ({w_res['best_hybrid']}), the p-value is **{w_res['p_val']:.4f}**, indicating that the hybrid improvement **{'is' if w_res['p_val'] < alpha else 'is not'} statistically significant**."
-        )
-        m_res = results['mcnemar']
-        interpretations.append(
-            f"**McNemar Test (Test Predictions):** Evaluation on the test set yields a p-value of **{m_res['p_val']:.4f}** in classification consistency between both approaches, suggesting that classification error rates **{'differ significantly' if m_res['p_val'] < alpha else 'are statistically equivalent'}**."
-        )
-    elif lang_key == 'pt':
-        interpretations = [
-            f"**Testes Estatísticos Globais ({results['test_type']}):** Avaliaram-se as diferenças grupais em validação cruzada. O p-valor global é **{results['overall_pval']:.4f}**.",
-            f"Sendo o p-valor global {'menor' if results['overall_pval'] < alpha else 'maior'} que o nível de significância configurável alfa = {alpha}, conclui-se que **{'existem' if results['overall_pval'] < alpha else 'não existem'} diferenças estatisticamente significativas** no desempenho dos 5 modelos."
-        ]
-        w_res = results['wilcoxon']
-        interpretations.append(
-            f"**Teste Wilcoxon (Clássico vs Híbrido):** Ao comparar o melhor clássico ({w_res['best_classic']}) contra o melhor híbrido ({w_res['best_hybrid']}), o p-valor é de **{w_res['p_val']:.4f}**, indicando que a melhoria do híbrido **{'é' if w_res['p_val'] < alpha else 'não é'} estatisticamente significativa**."
-        )
-        m_res = results['mcnemar']
-        interpretations.append(
-            f"**Teste de McNemar (Previsões de Teste):** A avaliação sobre o conjunto de teste resulta em um p-valor de **{m_res['p_val']:.4f}** na consistência das previsões entre ambas as abordagens, sugerindo que a taxa de erros de classificação **{'difere significativamente' if m_res['p_val'] < alpha else 'é estatisticamente equivalente'}**."
-        )
-    else:
-        interpretations = [
-            f"**Pruebas Estadísticas Globales ({results['test_type']}):** Se evaluaron las diferencias grupales en validación cruzada. El p-valor global es **{results['overall_pval']:.4f}**.",
-            f"Al ser el p-valor global {'menor' if results['overall_pval'] < alpha else 'mayor'} que el nivel de significancia configurable alfa = {alpha}, se concluye que **{'existen' if results['overall_pval'] < alpha else 'no existen'} diferencias estadísticamente significativas** en el rendimiento de los 5 modelos."
-        ]
-        w_res = results['wilcoxon']
-        interpretations.append(
-            f"**Prueba Wilcoxon (Clásico vs Híbrido):** Al comparar el mejor clásico ({w_res['best_classic']}) contra el mejor híbrido ({w_res['best_hybrid']}), el p-valor es de **{w_res['p_val']:.4f}**, indicando que la mejora del híbrido **{'es' if w_res['p_val'] < alpha else 'no es'} estadísticamente significativa**."
-        )
-        m_res = results['mcnemar']
-        interpretations.append(
-            f"**Prueba de McNemar (Predicciones de Test):** La evaluación sobre el conjunto de prueba arroja un p-valor de **{m_res['p_val']:.4f}** en la consistencia de predicciones entre ambos enfoques, sugiriendo que la tasa de errores de clasificación **{'difiere significativamente' if m_res['p_val'] < alpha else 'es estadísticamente equivalente'}**."
-        )
-    return "\n\n".join(interpretations)
+    from src.interpretation import interpretar_stats
+    return interpretar_stats(results, alpha=alpha, lang=lang)
+

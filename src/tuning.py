@@ -72,26 +72,6 @@ def interpret_tuning(tuning_results, lang='es'):
     """
     Genera interpretación automática del proceso de ajuste de hiperparámetros.
     """
-    diff = tuning_results['accuracy_after'] - tuning_results['accuracy_before']
-    best_params_str = ", ".join([f"{k}={v}" for k, v in tuning_results['best_params'].items()])
-    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
-    
-    if lang_key == 'en':
-        interpretations = [
-            f"**Hyperparameter Tuning ({tuning_results['method'].upper()}):** The optimization process took **{tuning_results['search_time']:.3f} seconds**.",
-            f"The best parameters found for the MLP Neural Network are: **{best_params_str}**.",
-            f"The accuracy on the test set went from **{tuning_results['accuracy_before']:.2%}** to **{tuning_results['accuracy_after']:.2%}** (a net increase of **{diff*100:+.2f}%**)."
-        ]
-    elif lang_key == 'pt':
-        interpretations = [
-            f"**Ajuste de Hiperparâmetros ({tuning_results['method'].upper()}):** O processo de otimização levou **{tuning_results['search_time']:.3f} segundos**.",
-            f"Os melhores parâmetros encontrados para a Rede Neural MLP são: **{best_params_str}**.",
-            f"A acurácia no conjunto de teste passou de **{tuning_results['accuracy_before']:.2%}** para **{tuning_results['accuracy_after']:.2%}** (um aumento líquido de **{diff*100:+.2f}%**)."
-        ]
-    else:
-        interpretations = [
-            f"**Ajuste de Hiperparámetros ({tuning_results['method'].upper()}):** El proceso de optimización tomó **{tuning_results['search_time']:.3f} segundos**.",
-            f"Los mejores parámetros encontrados para la Red Neuronal MLP son: **{best_params_str}**.",
-            f"La precisión en el conjunto de prueba pasó de **{tuning_results['accuracy_before']:.2%}** a **{tuning_results['accuracy_after']:.2%}** (un incremento neto de **{diff*100:+.2f}%**)."
-        ]
-    return "\n\n".join(interpretations)
+    from src.interpretation import interpretar_tuning
+    return interpretar_tuning(tuning_results, lang=lang)
+

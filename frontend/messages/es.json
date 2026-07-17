@@ -1,0 +1,72 @@
+{
+  "Common": {
+    "title": "Detector Inteligente de Maíz",
+    "logout": "Cerrar Sesión",
+    "theme_light": "Claro",
+    "theme_dark": "Oscuro",
+    "lang_es": "Español",
+    "lang_en": "English",
+    "lang_pt": "Português",
+    "footer_text": "© 2026 Detector de Enfermedades en Hojas de Maíz usando Redes Neuronales & AutoML. Todos los derechos reservados."
+  },
+  "Login": {
+    "title": "Iniciar Sesión",
+    "subtitle": "Acceso al panel de diagnóstico e investigación",
+    "username": "Usuario / Correo",
+    "password": "Contraseña",
+    "submit": "INGRESAR",
+    "remember": "Recordarme",
+    "error": "Credenciales inválidas"
+  },
+  "Dashboard": {
+    "welcome": "Bienvenido al Sistema de Diagnóstico",
+    "desc": "Monitoreo inteligente y modelado predictivo para el cultivo de maíz.",
+    "menu_cv": "Visión Computacional",
+    "menu_automl": "AutoML Tabular",
+    "card_cv_desc": "Clasifique hojas de maíz cargando fotos para detectar Roya, Tizón o Mancha Gris por consenso de 3 modelos CNN (MobileNet, ResNet, EfficientNet).",
+    "card_automl_desc": "Cargue datasets de campo y ejecute el entrenamiento automático de 5 modelos (Regresión Logística, Random Forest, MLP, Stacking y Voting) con pruebas estadísticas."
+  },
+  "CV": {
+    "header": "Diagnóstico Fitosanitario de Hojas",
+    "upload_label": "Arrastre o seleccione una foto de la hoja de maíz",
+    "btn_diagnose": "Analizar Imagen",
+    "result_title": "Resultados de Consenso del Consorcio CNN",
+    "no_consensus": "🚨 Advertencia: Sin Consenso Mayoritario",
+    "no_consensus_desc": "Los tres modelos predijeron enfermedades distintas. Se sugiere capturar otra foto en mejores condiciones de luz.",
+    "recommendations": "Recomendaciones Fitosanitarias",
+    "model_predictions": "Predicciones del Consorcio de Modelos",
+    "c_export_title": "Exportar para TinyML (Microcontroladores)",
+    "c_export_desc": "Descargue el modelo convolucional cuantizado a código fuente C/C++ listo para compilar e implementar en Arduino, ESP32 o microcontroladores embebidos."
+  },
+  "AutoML": {
+    "header": "Plataforma AutoML Tabular",
+    "upload_csv": "Cargar dataset de variables del cultivo (CSV)",
+    "btn_load_default": "Usar dataset por defecto (data/maize_crop_data.csv)",
+    "preview": "Vista previa del dataset",
+    "config": "Configuración del Experimento",
+    "target_col": "Columna Objetivo (Target)",
+    "cv_folds": "Pliegues Validación Cruzada (CV Folds)",
+    "train_pct": "Porcentaje de Entrenamiento (%)",
+    "seed": "Semilla de Reproducibilidad",
+    "alpha": "Nivel de Significancia (Alpha)",
+    "search_method": "Búsqueda de Hiperparámetros",
+    "btn_run": "EJECUTAR PIPELINE AUTOMÁTICO",
+    "training_progress": "Progreso del Entrenamiento",
+    "report_section": "Reportes y Documentación Generada",
+    "tab_eda": "Análisis Exploratorio (EDA)",
+    "tab_models": "Rendimiento de Modelos",
+    "tab_cv": "Validación Cruzada",
+    "tab_tuning": "Tuning de Hiperparámetros",
+    "tab_stats": "Pruebas Estadísticas",
+    "download_pdf": "Descargar PDF",
+    "download_docx": "Descargar Word (DOCX)",
+    "download_xlsx": "Descargar Excel (XLSX)",
+    "bootstrap_ci": "Intervalos de Confianza (Bootstrap CI 95%)",
+    "eda_section": "Análisis Exploratorio de Datos"
+  },
+  "Chatbot": {
+    "title": "MaizIA Asistente",
+    "welcome": "¡Hola! Soy MaizIA. Pregúntame sobre diagnóstico fitosanitario o redes neuronales.",
+    "placeholder": "Escribe tu pregunta aquí..."
+  }
+}

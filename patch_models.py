@@ -6,7 +6,7 @@ import os
 def patch_h5_file(filepath):
     print(f"Procesando {filepath}...")
     if not os.path.exists(filepath):
-        print(f"❌ El archivo {filepath} no existe.")
+        print(f"Error: The file {filepath} does not exist.")
         return False
         
     try:
@@ -43,15 +43,15 @@ def patch_h5_file(filepath):
                     # Guardar la configuración modificada
                     new_config_str = json.dumps(config)
                     f.attrs['model_config'] = new_config_str.encode('utf-8')
-                    print(f"✅ ¡Parcheado con éxito! Se eliminaron los campos de cuantización incompatibles.")
+                    print("Patched successfully! Incompatible quantization fields removed.")
                 else:
-                    print(f"ℹ️ El archivo no contenía referencias a 'quantization_config' o ya estaba limpio.")
+                    print("File did not contain references to quantization_config or was already clean.")
                 return True
             else:
-                print(f"⚠️ No se encontró el atributo 'model_config' en el archivo H5.")
+                print("Warning: model_config attribute not found in H5 file.")
                 return False
     except Exception as e:
-        print(f"❌ Error al procesar el archivo H5: {e}")
+        print(f"Error processing H5 file: {e}")
         return False
 
 def main():

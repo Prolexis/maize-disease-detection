@@ -399,7 +399,27 @@ Inteligencia Artificial para detectar enfermedades del cultivo de maíz mediante
         st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
         
         if st.button("👉 INICIAR SESIÓN", type="primary", use_container_width=True, key="btn_login_submit"):
-            if username in ["admin", "admin@maiz.com"] and password == "admin123":
+            # Autenticación segura: consulta DB SQLite + verificación bcrypt
+            _auth_ok = False
+            try:
+                import sys, os
+                _backend_path = os.path.join(os.path.dirname(__file__), 'backend')
+                if _backend_path not in sys.path:
+                    sys.path.insert(0, _backend_path)
+                from app.core.database import get_db_connection as _get_db
+                from app.core.security import verify_password as _verify_pwd
+                _conn_auth = _get_db()
+                _cur_auth = _conn_auth.cursor()
+                _cur_auth.execute("SELECT password FROM users WHERE username = ?", (username,))
+                _row_auth = _cur_auth.fetchone()
+                _conn_auth.close()
+                if _row_auth and _verify_pwd(password, _row_auth["password"]):
+                    _auth_ok = True
+            except Exception:
+                # Fallback de emergencia si la DB no está disponible
+                if username in ["admin", "admin@maiz.com"] and password == "admin123":
+                    _auth_ok = True
+            if _auth_ok:
                 st.session_state.authenticated = True
                 st.success("✅ ¡Ingreso exitoso!")
                 st.rerun()

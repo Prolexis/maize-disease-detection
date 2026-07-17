@@ -1,0 +1,72 @@
+{
+  "Common": {
+    "title": "Maize Intelligent Detector",
+    "logout": "Log Out",
+    "theme_light": "Light",
+    "theme_dark": "Dark",
+    "lang_es": "Español",
+    "lang_en": "English",
+    "lang_pt": "Português",
+    "footer_text": "© 2026 Maize Leaf Disease Detection using Neural Networks & AutoML. All rights reserved."
+  },
+  "Login": {
+    "title": "Log In",
+    "subtitle": "Access to diagnostic panel and research center",
+    "username": "Username / Email",
+    "password": "Password",
+    "submit": "LOG IN",
+    "remember": "Remember me",
+    "error": "Invalid credentials"
+  },
+  "Dashboard": {
+    "welcome": "Welcome to the Diagnostic System",
+    "desc": "Intelligent monitoring and predictive modeling for maize crops.",
+    "menu_cv": "Computer Vision",
+    "menu_automl": "Tabular AutoML",
+    "card_cv_desc": "Classify maize leaves by uploading photos to detect Rust, Blight, or Gray Spot using the consensus of 3 CNN models (MobileNet, ResNet, EfficientNet).",
+    "card_automl_desc": "Upload field datasets and run automatic training for 5 models (Logistic Regression, Random Forest, MLP, Stacking, and Voting) with statistical tests."
+  },
+  "CV": {
+    "header": "Leaf Phytosanitary Diagnosis",
+    "upload_label": "Drag or select a maize leaf photo",
+    "btn_diagnose": "Analyze Image",
+    "result_title": "Consensus Results of the CNN Consortium",
+    "no_consensus": "🚨 Warning: No Majority Consensus",
+    "no_consensus_desc": "The three models predicted different diseases. We suggest capturing another photo with better lighting conditions.",
+    "recommendations": "Phytosanitary Recommendations",
+    "model_predictions": "Model Consortium Predictions",
+    "c_export_title": "Export for TinyML (Microcontrollers)",
+    "c_export_desc": "Download the quantized convolutional model as C/C++ source code, ready to compile and deploy on Arduino, ESP32, or other embedded microcontrollers."
+  },
+  "AutoML": {
+    "header": "Tabular AutoML Platform",
+    "upload_csv": "Upload crop variables dataset (CSV)",
+    "btn_load_default": "Use default dataset (data/maize_crop_data.csv)",
+    "preview": "Dataset preview",
+    "config": "Experiment Configuration",
+    "target_col": "Target Column",
+    "cv_folds": "Cross-Validation Folds",
+    "train_pct": "Training Percentage (%)",
+    "seed": "Reproducibility Seed",
+    "alpha": "Significance Level (Alpha)",
+    "search_method": "Hyperparameter Search",
+    "btn_run": "RUN AUTOMATIC PIPELINE",
+    "training_progress": "Training Progress",
+    "report_section": "Reports and Generated Documentation",
+    "tab_eda": "Exploratory Data Analysis (EDA)",
+    "tab_models": "Model Performance",
+    "tab_cv": "Cross-Validation",
+    "tab_tuning": "Hyperparameter Tuning",
+    "tab_stats": "Statistical Tests",
+    "download_pdf": "Download PDF",
+    "download_docx": "Download Word (DOCX)",
+    "download_xlsx": "Download Excel (XLSX)",
+    "bootstrap_ci": "Bootstrap Confidence Intervals (95% CI)",
+    "eda_section": "Exploratory Data Analysis"
+  },
+  "Chatbot": {
+    "title": "MaizIA Assistant",
+    "welcome": "Hello! I am MaizIA. Ask me about phytosanitary diagnosis or neural networks.",
+    "placeholder": "Type your question here..."
+  }
+}

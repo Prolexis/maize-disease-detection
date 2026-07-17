@@ -301,33 +301,15 @@ def interpret_training(results, lang='es'):
     """
     Genera interpretación automatizada de los modelos entrenados.
     """
-    sorted_models = sorted(results.items(), key=lambda x: x[1]['accuracy'], reverse=True)
-    best_name, best_res = sorted_models[0]
-    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
-    
-    if lang_key == 'en':
-        interpretations = [
-            f"**Model Comparison:** The model with the best overall performance on the test set is **{best_name}** with an **Accuracy of {best_res['accuracy']:.2%}** and an F1-Score of **{best_res['f1-score']:.3f}**.",
-            f"The most efficient model in training time was **{sorted_models[-1][0]}** ({sorted_models[-1][1]['train_time']:.4f} s), while the model with the most compact disk size is **{min(results.values(), key=lambda x: x['model_size_kb'])['model_size_kb']:.1f} KB**.",
-            f"The confusion matrix analysis reveals that **{best_name}** exhibits the lowest confusion rate among pathogen classes, achieving an optimal balance in the sensitivity curve (ROC)."
-        ]
-    elif lang_key == 'pt':
-        interpretations = [
-            f"**Comparação de Modelos:** O modelo com o melhor desempenho geral no conjunto de teste é o **{best_name}** com uma **Acurácia de {best_res['accuracy']:.2%}** e um F1-Score de **{best_res['f1-score']:.3f}**.",
-            f"O modelo mais eficiente em tempo de treinamento foi o **{sorted_models[-1][0]}** ({sorted_models[-1][1]['train_time']:.4f} s), enquanto o modelo com o tamanho de disco mais compacto é de **{min(results.values(), key=lambda x: x['model_size_kb'])['model_size_kb']:.1f} KB**.",
-            f"A análise da matriz de confusão revela que o **{best_name}** exibe a menor taxa de confusão entre classes patogênicas, alcançando um equilíbrio ideal na curva de sensibilidade (ROC)."
-        ]
-    else:
-        interpretations = [
-            f"**Comparación de Modelos:** El modelo con el mejor desempeño global en el conjunto de prueba es **{best_name}** con un **Accuracy del {best_res['accuracy']:.2%}** y un F1-Score de **{best_res['f1-score']:.3f}**.",
-            f"El modelo más eficiente en tiempo de entrenamiento fue **{sorted_models[-1][0]}** ({sorted_models[-1][1]['train_time']:.4f} s), mientras que el modelo con el tamaño en disco más compacto es de **{min(results.values(), key=lambda x: x['model_size_kb'])['model_size_kb']:.1f} KB**.",
-            f"El análisis de la matriz de confusión revela que **{best_name}** exhibe la menor tasa de confusión entre clases patógenas, logrando un balance óptimo en la curva de sensibilidad (ROC)."
-        ]
-    return "\n\n".join(interpretations)
+    from src.interpretation import interpretar_training
+    return interpretar_training(results, lang=lang)
 
-def save_best_model(results, filename="best_tabular_model.pkl", metadata_name="metadata.json"):
+
+def save_best_model(results, filename="best_tabular_model.pkl", metadata_name="metadata.json",
+                    best_params: dict = None, dataset_hash: str = None):
     """
     Serializa el mejor pipeline entrenado y guarda la metadata en JSON.
+    Incluye hiperparámetros óptimos y hash del dataset para trazabilidad de versiones.
     """
     import json
     from datetime import datetime
@@ -343,13 +325,21 @@ def save_best_model(results, filename="best_tabular_model.pkl", metadata_name="m
     # Guardar modelo completo (incluye el ColumnTransformer preprocessor y el estimador)
     with open(model_path, 'wb') as f:
         pickle.dump(best_pipeline, f)
+    
+    # Serializar best_params (puede contener tipos no-JSON como tuplas)
+    serializable_params = {}
+    if best_params:
+        for k, v in best_params.items():
+            serializable_params[k] = list(v) if isinstance(v, tuple) else v
         
-    # Guardar metadatos en JSON
+    # Guardar metadatos enriquecidos en JSON
     metadata = {
         'nombre_modelo': best_name,
         'accuracy': float(best_res['accuracy']),
         'f1-score': float(best_res['f1-score']),
         'fecha_entrenamiento': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'dataset_hash': dataset_hash or 'N/A',
+        'mejores_hiperparametros': serializable_params,
         'librerias': {
             'scikit-learn': '1.3.x',
             'numpy': np.__version__

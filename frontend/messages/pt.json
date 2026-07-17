@@ -1,0 +1,72 @@
+{
+  "Common": {
+    "title": "Detector Inteligente de Milho",
+    "logout": "Sair",
+    "theme_light": "Claro",
+    "theme_dark": "Escuro",
+    "lang_es": "Español",
+    "lang_en": "English",
+    "lang_pt": "Português",
+    "footer_text": "© 2026 Detecção de Doenças de Folhas de Milho usando Redes Neurais & AutoML. Todos os direitos reservados."
+  },
+  "Login": {
+    "title": "Entrar",
+    "subtitle": "Acesso ao painel de diagnóstico e centro de pesquisa",
+    "username": "Usuário / E-mail",
+    "password": "Senha",
+    "submit": "ENTRAR",
+    "remember": "Lembrar-me",
+    "error": "Credenciais inválidas"
+  },
+  "Dashboard": {
+    "welcome": "Bem-vindo ao Sistema de Diagnóstico",
+    "desc": "Monitoramento inteligente e modelagem preditiva para o cultivo de milho.",
+    "menu_cv": "Visão Computacional",
+    "menu_automl": "AutoML Tabular",
+    "card_cv_desc": "Classifique folhas de milho fazendo upload de fotos para detectar Ferrugem, Seca ou Mancha Cinzenta pelo consenso de 3 modelos CNN (MobileNet, ResNet, EfficientNet).",
+    "card_automl_desc": "Faça upload de datasets de campo e execute o treinamento automático de 5 modelos (Regressão Logística, Random Forest, MLP, Stacking e Voting) com testes estatísticos."
+  },
+  "CV": {
+    "header": "Diagnóstico Fitossanitário de Folhas",
+    "upload_label": "Arraste ou selecione uma foto de folha de milho",
+    "btn_diagnose": "Analisar Imagem",
+    "result_title": "Resultados de Consenso do Consórcio CNN",
+    "no_consensus": "🚨 Aviso: Sem Consenso Majoritário",
+    "no_consensus_desc": "Os três modelos previram doenças diferentes. Sugerimos capturar outra foto em melhores condições de luz.",
+    "recommendations": "Recomendações Fitossanitárias",
+    "model_predictions": "Previsões do Consórcio de Modelos",
+    "c_export_title": "Exportar para TinyML (Microcontroladores)",
+    "c_export_desc": "Baixe o modelo convolucional quantizado como código fonte C/C++ pronto para compilar e implementar no Arduino, ESP32 ou microcontroladores embarcados."
+  },
+  "AutoML": {
+    "header": "Plataforma AutoML Tabular",
+    "upload_csv": "Carregar dataset de variáveis do cultivo (CSV)",
+    "btn_load_default": "Usar dataset padrão (data/maize_crop_data.csv)",
+    "preview": "Visualização do dataset",
+    "config": "Configuração do Experimento",
+    "target_col": "Coluna Alvo (Target)",
+    "cv_folds": "Partições de Validação Cruzada (CV Folds)",
+    "train_pct": "Porcentagem de Treinamento (%)",
+    "seed": "Semente de Reprodutibilidade",
+    "alpha": "Nível de Significância (Alpha)",
+    "search_method": "Busca de Hiperparâmetros",
+    "btn_run": "EXECUTAR PIPELINE AUTOMÁTICO",
+    "training_progress": "Progresso de Treinamento",
+    "report_section": "Relatórios e Documentação Gerada",
+    "tab_eda": "Análise Exploratória de Dados (EDA)",
+    "tab_models": "Desempenho dos Modelos",
+    "tab_cv": "Validação Cruzada",
+    "tab_tuning": "Tuning de Hiperparâmetros",
+    "tab_stats": "Testes Estatísticos",
+    "download_pdf": "Baixar PDF",
+    "download_docx": "Baixar Word (DOCX)",
+    "download_xlsx": "Baixar Excel (XLSX)",
+    "bootstrap_ci": "Intervalos de Confiança Bootstrap (95% CI)",
+    "eda_section": "Análise Exploratória de Dados"
+  },
+  "Chatbot": {
+    "title": "MaizIA Assistente",
+    "welcome": "Olá! Eu sou MaizIA. Pergunte-me sobre diagnóstico fitossanitário ou redes neurais.",
+    "placeholder": "Digite sua pergunta aqui..."
+  }
+}

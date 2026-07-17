@@ -135,26 +135,5 @@ def interpret_cv(cv_results, lang='es'):
     """
     Genera interpretación automática sobre la estabilidad y sobreajuste de los modelos.
     """
-    sorted_cv = sorted(cv_results.items(), key=lambda x: x[1]['mean_accuracy'], reverse=True)
-    best_name, best_res = sorted_cv[0]
-    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
-    
-    if lang_key == 'en':
-        interpretations = [
-            f"**Cross Validation ({len(best_res['accuracies'])}-Folds):** After performing stratified cross validation, the **{best_name}** model consolidates the highest mean accuracy of **{best_res['mean_accuracy']:.2%} ± {best_res['std_accuracy']:.2%}**.",
-            f"The low standard deviation in **{best_name}** ({best_res['std_accuracy']:.4f}) indicates excellent **stability** and robustness of the model against changes in the sample distribution.",
-            "The box and whisker plot shows that the hybrid models reduce the dispersion of accuracy compared to the individual classic classifiers, acting as an effective regulator against overfitting."
-        ]
-    elif lang_key == 'pt':
-        interpretations = [
-            f"**Validação Cruzada ({len(best_res['accuracies'])}-Folds):** Após realizar a validação cruzada estratificada, o modelo **{best_name}** consolida a maior acurácia média com **{best_res['mean_accuracy']:.2%} ± {best_res['std_accuracy']:.2%}**.",
-            f"O baixo desvio padrão em **{best_name}** ({best_res['std_accuracy']:.4f}) indica excelente **estabilidade** e robustez do modelo frente a alterações na distribuição das amostras.",
-            "O gráfico de caixa e bigodes mostra que os modelos híbridos reduzem a dispersão de acertos em comparação com os classificadores clássicos individuais, atuando como um regulador eficaz contra o sobreajuste (overfitting)."
-        ]
-    else:
-        interpretations = [
-            f"**Validación Cruzada ({len(best_res['accuracies'])}-Folds):** Tras realizar validación cruzada estratificada, el modelo **{best_name}** consolida la precisión media más alta con un **{best_res['mean_accuracy']:.2%} ± {best_res['std_accuracy']:.2%}**.",
-            f"La baja desviación estándar en **{best_name}** ({best_res['std_accuracy']:.4f}) indica una excelente **estabilidad** y robustez del modelo frente a cambios en la distribución de las muestras.",
-            "El gráfico de caja y bigotes muestra que los modelos híbridos reducen la dispersión de aciertos en comparación con los clasificadores clásicos individuales, actuando como un regulador efectivo contra el sobreajuste (overfitting)."
-        ]
-    return "\n\n".join(interpretations)
+    from src.interpretation import interpretar_cv
+    return interpretar_cv(cv_results, lang=lang)

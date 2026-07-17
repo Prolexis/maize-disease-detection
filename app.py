@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import os
+os.environ["TF_USE_LEGACY_KERAS"] = "1"
 import streamlit as st
 import numpy as np
 import cv2
@@ -1470,7 +1472,7 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
         'pt': "VALIDAÇÃO ESTATÍSTICA ROBUSTA (ENG. SANTOS)"
     }.get(lang, "VALIDACIÓN ESTATÍSTICA ROBUSTA")), "[STATS]")
     
-    stats_lines = {
+    stats_lines_dict = {
         'es': [
             "- Prueba de McNemar: p-valor = 0.0133 (Diferencia significativa en clasificación, se rechaza H0).",
             "- Prueba de Mann-Whitney U (CV): MobileNetV2 vs EfficientNetB0 (p = 0.0089). Confirma la superioridad de EfficientNetB0.",
@@ -1492,7 +1494,8 @@ def generate_pdf_report(image, predictions, uploaded_filename, consensus_reached
             "- Teste de Morgan-Pitman: p-valor = 0.3821 (Variância do erro equivalente entre ResNet50 e EfficientNetB0, validando parcimônia).",
             "- Robustez (DAVT-Adv): Resiliência do EfficientNetB0 sob ruído foliar e variações de luz (+20% de brilho, 5% de ruído de sal e pimenta)."
         ]
-    }.get(lang, stats_lines['es'])
+    }
+    stats_lines = stats_lines_dict.get(lang, stats_lines_dict['es'])
     
     for s_line in stats_lines:
         pdf.normal_text(clean_text_for_pdf(s_line))
@@ -2933,7 +2936,23 @@ def check_login():
             st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
             
             if st.button(t("login_btn"), type="primary", use_container_width=True, key="btn_login_submit"):
-                if username in ["admin", "admin@maiz.com"] and password == "admin123":
+                # Autenticación segura: consulta DB SQLite + verificación bcrypt
+                _auth_ok = False
+                try:
+                    from app.core.database import get_db_connection as _get_db
+                    from app.core.security import verify_password as _verify_pwd
+                    _conn_auth = _get_db()
+                    _cur_auth = _conn_auth.cursor()
+                    _cur_auth.execute("SELECT password FROM users WHERE username = ?", (username,))
+                    _row_auth = _cur_auth.fetchone()
+                    _conn_auth.close()
+                    if _row_auth and _verify_pwd(password, _row_auth["password"]):
+                        _auth_ok = True
+                except Exception:
+                    # Fallback de emergencia si la DB no está disponible
+                    if username in ["admin", "admin@maiz.com"] and password == "admin123":
+                        _auth_ok = True
+                if _auth_ok:
                     with st.spinner(t("verifying_credentials")):
                         import time
                         time.sleep(0.65)
@@ -3299,14 +3318,111 @@ def show_automl_panel():
                 filepath="reports/reporte_automl.pdf", lang=st.session_state.get('lang', 'es')
             )
             
+            # Guardar el mejor modelo entrenado y sus metadatos
+            import hashlib
+            import json
+            try:
+                with open("data/maize_crop_data.csv", "rb") as f:
+                    dataset_hash = hashlib.md5(f.read()).hexdigest()
+            except Exception:
+                dataset_hash = "unknown"
+                
+            best_model_name = max(results.keys(), key=lambda name: results[name]['accuracy'])
+            best_res = results[best_model_name]
+            
+            model_path, meta_path = save_best_model(
+                results, "best_tabular_model.pkl", "metadata.json",
+                tuning_results.get('best_params'), dataset_hash
+            )
+            
+            # Generar JSON consolidado para la API de FastAPI
+            metrics_dict = {}
+            for model_name, res in results.items():
+                metrics_dict[model_name] = {
+                    "accuracy": float(res['accuracy']),
+                    "precision": float(res['precision']),
+                    "recall": float(res['recall']),
+                    "f1": float(res['f1-score'])
+                }
+            
+            cv_react_results = {}
+            for model_name, cv_res in cv_results.items():
+                cv_react_results[model_name] = [float(x) for x in cv_res['accuracies']]
+                
+            def sanitize_for_json(obj):
+                if isinstance(obj, dict):
+                    return {k: sanitize_for_json(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [sanitize_for_json(x) for x in obj]
+                elif isinstance(obj, tuple):
+                    return [sanitize_for_json(x) for x in obj]
+                elif isinstance(obj, np.ndarray):
+                    return sanitize_for_json(obj.tolist())
+                elif isinstance(obj, (np.float64, np.float32)):
+                    return float(obj)
+                elif isinstance(obj, (np.int64, np.int32)):
+                    return int(obj)
+                else:
+                    return obj
+                    
+            clean_stats_results = sanitize_for_json(stats_results)
+            clean_tuning_results = sanitize_for_json(tuning_results)
+            
+            latest_results = {
+                "best_model": best_model_name,
+                "best_model_metrics": {
+                    "accuracy": float(best_res['accuracy']),
+                    "precision": float(best_res['precision']),
+                    "recall": float(best_res['recall']),
+                    "f1": float(best_res['f1-score'])
+                },
+                "accuracy": float(best_res['accuracy']),
+                "f1_score": float(best_res['f1-score']),
+                "dataset_hash": dataset_hash,
+                "training_time": float(best_res['train_time']),
+                "confusion_matrix": sanitize_for_json(best_res['confusion_matrix']),
+                "roc_curve_path": "reports/train_roc_curve.png",
+                "learning_curve_path": "reports/train_learning_curves.png",
+                "interpretations": training_interpret,
+                "metrics": metrics_dict,
+                "cv_results": cv_react_results,
+                "tuning_results": clean_tuning_results,
+                "stats": clean_stats_results,
+                "interpretations_by_tab": {
+                    "es": {
+                        "eda": eda_interpret,
+                        "training": training_interpret,
+                        "cv": cv_interpret,
+                        "tuning": tuning_interpret,
+                        "stats": stats_interpret
+                    },
+                    "en": {
+                        "eda": interpret_eda(df_cleaned, target_col, num_duplicates, imputed_nulls, outliers_detected, df_eda, lang='en'),
+                        "training": interpret_training(results, lang='en'),
+                        "cv": interpret_cv(cv_results, lang='en'),
+                        "tuning": interpret_tuning(tuning_results, lang='en'),
+                        "stats": interpret_stats(stats_results, alpha=alpha, lang='en')
+                    }
+                }
+            }
+            
+            os.makedirs("models", exist_ok=True)
+            with open("models/latest_results.json", "w", encoding="utf-8") as f:
+                json.dump(latest_results, f, indent=4, ensure_ascii=False)
+                
             st.session_state.pipeline_executed = True
             st.session_state.df_eda = df_eda
+
+            
+            bootstrap_ci = stats_results.get('bootstrap_ci', {})
+            bootstrap_ci_f1 = stats_results.get('bootstrap_ci_f1', {})
+            
             st.session_state.df_training = pd.DataFrame({
                 name: {
-                    'Accuracy': f"{res['accuracy']:.4%}",
+                    'Accuracy': f"{res['accuracy']:.4%} [{bootstrap_ci.get(name, [0.0, 0.0])[0]:.2%} - {bootstrap_ci.get(name, [0.0, 0.0])[1]:.2%}]" if name in bootstrap_ci else f"{res['accuracy']:.4%}",
                     'Precision': f"{res['precision']:.4%}",
                     'Recall': f"{res['recall']:.4%}",
-                    'F1-Score': f"{res['f1-score']:.4f}",
+                    'F1-Score': f"{res['f1-score']:.4f} [{bootstrap_ci_f1.get(name, [0.0, 0.0])[0]:.4f} - {bootstrap_ci_f1.get(name, [0.0, 0.0])[1]:.4f}]" if name in bootstrap_ci_f1 else f"{res['f1-score']:.4f}",
                     'AUC': f"{res['auc']:.4f}",
                     'Train Time (s)': f"{res['train_time']:.4f}",
                     'Params': res['param_count'],
@@ -3342,12 +3458,13 @@ def show_automl_panel():
                 st.download_button(t("download_xlsx"), f.read(), file_name="reporte_fitosanitario_automl.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
                 
         # Mostrar fases con tabs
-        tab_eda, tab_train, tab_cv, tab_tuning, tab_stats = st.tabs([
+        tab_eda, tab_train, tab_cv, tab_tuning, tab_stats, tab_history = st.tabs([
             t("tab_eda"), 
             t("tab_train"), 
             t("tab_cv"), 
             t("tab_tuning"), 
-            t("tab_stats")
+            t("tab_stats"),
+            "📜 Historial"
         ])
         
         with tab_eda:
@@ -3421,11 +3538,142 @@ def show_automl_panel():
         with tab_stats:
             st.markdown(t_am['stats_title'])
             s_res = st.session_state.stats_results
-            st.markdown(f"{t_am['stats_hypothesis']} `{s_res['test_type']}`")
-            st_image_safe(st.session_state.image_paths['stats'])
             
+            # --- SECCIÓN 1: Diagnóstico de Supuestos ---
+            st.markdown("### 📋 1. Diagnóstico de Supuestos de Hipótesis")
+            st.write("Antes de aplicar la prueba global, se evalúa si los resultados de validación cruzada siguen una distribución normal en cada modelo (prueba de Shapiro-Wilk) y si tienen varianzas homogéneas (prueba de Levene):")
+            
+            shapiro_data = []
+            for m_name, p_val in s_res.get('shapiro_pvals', {}).items():
+                is_normal = p_val >= alpha
+                shapiro_data.append({
+                    "Modelo": m_name,
+                    "p-valor (Shapiro-Wilk)": f"{p_val:.5f}",
+                    "Distribución Normal": "✅ Sí" if is_normal else "❌ No"
+                })
+            st.dataframe(pd.DataFrame(shapiro_data), use_container_width=True)
+            
+            levene_pval = s_res.get('levene_pval', 1.0)
+            variance_holds = levene_pval >= alpha
+            st.write(f"**Prueba de Homogeneidad de Varianzas (Levene):** p = `{levene_pval:.5f}` (Varianzas {'homogéneas' if variance_holds else 'no homogéneas'})")
+            
+            use_parametric = s_res.get('use_parametric', False)
+            if use_parametric:
+                st.success("💡 **Decisión del Sistema:** Todos los grupos cumplen con los supuestos paramétricos (normalidad y homocedasticidad). Se utiliza la prueba paramétrica **ANOVA de una vía**.")
+            else:
+                st.warning("💡 **Decisión del Sistema:** Al menos un modelo no sigue una distribución normal o las varianzas no son homogéneas. Se selecciona la alternativa no paramétrica robusta **Friedman**.")
+            
+            st.markdown("---")
+            
+            # --- SECCIÓN 2: Prueba Global ---
+            st.markdown("### 🔬 2. Prueba Global de Significancia")
+            test_badge = "ANOVA de una vía (Paramétrico)" if use_parametric else "Friedman (No Paramétrico)"
+            st.info(f"**Prueba de Hipótesis Utilizada:** `{test_badge}`  \n"
+                    f"**Estadístico de Prueba:** `{s_res.get('overall_stat', 0.0):.4f}`  \n"
+                    f"**p-valor Global:** `{s_res.get('overall_pval', 1.0):.5e}`")
+            
+            if s_res.get('overall_pval', 1.0) < alpha:
+                st.success(f"Existe una diferencia estadísticamente significativa (p < {alpha}) en el rendimiento de los modelos.")
+            else:
+                st.info(f"No existe una diferencia estadísticamente significativa (p >= {alpha}) en el rendimiento de los modelos.")
+                
+            st.markdown("#### Mapa de Calor de Significancia Post-Hoc")
+            st_image_safe(st.session_state.image_paths['stats'])
+            st.caption("Nota: Las celdas en verde/rosado indican diferencias significativas basadas en la prueba post-hoc correspondiente (Tukey para ANOVA, Nemenyi para Friedman).")
+            
+            st.markdown("---")
+            
+            # --- SECCIÓN 3: Comparación por Pares ---
+            st.markdown("### 👥 3. Comparación por Pares (vs. Mejor Modelo)")
+            pairwise_data = s_res.get('pairwise_comparisons', {})
+            if pairwise_data:
+                pw_table = []
+                for pair_name, info in pairwise_data.items():
+                    pw_table.append({
+                        "Comparación": pair_name,
+                        "Prueba Utilizada": info.get('test_name', 'N/A'),
+                        "Estadístico": f"{info.get('stat', 0.0):.4f}",
+                        "p-valor": f"{info.get('p_val', 1.0):.5f}",
+                        "Significativo": "✅ Sí" if info.get('significant', False) else "❌ No",
+                        "Motivo de Selección": info.get('reason', 'N/A')
+                    })
+                st.dataframe(pd.DataFrame(pw_table), use_container_width=True)
+            else:
+                st.write("No hay datos de comparaciones pareadas disponibles.")
+                
+            st.markdown("---")
+            
+            # --- SECCIÓN 4: Intervalos de Confianza por Bootstrap ---
+            st.markdown("### 📊 4. Intervalos de Confianza por Bootstrap (95% de confianza, n=1000)")
+            bootstrap_acc = s_res.get('bootstrap_ci', {})
+            bootstrap_f1 = s_res.get('bootstrap_ci_f1', {})
+            
+            if bootstrap_acc:
+                boot_table = []
+                for model_name in bootstrap_acc.keys():
+                    ci_acc = bootstrap_acc.get(model_name, [0.0, 0.0])
+                    ci_f1 = bootstrap_f1.get(model_name, [0.0, 0.0])
+                    boot_table.append({
+                        "Modelo": model_name,
+                        "Intervalo de Confianza (Accuracy)": f"[{ci_acc[0]:.2%} - {ci_acc[1]:.2%}]",
+                        "Intervalo de Confianza (F1-Score)": f"[{ci_f1[0]:.4f} - {ci_f1[1]:.4f}]" if model_name in bootstrap_f1 else "N/A"
+                    })
+                st.dataframe(pd.DataFrame(boot_table), use_container_width=True)
+            else:
+                st.write("No hay datos de bootstrap de intervalo de confianza disponibles.")
+            
+            st.markdown("---")
             st.markdown(t_am['stats_interpret'])
             st.info(st.session_state.interpretations['stats'])
+
+        with tab_history:
+            lang_k = st.session_state.get('lang', 'es')
+            hist_title = {"es": "### 📜 Historial de Experimentos AutoML", "en": "### 📜 AutoML Experiment History", "pt": "### 📜 Histórico de Experimentos AutoML"}.get(lang_k, "### 📜 Historial de Experimentos AutoML")
+            st.markdown(hist_title)
+            try:
+                import sqlite3 as _sqlite3
+                from app.core.config import settings as _settings
+                _db_path = _settings.DATABASE_URL.replace("sqlite:///", "")
+                _conn = _sqlite3.connect(_db_path)
+                _conn.row_factory = _sqlite3.Row
+                _cursor = _conn.cursor()
+                _cursor.execute("""
+                    SELECT id, run_date, dataset_hash, best_model_name,
+                           accuracy, f1_score, split_ratio, seed, cv_folds,
+                           alpha, tuning_method
+                    FROM experiments ORDER BY id DESC
+                """)
+                _rows = _cursor.fetchall()
+                _conn.close()
+                if _rows:
+                    _hist_df = pd.DataFrame([dict(r) for r in _rows])
+                    _col_labels = {
+                        "es": {"id": "ID", "run_date": "Fecha", "dataset_hash": "Hash Dataset",
+                               "best_model_name": "Mejor Modelo", "accuracy": "Accuracy",
+                               "f1_score": "F1-Score", "split_ratio": "Split", "seed": "Semilla",
+                               "cv_folds": "Pliegues CV", "alpha": "Alpha", "tuning_method": "Método Tuning"},
+                        "en": {"id": "ID", "run_date": "Date", "dataset_hash": "Dataset Hash",
+                               "best_model_name": "Best Model", "accuracy": "Accuracy",
+                               "f1_score": "F1-Score", "split_ratio": "Split", "seed": "Seed",
+                               "cv_folds": "CV Folds", "alpha": "Alpha", "tuning_method": "Tuning Method"},
+                        "pt": {"id": "ID", "run_date": "Data", "dataset_hash": "Hash do Dataset",
+                               "best_model_name": "Melhor Modelo", "accuracy": "Acurácia",
+                               "f1_score": "F1-Score", "split_ratio": "Split", "seed": "Semente",
+                               "cv_folds": "Dobras CV", "alpha": "Alpha", "tuning_method": "Método Tuning"}
+                    }
+                    _hist_df = _hist_df.rename(columns=_col_labels.get(lang_k, _col_labels["es"]))
+                    st.dataframe(_hist_df, use_container_width=True)
+                    _total_lbl = {"es": f"Total de experimentos registrados: **{len(_rows)}**",
+                                  "en": f"Total experiments recorded: **{len(_rows)}**",
+                                  "pt": f"Total de experimentos registrados: **{len(_rows)}**"}.get(lang_k)
+                    st.success(_total_lbl)
+                else:
+                    _empty_lbl = {"es": "No hay experimentos registrados aún. Ejecuta el pipeline AutoML para registrar el primero.",
+                                  "en": "No experiments recorded yet. Run the AutoML pipeline to register the first one.",
+                                  "pt": "Nenhum experimento registrado ainda. Execute o pipeline AutoML para registrar o primeiro."}.get(lang_k)
+                    st.info(_empty_lbl)
+            except Exception as _e:
+                st.warning(f"No se pudo cargar el historial de experimentos: {_e}")
 
 def main():
     # Validar credenciales

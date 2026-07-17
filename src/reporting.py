@@ -1659,3 +1659,870 @@ def generate_image_xlsx_report(predictions, uploaded_filename, consensus_reached
             format_excel_sheet(workbook[sheet_name])
             
     return filepath
+
+# ---------------------------------------------------------
+# 5. GENERACIÓN DE PDF PARA DIAGNÓSTICO POR IMÁGENES
+# ---------------------------------------------------------
+def generate_image_pdf_report(image, predictions, uploaded_filename, consensus_reached, consensus_diagnosis, filepath="reports/reporte_imagen.pdf", lang="es", img_size=128):
+    """
+    Crea un reporte PDF para el diagnóstico por imágenes de la hoja de maíz.
+    """
+    from fpdf import FPDF
+    from PIL import Image
+    import matplotlib.pyplot as plt
+    from src.translation import translate_class_lang
+    
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    
+    peru_time = datetime.now()
+    
+    pdf_text_dict = {
+        'es': {
+            'title': 'DIAGNÓSTICO FITOSANITARIO - MAÍZ',
+            'subtitle': 'Sistema de Detección Automática de Enfermedades',
+            'header': 'RELATORIO DE DIAGNÓSTICO FITOSANITARIO (IMÁGENES)',
+            'page': 'Página',
+            'generated': 'Generado el',
+            'peru_time': '(Hora Local)',
+            'info_title': 'INFORMACIÓN DEL ANÁLISIS',
+            'file': 'Archivo',
+            'datetime': 'Fecha y hora',
+            'models_used': 'Modelos utilizados',
+            'resolution': 'Resolución de procesamiento',
+            'diag_title': 'DIAGNÓSTICO PRINCIPAL',
+            'img_title': 'IMAGEN ANALIZADA',
+            'img_details': 'Detalles de la imagen:',
+            'orig_size': 'Tamaño original',
+            'format': 'Formato',
+            'channels': 'Canales de color',
+            'det_title': 'RESULTADOS DETALLADOS',
+            'chart_title': 'Predicciones del Modelo',
+            'prob_ylabel': 'Probabilidad',
+            'model_card_title': 'Resultado del Modelo',
+            'pred_label': 'Predicción',
+            'conf_label': 'Confianza',
+            'state_label': 'Estado',
+            'state_ok': '[OK] Saludable',
+            'state_warn': '[!] Enfermedad detectada',
+            'prob_per_class': 'Probabilidades por clase:',
+            'comp_title': 'ANÁLISIS COMPARATIVO',
+            'comp_summary': 'Resumen de las predicciones:',
+            'comp_table_header': 'Modelo                Predicción           Confianza    Estado',
+            'state_healthy_lbl': '[OK] Saludable',
+            'state_diseased_lbl': '[!] Enfermo',
+            'consensus_reached_title': '[OK] Consenso Alcanzado',
+            'consensus_reached_body': 'Los tres modelos coinciden en el diagnóstico: {diagnosis}\nEsto indica alta confiabilidad en el resultado.\nNivel de acuerdo: 100% (3/3 modelos)',
+            'no_consensus_title': '[!] Sin Consenso',
+            'no_consensus_body_start': 'Los modelos presentan diferentes diagnósticos:\n',
+            'no_consensus_body_end': 'Se recomienda análisis adicional para confirmar.',
+            'rec_title': 'RECOMENDACIONES',
+            'rec_healthy': [
+                '- Continuar con las prácticas de manejo actuales',
+                '- Realizar monitoreos preventivos regulares cada 7-10 días',
+                '- Mantener condiciones óptimas de cultivo (riego, fertilización)',
+                '- Implementar rotación de cultivos para prevenir enfermedades',
+                '- Vigilar plantas vecinas por posibles síntomas'
+            ],
+            'rec_diseased': [
+                '- Consultar inmediatamente con un especialista en fitopatología',
+                '- Aislar las plantas afectadas si es posible',
+                '- Implementar medidas de control específicas para la enfermedad',
+                '- Monitorear la extensión de la enfermedad en el cultivo',
+                '- Considerar tratamientos preventivos en plantas cercanas',
+                '- Documentar la evolución con fotografías regulares',
+                '- Revisar condiciones ambientales que favorecen la enfermedad'
+            ],
+            'rec_no_consensus': [
+                '- Tomar una nueva imagen con mejor calidad e iluminación',
+                '- Asegurar que la hoja esté bien centrada y enfocada',
+                '- Consultar con un especialista para confirmación visual',
+                '- Realizar análisis de laboratorio si persisten síntomas',
+                '- Considerar múltiples muestras de diferentes partes de la planta'
+            ],
+            'disease_info_title': 'INFORMACIÓN ESPECÍFICA',
+            'disease_header': 'Enfermedad',
+            'symptoms_header': 'Síntomas característicos:',
+            'conditions_header': 'Condiciones favorables:',
+            'treatments_header': 'Estrategias de manejo:',
+            'tech_title': 'INFORMACIÓN TÉCNICA',
+            'tech_spec_header': 'Especificaciones del sistema:',
+            'tech_spec_list': [
+                '- Modelos basados en transfer learning con redes neuronales convolucionales',
+                '- Dataset de entrenamiento: PlantVillage Corn Leaf Disease',
+                '- Arquitecturas: MobileNetV2, ResNet50, EfficientNetB0',
+                '- Precisión promedio en validación: >95%',
+                '- Resolución de procesamiento: {size}x{size} pixeles',
+                '- Preprocesamiento específico por modelo aplicado',
+                '- Análisis basado en características visuales de la hoja'
+            ],
+            'disclaimer_title': '[!] IMPORTANTE - LIMITACIONES Y DISCLAIMER',
+            'disclaimer_text': '- Este análisis automatizado debe ser validado por un profesional\n- La precisión del diagnóstico depende de la calidad de la imagen\n- Se recomienda tomar múltiples muestras para mayor certeza\n- Este sistema es una herramienta de apoyo, no un sustituto del diagnóstico profesional\n- En caso de dudas, consulte con un fitopatólogo certificado\n- Los resultados pueden variar según condiciones de iluminación y enfoque',
+            'system_info_title': 'Información del sistema:',
+            'system_info_name': 'Sistema de Detección Automática de Enfermedades en Maíz',
+            'system_info_version': 'Versión: 2.0 | Fecha de generación: {date}',
+            'system_info_tech': 'Desarrollado con tecnología de Deep Learning',
+            'diseases': {
+                'Tizón del norte': {
+                    'descripcion': 'Enfermedad fúngica causada por Exserohilum turcicum que afecta principalmente las hojas del maíz.',
+                    'sintomas': [
+                        '- Lesiones alargadas en forma de cigarro',
+                        '- Color marrón grisáceo con bordes definidos',
+                        '- Pueden alcanzar varios centímetros de longitud',
+                        '- Amarillamiento prematuro de hojas',
+                        '- En casos severos, marchitez de la planta'
+                    ],
+                    'condiciones': 'Favorecido por alta humedad (>90%) y temperaturas de 18-27C',
+                    'tratamiento': [
+                        '- Aplicación de fungicidas específicos (azoles, estrobilurinas)',
+                        '- Uso de variedades resistentes',
+                        '- Rotación de cultivos con especies no susceptibles',
+                        '- Manejo de residuos de cosecha',
+                        '- Espaciamiento adecuado para mejorar ventilación'
+                    ]
+                },
+                'Roña común': {
+                    'descripcion': 'Enfermedad fúngica causada por Puccinia sorghi que produce pústulas características en las hojas.',
+                    'sintomas': [
+                        '- Pústulas pequeñas y circulares de color marrón-rojizo',
+                        '- Aparecen en ambas caras de la hoja',
+                        '- Pueden coalescer formando áreas grandes',
+                        '- Amarillamiento prematuro del follaje',
+                        '- Reducción en el vigor de la planta'
+                    ],
+                    'condiciones': 'Temperaturas moderadas (16-25C) y presencia de rocío matutino',
+                    'tratamiento': [
+                        '- Fungicidas preventivos antes de la aparición de síntomas',
+                        '- Variedades con genes de resistencia',
+                        '- Eliminación de hospederos alternativos',
+                        '- Monitoreo temprano y control oportuno',
+                        '- Aplicación foliar de productos cúpricos'
+                    ]
+                },
+                'Roya común': {
+                    'descripcion': 'Enfermedad fúngica causada por Puccinia sorghi que produce pústulas características en las hojas.',
+                    'sintomas': [
+                        '- Pústulas pequeñas y circulares de color marrón-rojizo',
+                        '- Aparecen en ambas caras de la hoja',
+                        '- Pueden coalescer formando áreas grandes',
+                        '- Amarillamiento prematuro del follaje',
+                        '- Reducción en el vigor de la planta'
+                    ],
+                    'condiciones': 'Temperaturas moderadas (16-25C) y presencia de rocío matutino',
+                    'tratamiento': [
+                        '- Fungicidas preventivos antes de la aparición de síntomas',
+                        '- Variedades con genes de resistencia',
+                        '- Eliminación de hospederos alternativos',
+                        '- Monitoreo temprano y control oportuno',
+                        '- Aplicación foliar de productos cúpricos'
+                    ]
+                },
+                'Mancha gris': {
+                    'descripcion': 'Enfermedad fúngica causada por Cercospora zeae-maydis que produce manchas características en las hojas.',
+                    'sintomas': [
+                        '- Manchas rectangulares de color gris a marrón',
+                        '- Delimitadas por las venas de las hojas',
+                        '- Pueden desarrollar un halo amarillento',
+                        '- Coalescencia causa muerte de tejido foliar',
+                        '- Afecta principalmente hojas inferiores'
+                    ],
+                    'condiciones': 'Alta humedad relativa y temperaturas cálidas (25-30C)',
+                    'tratamiento': [
+                        '- Rotación con cultivos no gramíneas',
+                        '- Aplicación de fungicidas sistémicos',
+                        '- Manejo de densidad de siembra',
+                        '- Eliminación de residuos infectados',
+                        '- Mejoramiento de drenaje del suelo'
+                    ]
+                }
+            }
+        },
+        'en': {
+            'title': 'MAIZE PHYTOSANITARY DIAGNOSIS',
+            'subtitle': 'Automatic Disease Detection System',
+            'header': 'PHYTOSANITARY DIAGNOSIS REPORT (IMAGES)',
+            'page': 'Page',
+            'generated': 'Generated on',
+            'peru_time': '(Local Time)',
+            'info_title': 'ANALYSIS INFORMATION',
+            'file': 'File',
+            'datetime': 'Date and time',
+            'models_used': 'Models used',
+            'resolution': 'Processing resolution',
+            'diag_title': 'PRIMARY DIAGNOSIS',
+            'img_title': 'ANALYZED IMAGE',
+            'img_details': 'Image details:',
+            'orig_size': 'Original size',
+            'format': 'Format',
+            'channels': 'Color channels',
+            'det_title': 'DETAILED RESULTS',
+            'chart_title': 'Model Predictions',
+            'prob_ylabel': 'Probability',
+            'model_card_title': 'Model Result',
+            'pred_label': 'Prediction',
+            'conf_label': 'Confidence',
+            'state_label': 'State',
+            'state_ok': '[OK] Healthy',
+            'state_warn': '[!] Disease detected',
+            'prob_per_class': 'Probabilities per class:',
+            'comp_title': 'COMPARATIVE ANALYSIS',
+            'comp_summary': 'Predictions summary:',
+            'comp_table_header': 'Model                Prediction           Confidence    State',
+            'state_healthy_lbl': '[OK] Healthy',
+            'state_diseased_lbl': '[!] Diseased',
+            'consensus_reached_title': '[OK] Consensus Reached',
+            'consensus_reached_body': 'All three models agree on the diagnosis: {diagnosis}\nThis indicates high reliability in the result.\nAgreement level: 100% (3/3 models)',
+            'no_consensus_title': '[!] No Consensus',
+            'no_consensus_body_start': 'Models present different diagnoses:\n',
+            'no_consensus_body_end': 'Additional analysis is recommended for confirmation.',
+            'rec_title': 'RECOMMENDATIONS',
+            'rec_healthy': [
+                '- Continue with current management practices',
+                '- Perform regular preventive monitoring every 7-10 days',
+                '- Maintain optimal crop conditions (irrigation, fertilization)',
+                '- Implement crop rotation to prevent diseases',
+                '- Monitor surrounding plants for potential symptoms'
+            ],
+            'rec_diseased': [
+                '- Consult immediately with a phytopathology specialist',
+                '- Isolate affected plants if possible',
+                '- Implement specific disease control measures',
+                '- Monitor the extension of the disease in the crop',
+                '- Consider preventive treatments in nearby plants',
+                '- Document the evolution with regular photographs',
+                '- Review environmental conditions that favor the disease'
+            ],
+            'rec_no_consensus': [
+                '- Take a new image with better quality and lighting',
+                '- Ensure the leaf is well centered and focused',
+                '- Consult with a specialist for visual confirmation',
+                '- Perform laboratory analysis if symptoms persist',
+                '- Consider multiple samples from different parts of the plant'
+            ],
+            'disease_info_title': 'SPECIFIC INFORMATION',
+            'disease_header': 'Disease',
+            'symptoms_header': 'Characteristic symptoms:',
+            'conditions_header': 'Favorable conditions:',
+            'treatments_header': 'Management strategies:',
+            'tech_title': 'TECHNICAL INFORMATION',
+            'tech_spec_header': 'System specifications:',
+            'tech_spec_list': [
+                '- Models based on transfer learning with convolutional neural networks',
+                '- Training dataset: PlantVillage Corn Leaf Disease',
+                '- Architectures: MobileNetV2, ResNet50, EfficientNetB0',
+                '- Average validation accuracy: >95%',
+                '- Processing resolution: {size}x{size} pixels',
+                '- Specific preprocessing applied per model',
+                '- Analysis based on foliar visual features'
+            ],
+            'disclaimer_title': '[!] IMPORTANT - LIMITATIONS AND DISCLAIMER',
+            'disclaimer_text': '- This automated analysis should be validated by a professional\n- The diagnostic accuracy depends on the quality of the image\n- It is recommended to take multiple samples for higher certainty\n- This system is a support tool, not a substitute for professional diagnosis\n- In case of doubt, consult a certified phytopathologist\n- Results may vary depending on lighting and focus conditions',
+            'system_info_title': 'System information:',
+            'system_info_name': 'Automatic Disease Detection System in Maize',
+            'system_info_version': 'Version: 2.0 | Generation date: {date}',
+            'system_info_tech': 'Developed with Deep Learning technology',
+            'diseases': {
+                'Tizón del norte': {
+                    'descripcion': 'Fungal disease caused by Exserohilum turcicum that mainly affects maize leaves.',
+                    'sintomas': [
+                        '- Elongated cigar-shaped lesions',
+                        '- Grayish-brown color with defined borders',
+                        '- Can reach several centimeters in length',
+                        '- Premature yellowing of leaves',
+                        '- In severe cases, wilting of the plant'
+                    ],
+                    'condiciones': 'Favored by high humidity (>90%) and temperatures of 18-27C',
+                    'tratamiento': [
+                        '- Application of specific fungicides (azoles, strobilurins)',
+                        '- Use of resistant varieties',
+                        '- Crop rotation with non-susceptible species',
+                        '- Crop residue management',
+                        '- Proper spacing to improve ventilation'
+                    ]
+                },
+                'Roña común': {
+                    'descripcion': 'Fungal disease caused by Puccinia sorghi that produces characteristic pustules on leaves.',
+                    'sintomas': [
+                        '- Small and circular reddish-brown pustules',
+                        '- Appear on both sides of the leaf',
+                        '- Can coalesce forming large areas',
+                        '- Premature yellowing of foliage',
+                        '- Reduction in plant vigor'
+                    ],
+                    'condiciones': 'Moderate temperatures (16-25C) and presence of morning dew',
+                    'tratamiento': [
+                        '- Preventive fungicides before the appearance of symptoms',
+                        '- Varieties with resistance genes',
+                        '- Elimination of alternative hosts',
+                        '- Early monitoring and timely control',
+                        '- Foliar application of copper products'
+                    ]
+                },
+                'Roya común': {
+                    'descripcion': 'Fungal disease caused by Puccinia sorghi that produces characteristic pustules on leaves.',
+                    'sintomas': [
+                        '- Small and circular reddish-brown pustules',
+                        '- Appear on both sides of the leaf',
+                        '- Can coalesce forming large areas',
+                        '- Premature yellowing of foliage',
+                        '- Reduction in plant vigor'
+                    ],
+                    'condiciones': 'Moderate temperatures (16-25C) and presence of morning dew',
+                    'tratamiento': [
+                        '- Preventive fungicides before the appearance of symptoms',
+                        '- Varieties with resistance genes',
+                        '- Elimination of alternative hosts',
+                        '- Early monitoring and timely control',
+                        '- Foliar application of copper products'
+                    ]
+                },
+                'Mancha gris': {
+                    'descripcion': 'Fungal disease caused by Cercospora zeae-maydis that produces characteristic spots on leaves.',
+                    'sintomas': [
+                        '- Rectangular gray to brown spots',
+                        '- Delimited by leaf veins',
+                        '- Can develop a yellowish halo',
+                        '- Coalescence causes death of foliar tissue',
+                        '- Mainly affects lower leaves'
+                    ],
+                    'condiciones': 'High relative humidity and warm temperatures (25-30C)',
+                    'tratamiento': [
+                        '- Rotation with non-grass crops',
+                        '- Application of systemic fungicides',
+                        '- Planting density management',
+                        '- Elimination of infected residues',
+                        '- Soil drainage improvement'
+                    ]
+                }
+            }
+        },
+        'pt': {
+            'title': 'DIAGNÓSTICO FITOSSANITÁRIO - MILHO',
+            'subtitle': 'Sistema de Detecção Automática de Doenças',
+            'header': 'RELATÓRIO DE DIAGNÓSTICO FITOSSANITÁRIO (IMAGENS)',
+            'page': 'Página',
+            'generated': 'Gerado em',
+            'peru_time': '(Hora Local)',
+            'info_title': 'INFORMAÇÃO DO ANÁLISE',
+            'file': 'Arquivo',
+            'datetime': 'Data e hora',
+            'models_used': 'Modelos utilizados',
+            'resolution': 'Resolução de processamento',
+            'diag_title': 'DIAGNÓSTICO PRINCIPAL',
+            'img_title': 'IMAGEM ANALISADA',
+            'img_details': 'Detalhes da imagem:',
+            'orig_size': 'Tamanho original',
+            'format': 'Formato',
+            'channels': 'Canais de cor',
+            'det_title': 'RESULTADOS DETALHADOS',
+            'chart_title': 'Predições do Modelo',
+            'prob_ylabel': 'Probabilidade',
+            'model_card_title': 'Resultado do Modelo',
+            'pred_label': 'Predição',
+            'conf_label': 'Confiança',
+            'state_label': 'Estado',
+            'state_ok': '[OK] Saudável',
+            'state_warn': '[!] Doença detectada',
+            'prob_per_class': 'Probabilidades por classe:',
+            'comp_title': 'ANÁLISE COMPARATIVA',
+            'comp_summary': 'Resumo das predições:',
+            'comp_table_header': 'Modelo                Predição           Confiança    Estado',
+            'state_healthy_lbl': '[OK] Saudável',
+            'state_diseased_lbl': '[!] Doente',
+            'consensus_reached_title': '[OK] Consenso Alcançado',
+            'consensus_reached_body': 'Os três modelos coincidem no diagnóstico: {diagnosis}\nIsso indica alta confiabilidade no resultado.\nNível de acordo: 100% (3/3 modelos)',
+            'no_consensus_title': '[!] Sem Consenso',
+            'no_consensus_body_start': 'Os modelos apresentam diferentes diagnósticos:\n',
+            'no_consensus_body_end': 'Se recomienda análise adicional para confirmar.',
+            'rec_title': 'RECOMENDAÇÕES',
+            'rec_healthy': [
+                '- Continuar com as práticas de manejo atuais',
+                '- Realizar monitoramentos preventivos regulares cada 7-10 dias',
+                '- Manter condições ótimas de cultivo (irrigação, fertilização)',
+                '- Implementar rotação de cultivos para prevenir doenças',
+                '- Vigilar plantas vizinhas por possíveis sintomas'
+            ],
+            'rec_diseased': [
+                '- Consultar imediatamente com um especialista em fitopatologia',
+                '- Isolar as plantas afetadas se possível',
+                '- Implementar medidas de controle específicas para a doença',
+                '- Monitorar a extensão da doença no cultivo',
+                '- Considerar tratamentos preventivos em plantas próximas',
+                '- Documentar a evolução com fotografias regulares',
+                '- Revisar condições ambientais que favorecem a doença'
+            ],
+            'rec_no_consensus': [
+                '- Tomar uma nova imagem com melhor qualidade e iluminação',
+                '- Garantir que a folha esteja bem centrada e focada',
+                '- Consultar com um especialista para confirmação visual',
+                '- Realizar análise de laboratório se persistirem sintomas',
+                '- Considerar múltiplas amostras de diferentes partes da planta'
+            ],
+            'disease_info_title': 'INFORMAÇÃO ESPECÍFICA',
+            'disease_header': 'Doença',
+            'symptoms_header': 'Sintomas característicos:',
+            'conditions_header': 'Condições favoráveis:',
+            'treatments_header': 'Estratégias de manejo:',
+            'tech_title': 'INFORMAÇÃO TÉCNICA',
+            'tech_spec_header': 'Especificações do sistema:',
+            'tech_spec_list': [
+                '- Modelos baseados em transfer learning com redes neurais convolucionais',
+                '- Dataset de treinamento: PlantVillage Corn Leaf Disease',
+                '- Arquiteturas: MobileNetV2, ResNet50, EfficientNetB0',
+                '- Precisão média em validação: >95%',
+                '- Resolução de processamento: {size}x{size} pixels',
+                '- Pré-processamento específico por modelo aplicado',
+                '- Análise baseada em características visuais da folha'
+            ],
+            'disclaimer_title': '[!] IMPORTANTE - LIMITAÇÕES E DISCLAIMER',
+            'disclaimer_text': '- Este análise automatizado deve ser validado por um profissional\n- A precisão do diagnóstico depende da qualidade da imagem\n- Se recomienda tomar múltiplas amostras para maior certeza\n- Este sistema é uma ferramenta de apoio, não um substituto do diagnóstico profissional\n- Em caso de dúvidas, consulte com um fitopatólogo certificado\n- Os resultados podem variar conforme condições de iluminação e enfoque',
+            'system_info_title': 'Informação do sistema:',
+            'system_info_name': 'Sistema de Detecção Automática de Doenças em Milho',
+            'system_info_version': 'Versão: 2.0 | Data de geração: {date}',
+            'system_info_tech': 'Desenvolvido com tecnologia de Deep Learning',
+            'diseases': {
+                'Tizón del norte': {
+                    'descripcion': 'Doença fúngica grave causada por Exserohilum turcicum que provoca lesões elípticas alongadas (em forma de charuto) de cor verde-acinzentada a marrom.',
+                    'sintomas': [
+                        '- Lesões elípticas alongadas em forma de charuto',
+                        '- Cor verde-acinzentada a marrom com bordas definidas',
+                        '- Podem coalescer formando áreas grandes',
+                        '- Amarelecimento prematuro da folhagem',
+                        '- Redução no vigor da planta'
+                    ],
+                    'condiciones': 'Favorecido por alta umidade (>90%) e temperaturas de 18-27C',
+                    'tratamiento': [
+                        '- Uso de híbridos comerciais resistentes',
+                        '- Rotação de cultivos com espécies não gramíneas',
+                        '- Manejo adequado de resíduos',
+                        '- Tratamento químico foliar oportuno',
+                        '- Monitoramento fitosanitário contínuo'
+                    ]
+                },
+                'Roña común': {
+                    'descripcion': 'Doença fúngica provocada por Puccinia sorghi que produce pústulas pequenas circulares ou ovais de cor marrom-avermelhada em ambas as superfícies da folha.',
+                    'sintomas': [
+                        '- Pústulas pequenas circulares ou ovais de cor marrom-avermelhada',
+                        '- Aparecem em ambas as superfícies da folha',
+                        '- Podem coalescer formando áreas grandes',
+                        '- Amarelecimento prematuro da folhagem',
+                        '- Redução no vigor da planta'
+                    ],
+                    'condiciones': 'Temperaturas moderadas (16-25C) e presença de rocío matutino',
+                    'tratamiento': [
+                        '- Sementes de híbridos resistentes',
+                        '- Ajuste em datas de plantio',
+                        '- Aplicação de fungicidas sistêmicos',
+                        '- Controle de molhamento foliar',
+                        '- Manejo de nutrição mineral'
+                    ]
+                },
+                'Roya común': {
+                    'descripcion': 'Doença fúngica provocada por Puccinia sorghi que produce pústulas pequenas circulares ou ovais de cor marrom-avermelhada em ambas as superfícies da folha.',
+                    'sintomas': [
+                        '- Pústulas pequenas circulares ou ovais de cor marrom-avermelhada',
+                        '- Aparecem em ambas as superfícies da folha',
+                        '- Podem coalescer formando áreas grandes',
+                        '- Amarelecimento prematuro da folhagem',
+                        '- Redução no vigor da planta'
+                    ],
+                    'condiciones': 'Temperaturas moderadas (16-25C) e presença de rocío matutino',
+                    'tratamiento': [
+                        '- Sementes de híbridos resistentes',
+                        '- Ajuste em datas de plantio',
+                        '- Aplicação de fungicidas sistêmicos',
+                        '- Controle de molhamento foliar',
+                        '- Manejo de nutrição mineral'
+                    ]
+                },
+                'Mancha gris': {
+                    'descripcion': 'Doença fúngica destrutiva causada por Cercospora zeae-maydis que se manifesta como lesões retangulares delimitadas pelas nervuras foliares.',
+                    'sintomas': [
+                        '- Lesões retangulares delimitadas pelas nervuras foliares',
+                        '- Cor acinzentada a marrom com bordas definidas',
+                        '- Podem desenvolver um halo amarelo',
+                        '- Coalescência causa morte de tecido foliar',
+                        '- Afecta principalmente folhas inferiores'
+                    ],
+                    'condiciones': 'Alta umidade relativa e temperaturas cálidas (25-30C)',
+                    'tratamiento': [
+                        '- Rotação sistemática de cultivos',
+                        '- Manejo e incorporação de resíduos',
+                        '- Seleção de sementes tolerantes',
+                        '- Controle químico foliar estratégico',
+                        '- Otimização da densidade de plantio'
+                    ]
+                },
+                'Sano': {
+                    'descripcion': 'A planta de milho apresenta folhas completamente saudáveis, sem sinais de infecção fúngica ativa ou deficiências nutricionais.',
+                    'sintomas': [
+                        '- Folhas completamente verdes e saudáveis',
+                        '- Ausência de lesões ou manchas',
+                        '- Vigor normal da planta'
+                    ],
+                    'condiciones': 'Condições ideais de cultivo',
+                    'tratamiento': [
+                        '- Continuar com as práticas de manejo atuais',
+                        '- Monitoreo preventivo de rotina',
+                        '- Fertilização balanceada de precisão'
+                    ]
+                }
+            }
+        }
+    }
+    
+    lang_key = lang if lang in ["es", "en", "pt"] else "es"
+    tx = pdf_text_dict[lang_key]
+    
+    def clean_text_for_pdf(text):
+        # Eliminar caracteres problemáticos para PDF
+        import re
+        return re.sub(r'[^\x20-\x7EáéíóúñÁÉÍÓÚÑ]', '', text)
+    
+    consensus_diagnosis_cleaned = translate_class_lang(consensus_diagnosis, lang_key) if consensus_diagnosis else "Sin consenso"
+    
+    class PDF(FPDF):
+        def __init__(self):
+            super().__init__()
+            self.set_auto_page_break(auto=True, margin=15)
+
+        def header(self):
+            if self.page_no() == 1:
+                # Portada/Primera pagina header grande
+                self.set_font('Arial', 'B', 18)
+                self.set_text_color(46, 139, 87)
+                self.cell(0, 15, clean_text_for_pdf(tx["title"]), 0, 1, 'C')
+                self.set_font('Arial', 'I', 11)
+                self.set_text_color(100, 100, 100)
+                self.cell(0, 8, clean_text_for_pdf(tx["subtitle"]), 0, 1, 'C')
+                self.set_draw_color(46, 139, 87)
+                self.line(10, 35, 200, 35)
+                self.ln(10)
+            else:
+                # Paginas siguientes header compacto para ahorrar espacio
+                self.set_font('Arial', 'B', 9)
+                self.set_text_color(46, 139, 87)
+                self.cell(0, 6, clean_text_for_pdf(tx["header"]), 0, 0, 'L')
+                self.set_font('Arial', 'I', 8)
+                self.set_text_color(128, 128, 128)
+                self.cell(0, 6, f'{clean_text_for_pdf(tx["file"])}: {uploaded_filename}', 0, 1, 'R')
+                self.set_draw_color(200, 200, 200)
+                self.line(10, 17, 200, 17)
+                self.ln(5)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font('Arial', 'I', 8)
+            self.set_text_color(128, 128, 128)
+            date_str = tx["generated"] + f" {peru_time.strftime('%Y-%m-%d %H:%M:%S')} " + tx["peru_time"]
+            self.cell(0, 10, clean_text_for_pdf(f'{tx["page"]} {self.page_no()} | {date_str}'), 0, 0, 'C')
+
+        def check_and_add_page(self, needed_height):
+            # Agregar pagina si el elemento excede el limite
+            if self.get_y() + needed_height > 265:
+                self.add_page()
+
+        def chapter_title(self, title, icon=""):
+            self.check_and_add_page(25)
+            self.ln(3)
+            self.set_font('Arial', 'B', 14)
+            self.set_text_color(46, 139, 87)
+            self.cell(0, 10, f'{icon} {title}', 0, 1, 'L')
+            self.set_draw_color(46, 139, 87)
+            self.line(10, self.get_y(), 200, self.get_y())
+            self.ln(4)
+
+        def section_title(self, title, icon=""):
+            self.check_and_add_page(15)
+            self.ln(2)
+            self.set_font('Arial', 'B', 11)
+            self.set_text_color(70, 70, 70)
+            self.cell(0, 7, f'{icon} {title}', 0, 1, 'L')
+            self.ln(1)
+
+        def normal_text(self, text, bold=False):
+            self.check_and_add_page(8)
+            self.set_font('Arial', 'B' if bold else '', 9.5)
+            self.set_text_color(0, 0, 0)
+            self.cell(0, 5.5, text, 0, 1, 'L')
+
+        def info_box(self, title, content, bg_color=(240, 248, 255)):
+            lines = content.split('\n')
+            needed = len(lines) * 5 + 15
+            self.check_and_add_page(needed)
+            x, y = self.get_x(), self.get_y()
+            self.set_fill_color(*bg_color)
+            self.rect(x, y, 190, needed, 'F')
+
+            self.set_font('Arial', 'B', 10.5)
+            self.set_text_color(25, 25, 112)
+            self.cell(0, 7, title, 0, 1, 'L')
+
+            self.set_font('Arial', '', 9)
+            self.set_text_color(0, 0, 0)
+            for line in lines:
+                if line.strip():
+                    self.cell(0, 4.5, f"  {line.strip()}", 0, 1, 'L')
+            self.ln(3)
+
+        def add_consensus_result(self, consensus_reached, consensus_diagnosis):
+            self.check_and_add_page(20)
+            if consensus_reached:
+                if consensus_diagnosis == "Sano":
+                    bg_color = (212, 237, 218)
+                    title = f"[OK] {tx['diag_title']}: {tx['state_healthy_lbl'].upper()}"
+                else:
+                    bg_color = (248, 215, 218)
+                    title = f"[!] {tx['diag_title']}: {tx['state_diseased_lbl'].upper()} ({consensus_diagnosis_cleaned.upper()})"
+            else:
+                bg_color = (255, 243, 205)
+                title = f"[?] {tx['diag_title']}: SIN CONSENSO"
+
+            self.set_fill_color(*bg_color)
+            self.rect(10, self.get_y(), 190, 12, 'F')
+
+            self.set_font('Arial', 'B', 12)
+            self.set_text_color(0, 0, 0)
+            self.cell(0, 12, title, 0, 1, 'C')
+            self.ln(4)
+
+    pdf = PDF()
+    pdf.add_page()
+
+    # 1. INFORMACIÓN GENERAL
+    pdf.chapter_title(clean_text_for_pdf(tx["info_title"]), "[INFO]")
+    pdf.normal_text(clean_text_for_pdf(f"{tx['file']}: {uploaded_filename}"), bold=True)
+    pdf.normal_text(clean_text_for_pdf(f"{tx['datetime']}: {peru_time.strftime('%Y-%m-%d %H:%M:%S')} {tx['peru_time']}"))
+    pdf.normal_text(clean_text_for_pdf(f"{tx['models_used']}: MobileNetV2, ResNet50, EfficientNetB0"))
+    pdf.normal_text(clean_text_for_pdf(f"{tx['resolution']}: {img_size}x{img_size} px"))
+
+    # 2. DIAGNÓSTICO PRINCIPAL
+    pdf.chapter_title(clean_text_for_pdf(tx["diag_title"]), "[DIAG]")
+    pdf.add_consensus_result(consensus_reached, consensus_diagnosis)
+
+    # 3. IMAGEN ANALIZADA
+    pdf.chapter_title(clean_text_for_pdf(tx["img_title"]), "[IMG]")
+    try:
+        image_pil = Image.fromarray(image)
+        temp_img_path = f"temp_analysis_img_{int(peru_time.timestamp())}.png"
+        image_pil.save(temp_img_path, format='PNG')
+
+        img_width = 80
+        page_width = 190
+        x_position = (page_width - img_width) / 2 + 10
+
+        # Calcular altura real de la imagen según relación de aspecto
+        img_w, img_h = image_pil.size
+        aspect = img_h / img_w
+        pdf_img_height = img_width * aspect
+
+        pdf.check_and_add_page(pdf_img_height + 25)
+        pdf.image(temp_img_path, x=x_position, w=img_width)
+        pdf.ln(pdf_img_height + 3)
+
+        pdf.section_title(clean_text_for_pdf(tx["img_details"]), "[i]")
+        pdf.normal_text(clean_text_for_pdf(f"- {tx['orig_size']}: {image_pil.size[0]}x{image_pil.size[1]} px"))
+        pdf.normal_text(clean_text_for_pdf(f"- {tx['format']}: PNG"))
+        pdf.normal_text(clean_text_for_pdf(f"- {tx['channels']}: RGB"))
+
+        try:
+            os.remove(temp_img_path)
+        except:
+            pass
+    except Exception as e:
+        pdf.normal_text(clean_text_for_pdf(f"[Error al procesar la imagen: {e}]"))
+        pdf.ln(5)
+
+    # 4. RESULTADOS DETALLADOS POR MODELO
+    pdf.chapter_title(clean_text_for_pdf(tx["det_title"]), "[MODELS]")
+
+    temp_graph_paths = []
+    translated_class_names = [translate_class_lang(c, lang_key) for c in ["Mancha gris", "Roña común", "Tizón del norte", "Sano"]]
+    try:
+        for model_name, pred in predictions.items():
+            fig, ax = plt.subplots(figsize=(6, 3.5))
+            colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#2E8B57']
+            bars = ax.bar(translated_class_names, pred['probabilities'], color=colors, alpha=0.8)
+            ax.set_title(clean_text_for_pdf(f"{tx['chart_title']} {model_name}"), fontsize=11, fontweight='bold', pad=10)
+            ax.set_ylabel(clean_text_for_pdf(tx["prob_ylabel"]), fontsize=9)
+            ax.set_ylim(0, 1)
+            ax.grid(True, alpha=0.2, axis='y')
+
+            max_idx = np.argmax(pred['probabilities'])
+            bars[max_idx].set_color('#2E8B57')
+            bars[max_idx].set_alpha(1.0)
+
+            for j, v in enumerate(pred['probabilities']):
+                ax.text(j, v + 0.02, f'{v:.1%}', ha='center', va='bottom', fontsize=8, fontweight='bold')
+
+            plt.xticks(rotation=30, ha='right', fontsize=8)
+            plt.tight_layout()
+
+            temp_graph_path = f"temp_graph_{model_name}_{int(peru_time.timestamp())}.png"
+            plt.savefig(temp_graph_path, dpi=120, bbox_inches='tight')
+            temp_graph_paths.append(temp_graph_path)
+            plt.close()
+
+        # Añadir las gráficas y tablas
+        for i, (model_name, pred) in enumerate(predictions.items()):
+            pdf.section_title(clean_text_for_pdf(f"{tx['model_card_title']} {model_name}"), "[M]")
+            confidence_level = "ALTA" if pred['confidence'] > 0.8 else "MEDIA" if pred['confidence'] > 0.6 else "BAJA"
+
+            translated_pred_class = translate_class_lang(pred['class'], lang_key)
+            status_text = tx["state_ok"] if pred['class'] == 'Sano' else tx["state_warn"]
+            pdf.info_box(
+                clean_text_for_pdf(f"{tx['model_card_title']}"),
+                f"{tx['pred_label']}: {clean_text_for_pdf(translated_pred_class)}\n{tx['conf_label']}: {pred['confidence']:.2%} ({confidence_level})\n{tx['state_label']}: {clean_text_for_pdf(status_text)}"
+            )
+
+            # Insertar gráfico con altura dinámica calculada
+            chart_width = 130
+            chart_height = chart_width * 0.58
+            
+            if i < len(temp_graph_paths) and os.path.exists(temp_graph_paths[i]):
+                pdf.check_and_add_page(chart_height + 5)
+                pdf.image(temp_graph_paths[i], x=40, w=chart_width)
+                pdf.ln(chart_height + 2)
+
+            pdf.section_title(clean_text_for_pdf(tx["prob_per_class"]), "[DATA]")
+            for j, class_name in enumerate(["Mancha gris", "Roña común", "Tizón del norte", "Sano"]):
+                prob = pred['probabilities'][j]
+                marker = "=>" if j == np.argmax(pred['probabilities']) else "  "
+                translated_cn = translate_class_lang(class_name, lang_key)
+                pdf.normal_text(clean_text_for_pdf(f"{marker} {translated_cn}: {prob:.2%}"))
+            pdf.ln(4)
+
+    except Exception as e:
+        pdf.normal_text(clean_text_for_pdf(f"Error generando gráficos: {e}"))
+    finally:
+        for temp_path in temp_graph_paths:
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+
+    # 5. ANÁLISIS COMPARATIVO
+    pdf.chapter_title(clean_text_for_pdf(tx["comp_title"]), "[COMP]")
+    pdf.section_title(clean_text_for_pdf(tx["comp_summary"]), "[SUM]")
+    pdf.normal_text(clean_text_for_pdf(tx["comp_table_header"]))
+    pdf.normal_text("-" * 65)
+
+    for model_name, pred in predictions.items():
+        status = tx["state_healthy_lbl"] if pred['class'] == 'Sano' else tx["state_diseased_lbl"]
+        clean_class = clean_text_for_pdf(translate_class_lang(pred['class'], lang_key))
+        line = f"{model_name:<15} {clean_class:<15} {pred['confidence']:>8.1%}    {status}"
+        pdf.normal_text(clean_text_for_pdf(line))
+    pdf.ln(4)
+
+    if consensus_reached:
+        consensus_reached_text = tx["consensus_reached_body"].format(diagnosis=consensus_diagnosis_cleaned)
+        pdf.info_box(
+            clean_text_for_pdf(tx["consensus_reached_title"]),
+            clean_text_for_pdf(consensus_reached_text)
+        )
+    else:
+        predictions_list = [translate_class_lang(pred['class'], lang_key) for pred in predictions.values()]
+        unique_predictions = list(set(predictions_list))
+        consensus_text = clean_text_for_pdf(tx["no_consensus_body_start"])
+        for pred in unique_predictions:
+            count = predictions_list.count(pred)
+            clean_pred = clean_text_for_pdf(pred)
+            consensus_text += f"- {clean_pred}: {count} modelo(s)\n"
+        consensus_text += clean_text_for_pdf(tx["no_consensus_body_end"])
+        pdf.info_box(clean_text_for_pdf(tx["no_consensus_title"]), consensus_text)
+
+    # 6. RECOMENDACIONES
+    pdf.chapter_title(clean_text_for_pdf(tx["rec_title"]), "[REC]")
+    if consensus_reached:
+        if consensus_diagnosis == "Sano":
+            recommendations = tx["rec_healthy"]
+        else:
+            recommendations = tx["rec_diseased"]
+    else:
+        recommendations = tx["rec_no_consensus"]
+        
+    for rec in recommendations:
+        pdf.normal_text(clean_text_for_pdf(rec))
+
+    # 7. INFORMACIÓN SOBRE ENFERMEDADES
+    if consensus_reached and consensus_diagnosis != "Sano":
+        pdf.chapter_title(clean_text_for_pdf(tx["disease_info_title"]), "[DISEASE]")
+        details_lang = tx["diseases"]
+        if consensus_diagnosis in details_lang:
+            details = details_lang[consensus_diagnosis]
+        elif consensus_diagnosis == "Roya común" and "Roña común" in details_lang:
+            details = details_lang["Roña común"]
+        elif consensus_diagnosis == "Roña común" and "Roya común" in details_lang:
+            details = details_lang["Roya común"]
+        else:
+            details = None
+            
+        if details:
+            pdf.section_title(clean_text_for_pdf(f"{tx['disease_header']}: {consensus_diagnosis_cleaned}"), "[PATHOGEN]")
+            pdf.normal_text(clean_text_for_pdf(details['descripcion']))
+            pdf.ln(2)
+
+            pdf.section_title(clean_text_for_pdf(tx["symptoms_header"]), "[SYMPT]")
+            for sintoma in details['sintomas']:
+                pdf.normal_text(clean_text_for_pdf(sintoma))
+            pdf.ln(2)
+
+            pdf.section_title(clean_text_for_pdf(tx["conditions_header"]), "[ENV]")
+            pdf.normal_text(clean_text_for_pdf(details['condiciones']))
+            pdf.ln(2)
+
+            pdf.section_title(clean_text_for_pdf(tx["treatments_header"]), "[TREAT]")
+            for tratamiento in details['tratamiento']:
+                pdf.normal_text(clean_text_for_pdf(tratamiento))
+
+    # 7.5. VALIDACIÓN ESTADÍSTICA ROBUSTA (ING. SANTOS)
+    pdf.chapter_title(clean_text_for_pdf({
+        'es': "VALIDACIÓN ESTADÍSTICA ROBUSTA (ING. SANTOS)",
+        'en': "ROBUST STATISTICAL VALIDATION (ENG. SANTOS)",
+        'pt': "VALIDAÇÃO ESTATÍSTICA ROBUSTA (ENG. SANTOS)"
+    }.get(lang_key, "VALIDACIÓN ESTADÍSTICA ROBUSTA")), "[STATS]")
+    
+    stats_lines_dict = {
+        'es': [
+            "- Prueba de McNemar: p-valor = 0.0133 (Diferencia significativa en clasificación, se rechaza H0)",
+            "- Prueba de Mann-Whitney U (CV): MobileNetV2 vs EfficientNetB0 (p = 0.0089). Confirma la superioridad de EfficientNetB0",
+            "- Prueba de Kolmogorov-Smirnov: Confirma que las curvas de confianza de inferencia difieren significativamente entre modelos",
+            "- Prueba de Morgan-Pitman: p-valor = 0.3821 (Varianza del error equivalente entre ResNet50 y EfficientNetB0, validando parsimonia)",
+            "- Robustez (DAVT-Adv): Resiliencia de EfficientNetB0 ante ruido foliar y variaciones de luz (+20% de brillo, 5% de ruido de sal y pimienta)"
+        ],
+        'en': [
+            "- McNemar's Test: p-value = 0.0133 (Significant difference in classification, H0 is rejected)",
+            "- Mann-Whitney U Test (CV): MobileNetV2 vs EfficientNetB0 (p = 0.0089). Confirms EfficientNetB0 superiority",
+            "- Kolmogorov-Smirnov Test: Confirms that prediction confidence curves differ significantly between architectures",
+            "- Morgan-Pitman Test: p-value = 0.3821 (Equivalent error variance between ResNet50 and EfficientNetB0, validating parsimony)",
+            "- Robustness (DAVT-Adv): EfficientNetB0 resilience against leaf noise and light changes (+20% brightness, 5% salt & pepper noise)"
+        ],
+        'pt': [
+            "- Teste de McNemar: p-valor = 0.0133 (Diferença significativa na classificação, H0 é rejeitado)",
+            "- Teste Mann-Whitney U (CV): MobileNetV2 vs EfficientNetB0 (p = 0.0089). Confirma a superioridade de EfficientNetB0",
+            "- Teste Kolmogorov-Smirnov: Confirma que as curvas de confiança de inferência diferem significativamente entre modelos",
+            "- Teste de Morgan-Pitman: p-valor = 0.3821 (Variância do erro equivalente entre ResNet50 e EfficientNetB0, validando parcimônia)",
+            "- Robustez (DAVT-Adv): Resiliência de EfficientNetB0 sob ruído foliar e variaciones de luz (+20% de brilho, 5% de ruido de sal e pimenta)"
+        ]
+    }
+    stats_lines = stats_lines_dict.get(lang_key, stats_lines_dict['es'])
+    
+    for s_line in stats_lines:
+        pdf.normal_text(clean_text_for_pdf(s_line))
+
+    # 8. INFORMACIÓN TÉCNICA DEL SISTEMA
+    pdf.chapter_title(clean_text_for_pdf(tx["tech_title"]), "[TECH]")
+    pdf.section_title(clean_text_for_pdf(tx["tech_spec_header"]), "[SPEC]")
+    for line in tx["tech_spec_list"]:
+        pdf.normal_text(clean_text_for_pdf(line.format(size=img_size)))
+
+    # 9. DISCLAIMER
+    pdf.chapter_title(clean_text_for_pdf(tx["disclaimer_title"]), "[!]")
+    pdf.info_box(
+        clean_text_for_pdf(tx["disclaimer_title"]),
+        clean_text_for_pdf(tx["disclaimer_text"]),
+        bg_color=(255, 248, 220)
+    )
+
+    # Guardar el PDF
+    pdf.output(filepath)
+    return filepath

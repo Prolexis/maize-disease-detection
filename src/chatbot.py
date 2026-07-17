@@ -1,11 +1,32 @@
 # -*- coding: utf-8 -*-
-import re
+"""
+Chatbot fitosanitario con motor semántico RAG (TF-IDF + similitud de coseno).
+Si la similitud del query supera el umbral, retorna el fragmento más relevante.
+En caso contrario, cae al fallback de keywords exactas.
+"""
 
-# Base de conocimiento estructurada para el Chatbot
+import re
+import numpy as np
+
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+    _SKLEARN_AVAILABLE = True
+except ImportError:
+    _SKLEARN_AVAILABLE = False
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  BASE DE CONOCIMIENTO TRILINGÜE
+# ─────────────────────────────────────────────────────────────────────────────
 KNOWLEDGE_BASE = {
     'es': {
         'rust': {
             'keywords': ['roya', 'roña', 'puccinia', 'sorghi'],
+            'corpus': (
+                "roya común puccinia sorghi síntomas pústulas circulares alargadas marrón rojizo "
+                "hoja tratamiento fungicida triazoles estrobirulinas manejo cultural híbridos "
+                "resistentes humedad malezas hospederas prevención diagnóstico"
+            ),
             'response': (
                 "**Roya Común (Puccinia sorghi):**\n"
                 "* **Síntomas:** Pústulas circulares o alargadas de color marrón rojizo en ambas caras de la hoja.\n"
@@ -15,6 +36,11 @@ KNOWLEDGE_BASE = {
         },
         'blight': {
             'keywords': ['tizon', 'tizón', 'exserohilum', 'turcicum'],
+            'corpus': (
+                "tizón norte exserohilum turcicum lesiones alargadas cigarro grisáceo marrón "
+                "rotación cultivos arado rastrojo fungicidas umbral daño económico floración "
+                "resistente diagnóstico síntomas prevención"
+            ),
             'response': (
                 "**Tizón del Norte (Exserohilum turcicum):**\n"
                 "* **Síntomas:** Grandes lesiones alargadas (en forma de cigarro) de color marrón grisáceo.\n"
@@ -24,6 +50,11 @@ KNOWLEDGE_BASE = {
         },
         'gray': {
             'keywords': ['mancha', 'gris', 'cercospora'],
+            'corpus': (
+                "mancha gris cercospora zeae maydis lesiones rectangulares venas grises "
+                "labranza mínima rotación gramíneas fungicidas sistémicos vegetativo "
+                "síntomas diagnóstico tratamiento prevención"
+            ),
             'response': (
                 "**Mancha Gris (Cercospora zeae-maydis):**\n"
                 "* **Síntomas:** Lesiones rectangulares delimitadas por las venas de las hojas, de color grisáceo.\n"
@@ -33,6 +64,10 @@ KNOWLEDGE_BASE = {
         },
         'healthy': {
             'keywords': ['sano', 'saludable', 'prevencion', 'prevenir'],
+            'corpus': (
+                "hoja sana saludable prevención monitoreo fitosanitario fertilización nitrógeno "
+                "fósforo potasio densidad siembra humedad suelo riego aspersión maíz cultivo"
+            ),
             'response': (
                 "**Prevención y Hojas Sanas:**\n"
                 "Para mantener las hojas de maíz saludables y libres de patógenos:\n"
@@ -43,6 +78,11 @@ KNOWLEDGE_BASE = {
         },
         'automl': {
             'keywords': ['automl', 'tabular', 'datos', 'clasificacion', 'stacking', 'voting', 'random forest', 'mlp', 'regresion logistica'],
+            'corpus': (
+                "automl tabular pipeline datos clasificación modelos regresión logística random forest "
+                "red neuronal mlp perceptrón votación stacking gradient boosting validación cruzada "
+                "hiperparámetros tuning"
+            ),
             'response': (
                 "**Módulo AutoML Tabular:**\n"
                 "Este módulo entrena y evalúa 5 modelos sobre variables del cultivo:\n"
@@ -51,11 +91,31 @@ KNOWLEDGE_BASE = {
                 "3. **Red Neuronal MLP:** Perceptrón multicapa para patrones complejos.\n"
                 "4. **Híbrido Votación (Voting):** Promedia las decisiones de Random Forest y MLP.\n"
                 "5. **Híbrido Stacking:** Combina las predicciones usando un meta-aprendiz de Gradient Boosting.\n"
-                "El sistema realiza validación cruzada de 5 pliegues y pruebas de significancia estadística (Wilcoxon y McNemar)."
+                "El sistema realiza validación cruzada de 5 pliegues y pruebas estadísticas automáticas (Shapiro-Wilk → ANOVA o Friedman, T-Student o Wilcoxon, Bootstrap CI)."
+            )
+        },
+        'stats': {
+            'keywords': ['estadistica', 'estadísticas', 'shapiro', 'anova', 'friedman', 'wilcoxon', 'bootstrap', 'prueba', 'significancia', 'normalidad'],
+            'corpus': (
+                "pruebas estadísticas shapiro wilk normalidad anova friedman comparación modelos "
+                "t-student wilcoxon pareado bootstrap intervalo confianza significancia paramétrico "
+                "no paramétrico post-hoc nemenyi tukey p-valor alpha hipótesis"
+            ),
+            'response': (
+                "**Pruebas Estadísticas del Panel Tabular:**\n"
+                "El sistema aplica un protocolo estadístico automático de 4 pasos:\n"
+                "1. **Shapiro-Wilk:** Evalúa si las métricas de cada modelo siguen una distribución normal.\n"
+                "2. **ANOVA o Friedman:** Si todos los modelos son normales → ANOVA de una vía; si alguno no lo es → Friedman (no paramétrico) con post-hoc de Nemenyi.\n"
+                "3. **T-Student o Wilcoxon:** Comparación por pares contra el mejor modelo, con selección automática según normalidad.\n"
+                "4. **Bootstrap CI (n=1000):** Calcula intervalos de confianza del 95% para Accuracy y F1-Score de cada modelo."
             )
         },
         'tinyml': {
             'keywords': ['tinyml', 'c++', 'c', 'microcontrolador', 'arduino', 'esp32', 'stm32', 'edge'],
+            'corpus': (
+                "tinyml exportar C c header microcontrolador arduino esp32 stm32 edge "
+                "sin conexión campo bajo recursos tflite cuantización modelo"
+            ),
             'response': (
                 "**Integración con TinyML / C++:**\n"
                 "El sistema permite exportar los árboles de decisión o modelos de Random Forest entrenados directamente a código fuente C/C++.\n"
@@ -64,15 +124,23 @@ KNOWLEDGE_BASE = {
         },
         'credentials': {
             'keywords': ['credenciales', 'usuario', 'contraseña', 'login', 'acceso', 'admin'],
+            'corpus': (
+                "credenciales usuario contraseña login acceso admin autenticación sistema panel"
+            ),
             'response': (
                 "**Credenciales del Sistema:**\n"
-                "El acceso al panel está protegido. Las credenciales de demostración por defecto son:\n"
+                "El acceso al panel está protegido con autenticación segura (bcrypt + JWT).\n"
+                "Las credenciales de demostración por defecto son:\n"
                 "* **Usuario:** `admin`\n"
                 "* **Contraseña:** `admin123`"
             )
         },
         'consensus': {
             'keywords': ['consenso', 'mobilenet', 'resnet', 'efficientnet', 'modelos', 'sin consenso'],
+            'corpus': (
+                "consenso modelos CNN visión mobilenet resnet efficientnet clasificación hojas "
+                "mayoría sin consenso diagnóstico foliar imagen convolucional"
+            ),
             'response': (
                 "**Consenso de Modelos CNN (Diagnóstico Foliar):**\n"
                 "Para la clasificación de imágenes de hojas se utilizan 3 redes convolucionales avanzadas (MobileNetV2, ResNet50 y EfficientNetB0).\n"
@@ -83,6 +151,10 @@ KNOWLEDGE_BASE = {
     'en': {
         'rust': {
             'keywords': ['rust', 'puccinia', 'sorghi'],
+            'corpus': (
+                "common rust puccinia sorghi symptoms pustules brown reddish leaf treatment "
+                "fungicide triazoles strobilurins cultural management resistant hybrids humidity weeds prevention"
+            ),
             'response': (
                 "**Common Rust (Puccinia sorghi):**\n"
                 "* **Symptoms:** Circular or elongated reddish-brown pustules on both leaf surfaces.\n"
@@ -92,6 +164,10 @@ KNOWLEDGE_BASE = {
         },
         'blight': {
             'keywords': ['blight', 'exserohilum', 'turcicum'],
+            'corpus': (
+                "northern leaf blight exserohilum turcicum lesions elongated cigar grayish brown "
+                "crop rotation plowing residue fungicides economic threshold flowering resistant"
+            ),
             'response': (
                 "**Northern Leaf Blight (Exserohilum turcicum):**\n"
                 "* **Symptoms:** Large, elongated (cigar-shaped) grayish-brown lesions.\n"
@@ -101,6 +177,10 @@ KNOWLEDGE_BASE = {
         },
         'gray': {
             'keywords': ['gray', 'grey', 'spot', 'cercospora'],
+            'corpus': (
+                "gray leaf spot cercospora zeae maydis rectangular lesions veins grayish "
+                "minimum tillage rotation grasses systemic fungicides vegetative treatment"
+            ),
             'response': (
                 "**Gray Leaf Spot (Cercospora zeae-maydis):**\n"
                 "* **Symptoms:** Rectangular grayish-brown lesions restricted by leaf veins.\n"
@@ -110,6 +190,10 @@ KNOWLEDGE_BASE = {
         },
         'healthy': {
             'keywords': ['healthy', 'sane', 'prevention', 'prevent'],
+            'corpus': (
+                "healthy leaf prevention phytosanitary monitoring fertilization nitrogen phosphorus "
+                "potassium planting density soil moisture irrigation maize crop"
+            ),
             'response': (
                 "**Prevention and Healthy Leaves:**\n"
                 "To keep maize leaves healthy and pathogen-free:\n"
@@ -120,6 +204,10 @@ KNOWLEDGE_BASE = {
         },
         'automl': {
             'keywords': ['automl', 'tabular', 'data', 'stacking', 'voting', 'random forest', 'mlp', 'logistic regression'],
+            'corpus': (
+                "automl tabular pipeline data classification models logistic regression random forest "
+                "neural network mlp voting stacking gradient boosting cross-validation hyperparameter tuning"
+            ),
             'response': (
                 "**AutoML Tabular Module:**\n"
                 "This module trains and evaluates 5 models on crop features:\n"
@@ -128,11 +216,31 @@ KNOWLEDGE_BASE = {
                 "3. **MLP Neural Network:** Multi-layer perceptron for complex patterns.\n"
                 "4. **Voting Hybrid:** Averages predictions from Random Forest and MLP.\n"
                 "5. **Stacking Hybrid:** Combines predictions using a Gradient Boosting meta-learner.\n"
-                "The system performs 5-fold cross-validation and statistical significance tests (Wilcoxon and McNemar)."
+                "The system performs 5-fold cross-validation and automatic statistical tests (Shapiro-Wilk → ANOVA or Friedman, T-Student or Wilcoxon, Bootstrap CI)."
+            )
+        },
+        'stats': {
+            'keywords': ['statistics', 'shapiro', 'anova', 'friedman', 'wilcoxon', 'bootstrap', 'test', 'significance', 'normality'],
+            'corpus': (
+                "statistical tests shapiro wilk normality anova friedman model comparison "
+                "t-student wilcoxon paired bootstrap confidence interval significance parametric "
+                "non-parametric post-hoc nemenyi tukey p-value alpha hypothesis"
+            ),
+            'response': (
+                "**Statistical Tests (Tabular Panel):**\n"
+                "The system applies an automatic 4-step statistical protocol:\n"
+                "1. **Shapiro-Wilk:** Checks if each model's metrics follow a normal distribution.\n"
+                "2. **ANOVA or Friedman:** If all models are normal → One-way ANOVA; otherwise → Friedman (non-parametric) with Nemenyi post-hoc.\n"
+                "3. **T-Student or Wilcoxon:** Pairwise comparison against the best model, selected automatically per pair.\n"
+                "4. **Bootstrap CI (n=1000):** Computes 95% confidence intervals for Accuracy and F1-Score of each model."
             )
         },
         'tinyml': {
             'keywords': ['tinyml', 'c++', 'c', 'microcontroller', 'arduino', 'esp32', 'stm32', 'edge'],
+            'corpus': (
+                "tinyml export C c header microcontroller arduino esp32 stm32 edge "
+                "offline field low resources tflite quantization model"
+            ),
             'response': (
                 "**TinyML / C++ Integration:**\n"
                 "The system allows exporting trained decision trees or Random Forest models directly into C/C++ source code.\n"
@@ -141,15 +249,23 @@ KNOWLEDGE_BASE = {
         },
         'credentials': {
             'keywords': ['credentials', 'username', 'password', 'login', 'access', 'admin'],
+            'corpus': (
+                "credentials username password login access admin authentication system panel"
+            ),
             'response': (
                 "**System Credentials:**\n"
-                "Access is protected. Default demonstration credentials are:\n"
+                "Access is protected with secure authentication (bcrypt + JWT).\n"
+                "Default demonstration credentials are:\n"
                 "* **Username:** `admin`\n"
                 "* **Password:** `admin123`"
             )
         },
         'consensus': {
             'keywords': ['consensus', 'mobilenet', 'resnet', 'efficientnet', 'models', 'no consensus'],
+            'corpus': (
+                "consensus CNN models vision mobilenet resnet efficientnet classification leaves "
+                "majority no consensus foliar diagnosis image convolutional"
+            ),
             'response': (
                 "**CNN Model Consensus (Foliar Diagnosis):**\n"
                 "Image classification uses 3 advanced convolutional networks (MobileNetV2, ResNet50, and EfficientNetB0).\n"
@@ -160,6 +276,10 @@ KNOWLEDGE_BASE = {
     'pt': {
         'rust': {
             'keywords': ['ferrugem', 'roia', 'roña', 'puccinia', 'sorghi'],
+            'corpus': (
+                "ferrugem comum puccinia sorghi sintomas pústulas marrom avermelhado folha "
+                "fungicidas triazóis estrobirulinas manejo cultural híbridos resistentes humidade"
+            ),
             'response': (
                 "**Ferrugem Comum (Puccinia sorghi):**\n"
                 "* **Sintomas:** Pústulas circulares ou alongadas de cor marrom-avermelhada em ambas as faces da folha.\n"
@@ -169,6 +289,10 @@ KNOWLEDGE_BASE = {
         },
         'blight': {
             'keywords': ['helmintosporiose', 'tizon', 'tizón', 'exserohilum', 'turcicum'],
+            'corpus': (
+                "helmintosporiose tizón norte exserohilum turcicum lesões alongadas charuto acinzentado "
+                "rotação culturas aração resíduos fungicidas limiar dano florescimento resistente"
+            ),
             'response': (
                 "**Helmintosporiose / Tizón do Norte (Exserohilum turcicum):**\n"
                 "* **Sintomas:** Grandes lesões alongadas (em forma de charuto) de cor marrom-acinzentada.\n"
@@ -178,6 +302,10 @@ KNOWLEDGE_BASE = {
         },
         'gray': {
             'keywords': ['cercospora', 'mancha', 'gris', 'cinzenta'],
+            'corpus': (
+                "mancha cercospora zeae maydis lesões retangulares nervuras acinzentadas "
+                "plantio direto rotação gramíneas fungicidas sistêmicos vegetativo"
+            ),
             'response': (
                 "**Mancha de Cercospora (Cercospora zeae-maydis):**\n"
                 "* **Sintomas:** Lesões retangulares acinzentadas delimitadas pelas nervuras das folhas.\n"
@@ -187,6 +315,10 @@ KNOWLEDGE_BASE = {
         },
         'healthy': {
             'keywords': ['saudavel', 'saudável', 'sano', 'prevencao', 'prevenção'],
+            'corpus': (
+                "folha saudável prevenção monitoramento fitossanitário fertilização nitrogênio "
+                "fósforo potássio densidade solo umidade irrigação milho"
+            ),
             'response': (
                 "**Prevenção e Folhas Saudáveis:**\n"
                 "Para manter as folhas de milho saudáveis e livres de patógenos:\n"
@@ -197,6 +329,10 @@ KNOWLEDGE_BASE = {
         },
         'automl': {
             'keywords': ['automl', 'tabular', 'dados', 'stacking', 'voting', 'random forest', 'mlp', 'regressao logistica'],
+            'corpus': (
+                "automl tabular pipeline dados classificação modelos regressão logística random forest "
+                "rede neural mlp votação stacking gradient boosting validação cruzada hiperparâmetros"
+            ),
             'response': (
                 "**Módulo AutoML Tabular:**\n"
                 "Este módulo treina e avalia 5 modelos sobre características de cultivo:\n"
@@ -205,11 +341,31 @@ KNOWLEDGE_BASE = {
                 "3. **Rede Neural MLP:** Perceptron multicamada para padrões complexos.\n"
                 "4. **Híbrido Votação (Voting):** Média das previsões do Random Forest e MLP.\n"
                 "5. **Híbrido Stacking:** Combina as previsões usando um meta-aprendiz de Gradient Boosting.\n"
-                "O sistema realiza validação cruzada de 5 dobras e testes de significância estatística (Wilcoxon e McNemar)."
+                "O sistema realiza validação cruzada de 5 dobras e testes estatísticos automáticos (Shapiro-Wilk → ANOVA ou Friedman, T-Student ou Wilcoxon, Bootstrap CI)."
+            )
+        },
+        'stats': {
+            'keywords': ['estatistica', 'estatísticas', 'shapiro', 'anova', 'friedman', 'wilcoxon', 'bootstrap', 'teste', 'significância'],
+            'corpus': (
+                "testes estatísticos shapiro wilk normalidade anova friedman comparação modelos "
+                "t-student wilcoxon pareado bootstrap intervalo confiança significância paramétrico "
+                "não paramétrico post-hoc nemenyi tukey p-valor alpha hipótese"
+            ),
+            'response': (
+                "**Testes Estatísticos (Painel Tabular):**\n"
+                "O sistema aplica um protocolo estatístico automático de 4 etapas:\n"
+                "1. **Shapiro-Wilk:** Verifica se as métricas de cada modelo seguem distribuição normal.\n"
+                "2. **ANOVA ou Friedman:** Se todos normais → ANOVA; caso contrário → Friedman com post-hoc Nemenyi.\n"
+                "3. **T-Student ou Wilcoxon:** Comparação par-a-par com o melhor modelo, selecionada automaticamente.\n"
+                "4. **Bootstrap CI (n=1000):** Intervalos de confiança de 95% para Acurácia e F1-Score."
             )
         },
         'tinyml': {
             'keywords': ['tinyml', 'c++', 'c', 'microcontrolador', 'arduino', 'esp32', 'stm32', 'edge'],
+            'corpus': (
+                "tinyml exportar C c header microcontrolador arduino esp32 stm32 edge "
+                "sem conexão campo baixo custo tflite quantização modelo"
+            ),
             'response': (
                 "**Integração con TinyML / C++:**\n"
                 "O sistema permite exportar as árvores de decisão ou modelos de Random Forest treinados diretamente para código C/C++.\n"
@@ -218,15 +374,23 @@ KNOWLEDGE_BASE = {
         },
         'credentials': {
             'keywords': ['credenciais', 'usuario', 'senha', 'login', 'acesso', 'admin'],
+            'corpus': (
+                "credenciais usuário senha login acesso admin autenticação sistema painel"
+            ),
             'response': (
                 "**Credenciais do Sistema:**\n"
-                "O acesso ao panel é protegido. As credenciais de demonstração padrão são:\n"
+                "O acesso ao painel é protegido com autenticação segura (bcrypt + JWT).\n"
+                "As credenciais de demonstração padrão são:\n"
                 "* **Usuário:** `admin`\n"
                 "* **Senha:** `admin123`"
             )
         },
         'consensus': {
             'keywords': ['consenso', 'mobilenet', 'resnet', 'efficientnet', 'modelos', 'sem consenso'],
+            'corpus': (
+                "consenso modelos CNN visão mobilenet resnet efficientnet classificação folhas "
+                "maioria sem consenso diagnóstico foliar imagem convolucional"
+            ),
             'response': (
                 "**Consenso de Modelos CNN (Diagnóstico Foliar):**\n"
                 "Para classificação de imagens de folhas, são usadas 3 redes convolucionais avançadas (MobileNetV2, ResNet50 e EfficientNetB0).\n"
@@ -236,21 +400,69 @@ KNOWLEDGE_BASE = {
     }
 }
 
-def get_chatbot_response(user_query, lang='es'):
+# ─────────────────────────────────────────────────────────────────────────────
+#  MOTOR RAG  (TF-IDF + cosine similarity — inicializado por idioma)
+# ─────────────────────────────────────────────────────────────────────────────
+_rag_engines: dict = {}
+
+def _get_rag_engine(lang: str):
+    """Construye o recupera el vectorizador TF-IDF para el idioma dado."""
+    if not _SKLEARN_AVAILABLE:
+        return None
+    if lang not in _rag_engines:
+        kb = KNOWLEDGE_BASE.get(lang, KNOWLEDGE_BASE['es'])
+        topics = list(kb.keys())
+        corpus = [kb[t]['corpus'] for t in topics]
+        vectorizer = TfidfVectorizer(
+            analyzer='word', ngram_range=(1, 2),
+            max_df=1.0, min_df=1
+        )
+        vectors = vectorizer.fit_transform(corpus)
+        _rag_engines[lang] = {
+            'topics': topics,
+            'vectorizer': vectorizer,
+            'vectors': vectors,
+        }
+    return _rag_engines[lang]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  FUNCIÓN PRINCIPAL
+# ─────────────────────────────────────────────────────────────────────────────
+def get_chatbot_response(user_query: str, lang: str = 'es') -> str:
     """
-    Analiza la consulta del usuario y retorna una respuesta basada en la base de conocimiento.
+    Retorna la respuesta más relevante para ``user_query`` en el idioma ``lang``.
+
+    Estrategia híbrida:
+      1. TF-IDF cosine similarity  →  si score ≥ RAG_THRESHOLD → respuesta RAG.
+      2. Keyword matching exacto   →  fallback.
+      3. Respuesta genérica        →  si nada coincide.
     """
-    lang_key = lang if lang in ['es', 'en', 'pt'] else 'es'
+    RAG_THRESHOLD = 0.18
+    lang_key = lang if lang in ('es', 'en', 'pt') else 'es'
+    kb = KNOWLEDGE_BASE[lang_key]
     query_clean = re.sub(r'[^\w\s]', '', user_query.lower())
-    
-    # Buscar coincidencia de palabras clave
-    for area, data in KNOWLEDGE_BASE[lang_key].items():
+
+    # ── 1. RAG semántico ────────────────────────────────────────────────────
+    engine = _get_rag_engine(lang_key)
+    if engine is not None:
+        try:
+            query_vec = engine['vectorizer'].transform([query_clean])
+            scores = cosine_similarity(query_vec, engine['vectors'])[0]
+            best_idx = int(np.argmax(scores))
+            if float(scores[best_idx]) >= RAG_THRESHOLD:
+                return kb[engine['topics'][best_idx]]['response']
+        except Exception:
+            pass  # Si falla el RAG, continúa al fallback
+
+    # ── 2. Fallback de keywords ─────────────────────────────────────────────
+    for area, data in kb.items():
         for kw in data['keywords']:
             if kw in query_clean:
                 return data['response']
-                
-    # Respuesta por defecto si no se encuentra coincidencia
-    default_responses = {
+
+    # ── 3. Respuesta genérica ───────────────────────────────────────────────
+    defaults = {
         'es': (
             "Lo siento, no he podido identificar el tema de tu pregunta. "
             "Puedo ayudarte con información sobre:\n"
@@ -276,5 +488,4 @@ def get_chatbot_response(user_query, lang='es'):
             "* **Credenciais** do sistema ou o **consenso** dos modelos CNN."
         )
     }
-    
-    return default_responses[lang_key]
+    return defaults[lang_key]
