@@ -164,6 +164,7 @@ cython_debug/
 data/
 datasets/
 models/
+!backend/app/models/
 reports/
 saved_models/
 

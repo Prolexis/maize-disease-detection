@@ -28,6 +28,7 @@
   },
   "CV": {
     "header": "Diagnóstico Fitossanitário de Folhas",
+    "upload_label_title": "Carregar Imagem",
     "upload_label": "Arraste ou selecione uma foto de folha de milho",
     "btn_diagnose": "Analisar Imagem",
     "result_title": "Resultados de Consenso do Consórcio CNN",

@@ -28,6 +28,7 @@
   },
   "CV": {
     "header": "Diagnóstico Fitosanitario de Hojas",
+    "upload_label_title": "Cargar Imagen",
     "upload_label": "Arrastre o seleccione una foto de la hoja de maíz",
     "btn_diagnose": "Analizar Imagen",
     "result_title": "Resultados de Consenso del Consorcio CNN",

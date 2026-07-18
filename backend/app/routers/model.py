@@ -19,7 +19,9 @@ router = APIRouter()
 
 _LOADED_MODELS = {}
 _LATEST_PREDICTION = None  # Store latest prediction data for report generation
-CLASS_NAMES = ["Mancha gris", "Roña común", "Tizón del norte", "Sano"]
+# IMPORTANTE: el orden es ALFABÉTICO, igual que Keras lo asigna durante el entrenamiento:
+# índice 0 → Mancha gris, 1 → Roña común, 2 → Sano, 3 → Tizón del norte
+CLASS_NAMES = ["Mancha gris", "Roña común", "Sano", "Tizón del norte"]
 IMG_SIZE = 128
 
 def get_loaded_models():
@@ -34,7 +36,7 @@ def get_loaded_models():
         for name, path in model_paths.items():
             if os.path.exists(path):
                 print(f"Cargando modelo de visión {name}...")
-                _LOADED_MODELS[name] = tf.keras.models.load_model(path)
+                _LOADED_MODELS[name] = tf.keras.models.load_model(path, compile=False)
             else:
                 print(f"Advertencia: No se encontró el modelo {name} en {path}. Usando MockModel temporal.")
                 class MockModel:

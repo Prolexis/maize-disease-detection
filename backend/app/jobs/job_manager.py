@@ -282,8 +282,39 @@ async def run_training_pipeline_async(client_id: str, config: dict):
             "stats": stats_results,
             "pdf_report": pdf_report,
             "docx_report": docx_report,
-            "xlsx_report": xlsx_report
+            "xlsx_report": xlsx_report,
+            # Interpretaciones por idioma (es/en/pt)
+            "interpretations_by_tab": {
+                "es": {
+                    "training": interpret_training(results),
+                    "eda": "Análisis EDA completado exitosamente.",
+                    "cv": "Validación cruzada ejecutada con éxito.",
+                    "tuning": "Optimización de hiperparámetros completada.",
+                    "stats": "Pruebas estadísticas calculadas correctamente."
+                },
+                "en": {
+                    "training": interpret_training(results),
+                    "eda": "EDA analysis completed successfully.",
+                    "cv": "Cross-validation executed successfully.",
+                    "tuning": "Hyperparameter optimization completed.",
+                    "stats": "Statistical tests calculated correctly."
+                },
+                "pt": {
+                    "training": interpret_training(results),
+                    "eda": "Análise EDA concluída com sucesso.",
+                    "cv": "Validação cruzada executada com sucesso.",
+                    "tuning": "Otimização de hiperparâmetros concluída.",
+                    "stats": "Testes estatísticos calculados corretamente."
+                }
+            }
         }
+
+        # --- Persistir resultados en disco para que la API los lea incluso tras reinicio ---
+        import json as _json
+        os.makedirs("models", exist_ok=True)
+        results_to_save = {k: v for k, v in LATEST_RUN_RESULT.items() if k not in ("pdf_report", "docx_report", "xlsx_report")}
+        with open("models/latest_results.json", "w", encoding="utf-8") as f:
+            _json.dump(results_to_save, f, ensure_ascii=False, indent=2, default=str)
         
         # Enviar completado
         await ws_manager.send_personal_message({

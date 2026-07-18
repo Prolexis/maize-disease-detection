@@ -8,9 +8,12 @@ DATA_DIR = "data"
 DEFAULT_DATASET_PATH = os.path.join(DATA_DIR, "maize_crop_data.csv")
 
 def save_dataset(file_content: bytes, filename: str = "maize_crop_data.csv") -> Dict[str, Any]:
-    """Guarda el archivo CSV cargado, calcula su hash MD5 y extrae metadatos de las columnas"""
+    """Guarda el archivo CSV cargado, calcula su hash MD5 y extrae metadatos de las columnas.
+    El archivo siempre se guarda como 'maize_crop_data.csv' para que el pipeline AutoML lo encuentre.
+    """
     os.makedirs(DATA_DIR, exist_ok=True)
-    target_path = os.path.join(DATA_DIR, filename)
+    # Siempre guardar como maize_crop_data.csv para que el pipeline lo encuentre
+    target_path = DEFAULT_DATASET_PATH
     
     # Escribir archivo en disco
     with open(target_path, "wb") as f:

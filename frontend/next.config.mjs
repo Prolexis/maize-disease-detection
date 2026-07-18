@@ -4,7 +4,7 @@ const withNextIntl = createNextIntlPlugin();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  // Configuración de i18n para next-intl con locales
 };
 
 export default withNextIntl(nextConfig);

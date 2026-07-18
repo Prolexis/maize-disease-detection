@@ -28,6 +28,7 @@
   },
   "CV": {
     "header": "Leaf Phytosanitary Diagnosis",
+    "upload_label_title": "Upload Image",
     "upload_label": "Drag or select a maize leaf photo",
     "btn_diagnose": "Analyze Image",
     "result_title": "Consensus Results of the CNN Consortium",

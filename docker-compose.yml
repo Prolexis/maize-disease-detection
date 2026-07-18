@@ -11,7 +11,7 @@ services:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app/backend
     restart: unless-stopped
 
   # 2. Legacy/Data Scientist Service (Streamlit Dashboard)

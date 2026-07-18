@@ -58,6 +58,7 @@ export default function DashboardSPA({ params }: { params: Promise<{ locale: str
   const [statsResults, setStatsResults] = useState<any>(null);
   const [bootstrapCiData, setBootstrapCiData] = useState<any>(null);
   const [experimentHistory, setExperimentHistory] = useState<any[]>([]);
+  const [bestModelInfo, setBestModelInfo] = useState<any>(null);
 
   // --- Chatbot States ---
   const [chatOpen, setChatOpen] = useState(false);
@@ -134,9 +135,24 @@ export default function DashboardSPA({ params }: { params: Promise<{ locale: str
     }
   };
 
-  // Switch Language
+  // Switch Language — navega hacia la URL con prefijo de locale y escribe la cookie NEXT_LOCALE
   const changeLanguage = (lang: string) => {
-    window.location.pathname = `/${lang}`;
+    document.cookie = `NEXT_LOCALE=${lang}; path=/; max-age=31536000; SameSite=Lax`;
+    const currentPath = window.location.pathname;
+    // Reemplaza /es, /en, /pt al inicio de la ruta
+    const newPath = currentPath.replace(/^\/(es|en|pt)(\/|$)/, `/${lang}$2`);
+    if (newPath !== currentPath) {
+      window.location.href = newPath;
+    } else {
+      window.location.href = `/${lang}`;
+    }
+  };
+
+  // Quitar imagen seleccionada
+  const clearImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    setImageResults(null);
   };
 
   // --- Speech Recognition ---
@@ -401,42 +417,61 @@ export default function DashboardSPA({ params }: { params: Promise<{ locale: str
 
   // Fetch results after pipeline success
   const fetchAutoMLResults = async () => {
+    // Cada fetch es independiente: un error no bloquea los demás
     try {
-      // 1. EDA results
-      const resEda = await fetch(`${apiBase}/api/eda/analyze?target_col=${targetCol}&lang=${locale}`, {
+      const resEda = await fetch(`${apiBase}/api/eda/analyze?target_col=${encodeURIComponent(targetCol)}&lang=${locale}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (resEda.ok) {
         const edaData = await resEda.json();
         setEdaResults(edaData);
       }
-      
-      // 2. Training/Latest results
+    } catch (e) {
+      console.warn("EDA fetch failed:", e);
+    }
+
+    try {
       const resLatest = await fetch(`${apiBase}/api/training/latest?lang=${locale}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (resLatest.ok) {
         const latestData = await resLatest.json();
         setModelResults(latestData);
-        if (latestData.cv_results) {
-          setCvResults(latestData.cv_results);
-        }
+        if (latestData.cv_results) setCvResults(latestData.cv_results);
         if (latestData.stats) {
           setStatsResults(latestData.stats);
           setBootstrapCiData(latestData.stats.bootstrap_ci);
         }
+        // Guardar info del mejor modelo para el overview
+        if (latestData.best_model) {
+          setBestModelInfo({
+            name: latestData.best_model,
+            metrics: latestData.best_model_metrics ?? null
+          });
+        }
       }
+    } catch (e) {
+      console.warn("Training latest fetch failed:", e);
+    }
 
-      // 3. Experiment history
+    try {
       const resHistory = await fetch(`${apiBase}/api/training/history`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (resHistory.ok) {
         const histData = await resHistory.json();
         setExperimentHistory(histData.experiments ?? []);
+        // También buscar el mejor modelo en el historial si no está seteado
+        if (!bestModelInfo && histData.experiments && histData.experiments.length > 0) {
+          const latest = histData.experiments[histData.experiments.length - 1];
+          setBestModelInfo({ name: latest.best_model_name, metrics: { accuracy: latest.accuracy, f1: latest.f1_score } });
+        }
       }
+    } catch (e) {
+      console.warn("History fetch failed:", e);
+    }
 
-      // 4. Statistical results (pass current locale)
+    try {
       const resStats = await fetch(`${apiBase}/api/stats/results?lang=${locale}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -445,7 +480,7 @@ export default function DashboardSPA({ params }: { params: Promise<{ locale: str
         setStatsResults(statsData);
       }
     } catch (e) {
-      console.error(e);
+      console.warn("Stats fetch failed:", e);
     }
   };
 
@@ -602,35 +637,14 @@ export default function DashboardSPA({ params }: { params: Promise<{ locale: str
         </div>
         
         {/* Sidebar Footer (Controls) */}
-        <div className="p-4 border-t border-slate-800 space-y-3">
-          
-          {/* Locale Selector */}
-          <div className="flex items-center justify-between gap-1 bg-slate-850 p-1.5 rounded-lg border border-slate-800">
-            <Languages size={15} className="text-slate-400 ml-1" />
-            <div className="flex gap-1 text-[11px] font-bold">
-              <button onClick={() => changeLanguage("es")} className={`px-2 py-1 rounded ${locale === "es" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"}`}>ES</button>
-              <button onClick={() => changeLanguage("en")} className={`px-2 py-1 rounded ${locale === "en" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"}`}>EN</button>
-              <button onClick={() => changeLanguage("pt")} className={`px-2 py-1 rounded ${locale === "pt" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"}`}>PT</button>
-            </div>
-          </div>
-          
-          {/* Theme Toggle & Logout */}
-          <div className="flex items-center justify-between">
-            <button 
-              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-              className="p-2 bg-slate-800/80 hover:bg-slate-800 text-slate-300 rounded-lg hover:text-white transition-colors"
-            >
-              {!mounted ? <Moon size={18} /> : resolvedTheme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-            
-            <button 
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 bg-red-650 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition-colors uppercase tracking-wider"
-            >
-              <LogOut size={14} />
-              {t("Common.logout")}
-            </button>
-          </div>
+        <div className="p-4 border-t border-slate-800 flex justify-center">
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition-colors uppercase tracking-wider shadow-lg shadow-red-600/10"
+          >
+            <LogOut size={14} />
+            {t("Common.logout")}
+          </button>
         </div>
       </aside>
       
@@ -649,6 +663,28 @@ export default function DashboardSPA({ params }: { params: Promise<{ locale: str
               {currentTab === "automl" && "Automatización, entrenamiento y validaciones estadísticas"}
             </p>
           </div>
+
+          {/* Theme & Language Controls at the top right of Main Content */}
+          <div className="flex items-center gap-3">
+            {/* Theme Toggle */}
+            <button 
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              className="p-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 rounded-xl transition-colors shadow-sm"
+              title={resolvedTheme === "dark" ? t("Common.theme_light") : t("Common.theme_dark")}
+            >
+              {!mounted ? <Moon size={18} /> : resolvedTheme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            
+            {/* Language Selector */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-850 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <Languages size={15} className="text-slate-500 dark:text-slate-400 ml-1" />
+              <div className="flex gap-1 text-[11px] font-bold">
+                <button onClick={() => changeLanguage("es")} className={`px-2.5 py-1 rounded-lg transition-colors ${locale === "es" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"}`}>ES</button>
+                <button onClick={() => changeLanguage("en")} className={`px-2.5 py-1 rounded-lg transition-colors ${locale === "en" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"}`}>EN</button>
+                <button onClick={() => changeLanguage("pt")} className={`px-2.5 py-1 rounded-lg transition-colors ${locale === "pt" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"}`}>PT</button>
+              </div>
+            </div>
+          </div>
         </header>
         
         {/* Tab Components */}
@@ -656,42 +692,87 @@ export default function DashboardSPA({ params }: { params: Promise<{ locale: str
           
           {/* TAB 1: OVERVIEW */}
           {currentTab === "overview" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col justify-between">
-                <div>
-                  <h3 className="text-lg font-bold flex items-center gap-2 mb-2 text-emerald-600 dark:text-emerald-400">
-                    <BrainCircuit />
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold flex items-center gap-2 mb-2 text-emerald-600 dark:text-emerald-400">
+                      <BrainCircuit />
+                      {t("Dashboard.menu_cv")}
+                    </h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+                      {t("Dashboard.card_cv_desc")}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setCurrentTab("cv")}
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-sm transition-transform active:scale-[0.98]"
+                  >
                     {t("Dashboard.menu_cv")}
-                  </h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
-                    {t("Dashboard.card_cv_desc")}
-                  </p>
+                  </button>
                 </div>
-                <button 
-                  onClick={() => setCurrentTab("cv")}
-                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-sm transition-transform active:scale-[0.98]"
-                >
-                  Abrir Módulo de Visión
-                </button>
-              </div>
-              
-              <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col justify-between">
-                <div>
-                  <h3 className="text-lg font-bold flex items-center gap-2 mb-2 text-emerald-600 dark:text-emerald-400">
-                    <ChartIcon />
+                
+                <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold flex items-center gap-2 mb-2 text-emerald-600 dark:text-emerald-400">
+                      <ChartIcon />
+                      {t("Dashboard.menu_automl")}
+                    </h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+                      {t("Dashboard.card_automl_desc")}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setCurrentTab("automl")}
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-sm transition-transform active:scale-[0.98]"
+                  >
                     {t("Dashboard.menu_automl")}
-                  </h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
-                    {t("Dashboard.card_automl_desc")}
-                  </p>
+                  </button>
                 </div>
-                <button 
-                  onClick={() => setCurrentTab("automl")}
-                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-sm transition-transform active:scale-[0.98]"
-                >
-                  Abrir Módulo AutoML
-                </button>
               </div>
+
+              {/* Mejor modelo highlight card */}
+              {bestModelInfo && (
+                <div className="p-6 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-2xl">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                        <span className="text-xl">🏆</span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Mejor Modelo AutoML</p>
+                        <p className="text-xl font-extrabold text-slate-800 dark:text-white">{bestModelInfo.name}</p>
+                      </div>
+                    </div>
+                    {bestModelInfo.metrics && (
+                      <div className="flex gap-4">
+                        {bestModelInfo.metrics.accuracy !== undefined && (
+                          <div className="text-center">
+                            <span className="block text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
+                              {(bestModelInfo.metrics.accuracy * 100).toFixed(1)}%
+                            </span>
+                            <span className="text-xs text-slate-500 font-semibold">Accuracy</span>
+                          </div>
+                        )}
+                        {(bestModelInfo.metrics.f1 ?? bestModelInfo.metrics.f1_score) !== undefined && (
+                          <div className="text-center">
+                            <span className="block text-2xl font-extrabold text-blue-600 dark:text-blue-400">
+                              {((bestModelInfo.metrics.f1 ?? bestModelInfo.metrics.f1_score) * 100).toFixed(1)}%
+                            </span>
+                            <span className="text-xs text-slate-500 font-semibold">F1 Score</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { setCurrentTab("automl"); setActiveAutomlTab("models"); }}
+                      className="text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
+                    >
+                      Ver detalles →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           
@@ -702,25 +783,42 @@ export default function DashboardSPA({ params }: { params: Promise<{ locale: str
               {/* Image Input side */}
               <div className="lg:col-span-1 space-y-6">
                 <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
-                  <h3 className="font-bold text-sm text-slate-400 uppercase tracking-wider mb-4">Cargar Imagen</h3>
+                  <h3 className="font-bold text-sm text-slate-400 uppercase tracking-wider mb-4">
+                    {t.has("CV.upload_label_title") ? t("CV.upload_label_title") : (locale === "pt" ? "Carregar Imagem" : locale === "en" ? "Upload Image" : "Cargar Imagen")}
+                  </h3>
                   
-                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-xl p-6 cursor-pointer transition-colors relative min-h-[200px]">
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={handleImageChange} 
-                      className="hidden" 
-                    />
-                    
-                    {imagePreview ? (
-                      <img src={imagePreview} alt="Preview" className="absolute inset-0 w-full h-full object-cover rounded-xl" />
-                    ) : (
-                      <div className="text-center text-slate-400">
-                        <Upload size={32} className="mx-auto mb-2 text-slate-400" />
-                        <span className="text-xs font-semibold">{t("CV.upload_label")}</span>
-                      </div>
+                  {/* Zona de carga con botón X para quitar imagen */}
+                  <div className="relative">
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-xl p-6 cursor-pointer transition-colors relative min-h-[200px]">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleImageChange} 
+                        className="hidden" 
+                      />
+                      
+                      {imagePreview ? (
+                        <img src={imagePreview} alt="Preview" className="absolute inset-0 w-full h-full object-cover rounded-xl" />
+                      ) : (
+                        <div className="text-center text-slate-400">
+                          <Upload size={32} className="mx-auto mb-2 text-slate-400" />
+                          <span className="text-xs font-semibold">{t("CV.upload_label")}</span>
+                        </div>
+                      )}
+                    </label>
+
+                    {/* Botón X para quitar imagen */}
+                    {imagePreview && (
+                      <button
+                        onClick={clearImage}
+                        type="button"
+                        className="absolute top-2 right-2 z-10 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90"
+                        title="Quitar imagen"
+                      >
+                        <X size={14} />
+                      </button>
                     )}
-                  </label>
+                  </div>
                   
                   {selectedImage && (
                     <button 
@@ -922,7 +1020,7 @@ export default function DashboardSPA({ params }: { params: Promise<{ locale: str
                     <h3 className="font-bold text-sm text-slate-400 uppercase tracking-wider">{t("AutoML.upload_csv")}</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Cargue datos personalizados o use el dataset por defecto de maiz.</p>
                   </div>
-                  <label className="bg-slate-850 border border-slate-800 hover:bg-slate-800 text-slate-200 font-bold text-xs py-2.5 px-4 rounded-xl cursor-pointer flex items-center gap-2">
+                  <label className="bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl cursor-pointer flex items-center gap-2 transition-colors shadow-sm">
                     <Upload size={14} />
                     Cargar CSV
                     <input 
