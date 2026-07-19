@@ -32,7 +32,8 @@ def get_latest_training_result(
     import os
     import json
     
-    latest_path = "models/latest_results.json"
+    from app.routers.model import resolve_path
+    latest_path = resolve_path("models/latest_results.json")
     if not os.path.exists(latest_path):
         return {"status": "no_runs_completed_yet"}
         

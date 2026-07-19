@@ -24,6 +24,18 @@ _LATEST_PREDICTION = None  # Store latest prediction data for report generation
 CLASS_NAMES = ["Mancha gris", "Roña común", "Sano", "Tizón del norte"]
 IMG_SIZE = 128
 
+def resolve_path(path_str: str) -> str:
+    """Resuelve rutas relativas considerando /app o /app/backend como directorio de trabajo"""
+    if os.path.exists(path_str):
+        return path_str
+    alt1 = os.path.join("..", path_str)
+    if os.path.exists(alt1):
+        return alt1
+    alt2 = os.path.join("/app", path_str)
+    if os.path.exists(alt2):
+        return alt2
+    return path_str
+
 def get_loaded_models():
     global _LOADED_MODELS
     if not _LOADED_MODELS:
@@ -33,16 +45,16 @@ def get_loaded_models():
             "ResNet50": "models/ResNet50.h5",
             "EfficientNetB0": "models/EfficientNetB0.h5"
         }
-        for name, path in model_paths.items():
-            if os.path.exists(path):
-                print(f"Cargando modelo de visión {name}...")
-                _LOADED_MODELS[name] = tf.keras.models.load_model(path, compile=False)
+        for name, rel_path in model_paths.items():
+            resolved = resolve_path(rel_path)
+            if os.path.exists(resolved):
+                print(f"Cargando modelo real de visión {name} desde {resolved}...")
+                _LOADED_MODELS[name] = tf.keras.models.load_model(resolved, compile=False)
             else:
-                print(f"Advertencia: No se encontró el modelo {name} en {path}. Usando MockModel temporal.")
+                print(f"Advertencia: No se encontró el modelo {name} en {rel_path} o {resolved}. Usando MockModel temporal.")
                 class MockModel:
                     def predict(self, x, verbose=0):
                         import numpy as np
-                        # Generar probabilidades aleatorias que sumen 1
                         return np.random.dirichlet(np.ones(4), size=1)
                 _LOADED_MODELS[name] = MockModel()
     return _LOADED_MODELS
@@ -51,7 +63,7 @@ def get_loaded_models():
 @router.get("/metadata")
 def get_model_metadata(username: str = Depends(get_current_user)):
     """Obtiene los metadatos JSON del mejor modelo entrenado"""
-    metadata_path = "models/metadata.json"
+    metadata_path = resolve_path("models/metadata.json")
     if not os.path.exists(metadata_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -252,14 +264,13 @@ async def generate_image_report(
 @router.post("/export-c")
 def export_c_header(username: str = Depends(get_current_user)):
     """Exporta el modelo CNN cuantizado en TFLite a una cabecera de C++ para TinyML"""
-    keras_model_path = "models/MobileNetV2.h5"
-    output_path = "models/maize_mobilenet_v2.h"
+    keras_model_path = resolve_path("models/MobileNetV2.h5")
+    output_path = resolve_path("models/maize_mobilenet_v2.h")
     
     if not os.path.exists(keras_model_path):
-        # Tratar de ver si hay otro
-        keras_model_path = "models/EfficientNetB0.h5"
+        keras_model_path = resolve_path("models/EfficientNetB0.h5")
     if not os.path.exists(keras_model_path):
-        keras_model_path = "models/ResNet50.h5"
+        keras_model_path = resolve_path("models/ResNet50.h5")
         
     if not os.path.exists(keras_model_path):
         raise HTTPException(

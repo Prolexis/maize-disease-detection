@@ -322,7 +322,7 @@ def generate_docx_report(df_eda, df_training, cv_results, tuning_results, stats_
     # 1. Portada
     title_p = doc.add_paragraph()
     title_p.alignment = 1 # Centrado
-    run_title = title_p.add_run(f"\n\n\n\n🌽 {title_lbl.upper()}\n")
+    run_title = title_p.add_run(f"\n\n\n\n{title_lbl.upper()}\n")
     run_title.font.size = Pt(24)
     run_title.bold = True
     run_title.font.color.rgb = RGBColor(16, 185, 129) # Verde
@@ -694,6 +694,7 @@ def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results,
     pdf.set_text_color(16, 185, 129)
     pdf.cell(0, 10, clean_pdf_text(t_lang("rep_train_section", lang)), ln=1)
     pdf.ln(5)
+    pdf.set_text_color(31, 41, 55)
     
     # Tabla Entrenamiento
     pdf.set_font('Helvetica', 'B', 8)
@@ -754,6 +755,7 @@ def generate_tabular_pdf_report(df_eda, df_training, cv_results, tuning_results,
     
     pdf.cell(0, 10, clean_pdf_text(section_3_title), ln=1)
     pdf.ln(5)
+    pdf.set_text_color(31, 41, 55)
     
     has_cv_stats = False
     if 'cv' in image_paths and os.path.exists(image_paths['cv']):
@@ -932,7 +934,7 @@ def generate_image_docx_report(image, predictions, uploaded_filename, consensus_
     # --- PÁGINA 1: PORTADA ---
     title_p = doc.add_paragraph()
     title_p.alignment = 1 # Centrado
-    run_title = title_p.add_run(f"\n\n\n\n🌽 {title_lbl}\n")
+    run_title = title_p.add_run(f"\n\n\n\n{title_lbl}\n")
     run_title.font.size = Pt(22)
     run_title.bold = True
     run_title.font.color.rgb = RGBColor(46, 139, 87) # Verde
@@ -2230,6 +2232,7 @@ def generate_image_pdf_report(image, predictions, uploaded_filename, consensus_r
             self.set_draw_color(46, 139, 87)
             self.line(10, self.get_y(), 200, self.get_y())
             self.ln(4)
+            self.set_text_color(31, 41, 55)
 
         def section_title(self, title, icon=""):
             self.check_and_add_page(15)
@@ -2238,6 +2241,7 @@ def generate_image_pdf_report(image, predictions, uploaded_filename, consensus_r
             self.set_text_color(70, 70, 70)
             self.cell(0, 7, f'{icon} {title}', 0, 1, 'L')
             self.ln(1)
+            self.set_text_color(31, 41, 55)
 
         def normal_text(self, text, bold=False):
             self.check_and_add_page(8)

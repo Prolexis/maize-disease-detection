@@ -12,7 +12,8 @@ def get_statistical_results(lang: str = "es", username: str = Depends(get_curren
     import os
     import json
     
-    latest_path = "models/latest_results.json"
+    from app.routers.model import resolve_path
+    latest_path = resolve_path("models/latest_results.json")
     if not os.path.exists(latest_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
