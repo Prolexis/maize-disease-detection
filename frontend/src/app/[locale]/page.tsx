@@ -21,7 +21,12 @@ export default function DashboardSPA({ params }: { params: any }) {
 
   // Authentication State
   const [mounted, setMounted] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("token");
+    }
+    return null;
+  });
   const [usernameInput, setUsernameInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -132,13 +137,19 @@ export default function DashboardSPA({ params }: { params: any }) {
 
 
 
-  // Check login on load
+  // Check login on load & restore active tab from ?tab= query param
   useEffect(() => {
     setMounted(true);
     const savedToken = localStorage.getItem("token");
     if (savedToken) {
       setToken(savedToken);
       fetchModelsMetadata(savedToken);
+    }
+    // Restore active tab from URL query param if present
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get("tab") as typeof currentTab | null;
+    if (tabParam && ["overview", "cv", "automl", "predict_tabular", "history"].includes(tabParam)) {
+      setCurrentTab(tabParam);
     }
   }, []);
 
@@ -194,17 +205,10 @@ export default function DashboardSPA({ params }: { params: any }) {
     }
   };
 
-  // Switch Language — navega hacia la URL con prefijo de locale y escribe la cookie NEXT_LOCALE
+  // Switch Language — establece la cookie NEXT_LOCALE y redirige directamente a la URL del locale manteniendo el tab activo
   const changeLanguage = (lang: string) => {
     document.cookie = `NEXT_LOCALE=${lang}; path=/; max-age=31536000; SameSite=Lax`;
-    const currentPath = window.location.pathname;
-    // Reemplaza /es, /en, /pt al inicio de la ruta
-    const newPath = currentPath.replace(/^\/(es|en|pt)(\/|$)/, `/${lang}$2`);
-    if (newPath !== currentPath) {
-      window.location.href = newPath;
-    } else {
-      window.location.href = `/${lang}`;
-    }
+    window.location.href = `/${lang}?tab=${currentTab}`;
   };
 
   // Quitar imagen seleccionada
@@ -333,7 +337,7 @@ export default function DashboardSPA({ params }: { params: any }) {
   // --- TinyML export handler ---
   const handleTinyMLExport = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/model/export-c`, {
+      const res = await fetch(`${apiBase}/model/export-c`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -543,6 +547,10 @@ export default function DashboardSPA({ params }: { params: any }) {
     }
   };
 
+  if (!mounted) {
+    return null;
+  }
+
   // --- Render Login View ---
   if (!token) {
     return (
@@ -567,10 +575,10 @@ export default function DashboardSPA({ params }: { params: any }) {
             </div>
             <div>
               <h1 className="text-3xl font-extrabold tracking-tight uppercase mb-4 leading-none text-slate-800 dark:text-white">
-                Detector<br />de <span className="text-emerald-600 dark:text-emerald-400">Enfermedades</span><br />en Hojas de Maíz
+                {t("Login.branding_title").split(" ").slice(0, 1).join(" ")}<br />de <span className="text-emerald-600 dark:text-emerald-400">{t("Login.branding_title").split(" ").slice(2, 3).join(" ")}</span><br />{t("Login.branding_title").split(" ").slice(3).join(" ")}
               </h1>
               <p className="text-sm text-emerald-800/80 dark:text-emerald-200/80 max-w-sm mx-auto leading-relaxed">
-                Inteligencia Artificial para el monitoreo fitosanitario y optimización AutoML.
+                {t("Login.branding_subtitle")}
               </p>
             </div>
             
@@ -589,22 +597,29 @@ export default function DashboardSPA({ params }: { params: any }) {
             }}
           >
             {/* Language & Theme selector at top right of right panel */}
-            <div className="flex justify-end mb-8 gap-3">
+            <div className="flex justify-end mb-8 gap-3 items-center">
               {/* Theme Toggle */}
               <button 
                 onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-                className="p-2 bg-slate-800/80 hover:bg-slate-800 text-slate-300 rounded-lg hover:text-white transition-colors animate-fade-in"
+                className="p-2.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-amber-400 border border-slate-200 dark:border-slate-800 rounded-xl transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center"
+                title={resolvedTheme === "dark" ? t("Common.theme_light") : t("Common.theme_dark")}
               >
-                {!mounted ? <Moon size={18} /> : resolvedTheme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+                {!mounted ? (
+                  <Moon size={18} className="text-slate-400" />
+                ) : resolvedTheme === "dark" ? (
+                  <Sun size={18} className="text-amber-400" />
+                ) : (
+                  <Moon size={18} className="text-slate-700" />
+                )}
               </button>
               
               {/* Language Selector */}
-              <div className="flex items-center gap-1 bg-slate-850/50 p-1.5 rounded-lg border border-slate-800">
-                <Languages size={15} className="text-slate-400 ml-1" />
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-200">
+                <Languages size={15} className="text-emerald-600 dark:text-emerald-400 ml-1.5 mr-0.5" />
                 <div className="flex gap-1 text-[11px] font-bold">
-                  <button onClick={() => changeLanguage("es")} className={`px-2 py-1 rounded ${locale === "es" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"}`}>ES</button>
-                  <button onClick={() => changeLanguage("en")} className={`px-2 py-1 rounded ${locale === "en" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"}`}>EN</button>
-                  <button onClick={() => changeLanguage("pt")} className={`px-2 py-1 rounded ${locale === "pt" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"}`}>PT</button>
+                  <button onClick={() => changeLanguage("es")} className={`px-2.5 py-1 rounded-lg transition-all ${locale === "es" ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-extrabold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60"}`}>ES</button>
+                  <button onClick={() => changeLanguage("en")} className={`px-2.5 py-1 rounded-lg transition-all ${locale === "en" ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-extrabold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60"}`}>EN</button>
+                  <button onClick={() => changeLanguage("pt")} className={`px-2.5 py-1 rounded-lg transition-all ${locale === "pt" ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-extrabold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60"}`}>PT</button>
                 </div>
               </div>
             </div>
@@ -665,7 +680,7 @@ export default function DashboardSPA({ params }: { params: any }) {
             <span className="text-2xl">🌽</span>
             <div>
               <span className="font-extrabold tracking-tight block">MAIZIA</span>
-              <span className="text-xs text-slate-400 block font-medium">AutoML & Diagnóstico</span>
+              <span className="text-xs text-slate-400 block font-medium">{t("Common.subtitle")}</span>
             </div>
           </div>
           
@@ -676,7 +691,7 @@ export default function DashboardSPA({ params }: { params: any }) {
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${currentTab === "overview" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10" : "text-slate-400 hover:text-white hover:bg-slate-800/50"}`}
             >
               <LayoutDashboard size={18} />
-              Panel de Control
+              {t("Dashboard.menu_overview")}
             </button>
             <button 
               onClick={() => setCurrentTab("cv")}
@@ -697,14 +712,14 @@ export default function DashboardSPA({ params }: { params: any }) {
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${currentTab === "predict_tabular" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10" : "text-slate-400 hover:text-white hover:bg-slate-800/50"}`}
             >
               <Cpu size={18} />
-              Predicción Tabular
+              {t("Dashboard.menu_predict")}
             </button>
             <button 
               onClick={() => setCurrentTab("history")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${currentTab === "history" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10" : "text-slate-400 hover:text-white hover:bg-slate-800/50"}`}
             >
               <History size={18} />
-              Historial MLOps
+              {t("Dashboard.menu_history")}
             </button>
           </nav>
         </div>
@@ -729,11 +744,15 @@ export default function DashboardSPA({ params }: { params: any }) {
               {currentTab === "overview" && t("Dashboard.welcome")}
               {currentTab === "cv" && t("CV.header")}
               {currentTab === "automl" && t("AutoML.header")}
+              {currentTab === "predict_tabular" && t("TabularPredict.title")}
+              {currentTab === "history" && t("History.title")}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {currentTab === "overview" && t("Dashboard.desc")}
-              {currentTab === "cv" && "Diagnóstico foliar mediante Redes Convolucionales"}
-              {currentTab === "automl" && "Automatización, entrenamiento y validaciones estadísticas"}
+              {currentTab === "cv" && t("CV.header")}
+              {currentTab === "automl" && t("AutoML.header")}
+              {currentTab === "predict_tabular" && t("TabularPredict.subtitle")}
+              {currentTab === "history" && t("History.subtitle")}
             </p>
           </div>
 
@@ -742,19 +761,25 @@ export default function DashboardSPA({ params }: { params: any }) {
             {/* Theme Toggle */}
             <button 
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-              className="p-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 rounded-xl transition-colors shadow-sm"
+              className="p-2.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-amber-400 border border-slate-200 dark:border-slate-800 rounded-xl transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center"
               title={resolvedTheme === "dark" ? t("Common.theme_light") : t("Common.theme_dark")}
             >
-              {!mounted ? <Moon size={18} /> : resolvedTheme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+              {!mounted ? (
+                <Moon size={18} className="text-slate-400" />
+              ) : resolvedTheme === "dark" ? (
+                <Sun size={18} className="text-amber-400" />
+              ) : (
+                <Moon size={18} className="text-slate-700" />
+              )}
             </button>
             
             {/* Language Selector */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-850 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-              <Languages size={15} className="text-slate-500 dark:text-slate-400 ml-1" />
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-200">
+              <Languages size={15} className="text-emerald-600 dark:text-emerald-400 ml-1.5 mr-0.5" />
               <div className="flex gap-1 text-[11px] font-bold">
-                <button onClick={() => changeLanguage("es")} className={`px-2.5 py-1 rounded-lg transition-colors ${locale === "es" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"}`}>ES</button>
-                <button onClick={() => changeLanguage("en")} className={`px-2.5 py-1 rounded-lg transition-colors ${locale === "en" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"}`}>EN</button>
-                <button onClick={() => changeLanguage("pt")} className={`px-2.5 py-1 rounded-lg transition-colors ${locale === "pt" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"}`}>PT</button>
+                <button onClick={() => changeLanguage("es")} className={`px-2.5 py-1 rounded-lg transition-all ${locale === "es" ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-extrabold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60"}`}>ES</button>
+                <button onClick={() => changeLanguage("en")} className={`px-2.5 py-1 rounded-lg transition-all ${locale === "en" ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-extrabold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60"}`}>EN</button>
+                <button onClick={() => changeLanguage("pt")} className={`px-2.5 py-1 rounded-lg transition-all ${locale === "pt" ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-extrabold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60"}`}>PT</button>
               </div>
             </div>
           </div>
@@ -778,7 +803,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                     </p>
                     <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 rounded-xl mb-4 text-xs flex items-center justify-between">
                       <span className="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1">
-                        🏆 Mejor Modelo: {modelsMetadata?.vision_model?.best_model || "EfficientNetB0"}
+                        🏆 {t("Dashboard.best_model")}: {modelsMetadata?.vision_model?.best_model || "EfficientNetB0"}
                       </span>
                       <span className="font-bold text-blue-600 dark:text-blue-400">
                         {((modelsMetadata?.vision_model?.best_accuracy || 0.983) * 100).toFixed(1)}% Accuracy
@@ -804,7 +829,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                     </p>
                     <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 rounded-xl mb-4 text-xs flex items-center justify-between">
                       <span className="font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
-                        🏆 Mejor Modelo: {modelsMetadata?.tabular_model?.nombre_modelo || bestModelInfo?.name || "Random Forest (Clásico)"}
+                        🏆 {t("Dashboard.best_model")}: {modelsMetadata?.tabular_model?.nombre_modelo || bestModelInfo?.name || "Random Forest (Clásico)"}
                       </span>
                       <span className="font-bold text-emerald-600 dark:text-emerald-400">
                         {(((modelsMetadata?.tabular_model?.accuracy || bestModelInfo?.metrics?.accuracy || 0.8917)) * 100).toFixed(1)}% Accuracy
@@ -823,7 +848,7 @@ export default function DashboardSPA({ params }: { params: any }) {
               {/* Modelos Activos en el Sistema (Visión + Tabular) */}
               <div className="space-y-4">
                 <h3 className="text-md font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                  <span>🤖</span> Modelos Activos en Producción
+                  <span>🤖</span> {t("Dashboard.active_models")}
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -835,7 +860,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                           <span className="text-xl">📸</span>
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">Mejor Modelo de Visión</p>
+                          <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">{t("Dashboard.vision_model")}</p>
                           <p className="text-xl font-extrabold text-slate-800 dark:text-white">
                             {modelsMetadata?.vision_model?.best_model || "EfficientNetB0"}
                           </p>
@@ -845,12 +870,12 @@ export default function DashboardSPA({ params }: { params: any }) {
                         <span className="block text-2xl font-extrabold text-blue-600 dark:text-blue-400">
                           {((modelsMetadata?.vision_model?.best_accuracy || 0.983) * 100).toFixed(1)}%
                         </span>
-                        <span className="text-xs text-slate-500 font-semibold">Exactitud CV</span>
+                        <span className="text-xs text-slate-500 font-semibold">{t("Dashboard.accuracy_cv")}</span>
                       </div>
                     </div>
                     <div className="text-xs text-slate-600 dark:text-slate-300 pt-2 border-t border-blue-200/60 dark:border-blue-800/40 flex items-center justify-between">
-                      <span>Estrategia: Ensamble (3 CNNs con Consenso)</span>
-                      <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-md font-semibold">Visión Foliares</span>
+                      <span>{t("Dashboard.vision_strategy")}</span>
+                      <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-md font-semibold">{t("Dashboard.vision_tag")}</span>
                     </div>
                   </div>
 
@@ -862,7 +887,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                           <span className="text-xl">📊</span>
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Mejor Pipeline Tabular (AutoML)</p>
+                          <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">{t("Dashboard.tabular_model")}</p>
                           <p className="text-xl font-extrabold text-slate-800 dark:text-white">
                             {modelsMetadata?.tabular_model?.nombre_modelo || bestModelInfo?.name || "Random Forest (Clásico)"}
                           </p>
@@ -877,7 +902,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                     </div>
                     <div className="text-xs text-slate-600 dark:text-slate-300 pt-2 border-t border-emerald-200/60 dark:border-emerald-800/40 flex items-center justify-between">
                       <span>F1-Score: {(((modelsMetadata?.tabular_model?.["f1-score"] || bestModelInfo?.metrics?.f1 || 0.8933)) * 100).toFixed(1)}%</span>
-                      <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-md font-semibold">AutoML Tabular</span>
+                      <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-md font-semibold">{t("Dashboard.tabular_tag")}</span>
                     </div>
                   </div>
                 </div>
@@ -893,7 +918,7 @@ export default function DashboardSPA({ params }: { params: any }) {
               <div className="lg:col-span-1 space-y-6">
                 <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
                   <h3 className="font-bold text-sm text-slate-400 uppercase tracking-wider mb-4">
-                    {t.has("CV.upload_label_title") ? t("CV.upload_label_title") : (locale === "pt" ? "Carregar Imagem" : locale === "en" ? "Upload Image" : "Cargar Imagen")}
+                    {t("CV.upload_label_title")}
                   </h3>
                   
                   {/* Zona de carga con botón X para quitar imagen */}
@@ -922,7 +947,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                         onClick={clearImage}
                         type="button"
                         className="absolute top-2 right-2 z-10 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90"
-                        title="Quitar imagen"
+                        title={t("Common.remove")}
                       >
                         <X size={14} />
                       </button>
@@ -935,7 +960,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                       disabled={predictingImage}
                       className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm mt-4 uppercase tracking-wider shadow-lg shadow-emerald-500/10"
                     >
-                      {predictingImage ? "Analizando..." : t("CV.btn_diagnose")}
+                      {predictingImage ? t("Common.analyzing") : t("CV.btn_diagnose")}
                     </button>
                   )}
                 </div>
@@ -956,10 +981,10 @@ export default function DashboardSPA({ params }: { params: any }) {
                         <div>
                           <h4 className="font-extrabold text-lg flex items-center gap-2">
                             <CheckCircle className="text-emerald-500" />
-                            {imageResults.consensus_reached ? `Diagnóstico: ${imageResults.consensus_diagnosis}` : t("CV.no_consensus")}
+                            {imageResults.consensus_reached ? `${t("CV.diagnosis")}: ${imageResults.consensus_diagnosis}` : t("CV.no_consensus")}
                           </h4>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                            {imageResults.consensus_reached ? "Consenso unánime alcanzado por el consorcio." : t("CV.no_consensus_desc")}
+                            {imageResults.consensus_reached ? t("CV.consensus_reached") : t("CV.no_consensus_desc")}
                           </p>
                           {imageResults.interpretation && (
                             <p className="text-sm text-emerald-800 dark:text-emerald-300 mt-2 font-medium bg-emerald-100/50 dark:bg-emerald-950/40 p-2.5 rounded-lg border border-emerald-200/50 dark:border-emerald-800/30">
@@ -978,7 +1003,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                             </div>
                             <div>
                               <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
-                                Mejor Modelo de Visión (Mayor Confianza)
+                                {t("CV.best_model_title")}
                               </p>
                               <p className="text-lg font-extrabold text-slate-800 dark:text-white">
                                 {topVisionModelEntry[0]}
@@ -990,13 +1015,13 @@ export default function DashboardSPA({ params }: { params: any }) {
                               <span className="block text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
                                 {(topVisionModelEntry[1].confidence * 100).toFixed(2)}%
                               </span>
-                              <span className="text-xs text-slate-500 font-semibold">Nivel de Confianza</span>
+                              <span className="text-xs text-slate-500 font-semibold">{t("CV.confidence")}</span>
                             </div>
                             <div className="text-right pl-4 border-l border-emerald-200 dark:border-emerald-800">
                               <span className="block text-sm font-bold text-slate-800 dark:text-slate-200">
                                 {topVisionModelEntry[1].class}
                               </span>
-                              <span className="text-xs text-slate-500 font-semibold">Diagnóstico</span>
+                              <span className="text-xs text-slate-500 font-semibold">{t("CV.diagnosis")}</span>
                             </div>
                           </div>
                         </div>
@@ -1014,14 +1039,14 @@ export default function DashboardSPA({ params }: { params: any }) {
                       
                       {/* Probability charts */}
                       <div className="space-y-4">
-                        <h4 className="font-bold text-sm text-slate-400 uppercase tracking-wider">Probabilidades por Modelo</h4>
+                        <h4 className="font-bold text-sm text-slate-400 uppercase tracking-wider">{t("CV.probabilities")}</h4>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           {Object.entries(imageResults.predictions).map(([name, pred]: any) => {
                             const chartData = [
-                              { name: "Mancha gris", value: pred.probabilities[0] },
-                              { name: "Roña común", value: pred.probabilities[1] },
-                              { name: "Tizón norte", value: pred.probabilities[2] },
-                              { name: "Sano", value: pred.probabilities[3] }
+                              { name: t("CV.class_grey_spot"), value: pred.probabilities[0] },
+                              { name: t("CV.class_common_rust"), value: pred.probabilities[1] },
+                              { name: t("CV.class_northern_blight"), value: pred.probabilities[2] },
+                              { name: t("CV.class_healthy"), value: pred.probabilities[3] }
                             ];
                             
                             return (
@@ -1040,7 +1065,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                                       />
                                       <YAxis domain={[0, 1]} tickFormatter={(value) => `${(value * 100).toFixed(0)}%`} tick={{ fontSize: 10 }} />
                                       <Tooltip 
-                                        formatter={(value: any) => [`${(value * 100).toFixed(2)}%`, 'Probabilidad']} 
+                                        formatter={(value: any) => [`${(value * 100).toFixed(2)}%`, t("CV.prob_tooltip")]} 
                                         contentStyle={{ fontSize: '10px' }}
                                       />
                                       <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} />
@@ -1070,7 +1095,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                               >
                                 {isBest && (
                                   <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
-                                    🏆 Mejor Modelo
+                                    🏆 {t("CV.best_model_label")}
                                   </span>
                                 )}
                                 <span className="text-xs font-bold text-slate-400 block pt-1">{name}</span>
@@ -1084,15 +1109,15 @@ export default function DashboardSPA({ params }: { params: any }) {
                       
                       {/* Summary table */}
                       <div className="space-y-2">
-                        <h4 className="font-bold text-sm text-slate-400 uppercase tracking-wider">Resumen de Predicciones</h4>
+                        <h4 className="font-bold text-sm text-slate-400 uppercase tracking-wider">{t("CV.summary")}</h4>
                         <div className="overflow-x-auto">
                           <table className="w-full text-xs border-collapse">
                             <thead>
                               <tr className="bg-slate-50 dark:bg-slate-950">
-                                <th className="border border-slate-200 dark:border-slate-700 p-2 text-left font-bold text-slate-600 dark:text-slate-300">Modelo</th>
-                                <th className="border border-slate-200 dark:border-slate-700 p-2 text-left font-bold text-slate-600 dark:text-slate-300">Predicción</th>
-                                <th className="border border-slate-200 dark:border-slate-700 p-2 text-left font-bold text-slate-600 dark:text-slate-300">Confianza</th>
-                                <th className="border border-slate-200 dark:border-slate-700 p-2 text-left font-bold text-slate-600 dark:text-slate-300">Estado</th>
+                                <th className="border border-slate-200 dark:border-slate-700 p-2 text-left font-bold text-slate-600 dark:text-slate-300">{t("CV.model_col")}</th>
+                                <th className="border border-slate-200 dark:border-slate-700 p-2 text-left font-bold text-slate-600 dark:text-slate-300">{t("CV.prediction_col")}</th>
+                                <th className="border border-slate-200 dark:border-slate-700 p-2 text-left font-bold text-slate-600 dark:text-slate-300">{t("CV.confidence_col")}</th>
+                                <th className="border border-slate-200 dark:border-slate-700 p-2 text-left font-bold text-slate-600 dark:text-slate-300">{t("CV.status_col")}</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1101,12 +1126,12 @@ export default function DashboardSPA({ params }: { params: any }) {
                                 return (
                                   <tr key={name} className={isBest ? "bg-emerald-50/30 dark:bg-emerald-950/20 font-medium" : ""}>
                                     <td className="border border-slate-200 dark:border-slate-700 p-2 font-semibold">
-                                      {name} {isBest && <span className="ml-1" title="Mejor Modelo">🏆</span>}
+                                      {name} {isBest && <span className="ml-1" title={t("CV.best_model_label")}>🏆</span>}
                                     </td>
                                     <td className="border border-slate-200 dark:border-slate-700 p-2">{pred.class}</td>
                                     <td className="border border-slate-200 dark:border-slate-700 p-2">{(pred.confidence * 100).toFixed(2)}%</td>
                                     <td className={`border border-slate-200 dark:border-slate-700 p-2 font-bold ${pred.class === "Sano" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                                      {pred.class === "Sano" ? "Saludable" : "Infectado"}
+                                      {pred.class === "Sano" ? t("CV.healthy") : t("CV.infected")}
                                     </td>
                                   </tr>
                                 );
@@ -1118,7 +1143,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                       
                       {/* Report download buttons */}
                       <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-                        <h4 className="font-bold text-sm text-slate-400 uppercase tracking-wider mb-4">Descargar Reportes</h4>
+                        <h4 className="font-bold text-sm text-slate-400 uppercase tracking-wider mb-4">{t("Common.download_reports")}</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <button 
                             onClick={() => handleDownloadImageReport("pdf")}
@@ -1149,7 +1174,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                 })() : (
                   <div className="h-64 flex flex-col items-center justify-center border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400">
                     <HelpCircle size={32} className="text-slate-400 mb-2" />
-                    <span className="text-xs font-semibold">Esperando análisis...</span>
+                    <span className="text-xs font-semibold">{t("CV.waiting_analysis")}</span>
                   </div>
                 )}
               </div>
@@ -1167,11 +1192,11 @@ export default function DashboardSPA({ params }: { params: any }) {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div>
                     <h3 className="font-bold text-sm text-slate-400 uppercase tracking-wider">{t("AutoML.upload_csv")}</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Cargue datos personalizados o use el dataset por defecto de maiz.</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t("AutoML.upload_desc")}</p>
                   </div>
                   <label className="bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl cursor-pointer flex items-center gap-2 transition-colors shadow-sm">
                     <Upload size={14} />
-                    Cargar CSV
+                    {t("AutoML.btn_upload")}
                     <input 
                       type="file" 
                       accept=".csv" 
@@ -1240,7 +1265,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                   disabled={isTraining}
                   className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm uppercase tracking-wider shadow-lg shadow-emerald-500/10"
                 >
-                  {isTraining ? "Entrenando..." : t("AutoML.btn_run")}
+                  {isTraining ? t("AutoML.btn_running") : t("AutoML.btn_run")}
                 </button>
                 
                 {/* Live Progress feedback */}
@@ -1268,7 +1293,8 @@ export default function DashboardSPA({ params }: { params: any }) {
                       { key: "models", label: t("AutoML.tab_models") },
                       { key: "cv", label: t("AutoML.tab_cv") },
                       { key: "tuning", label: t("AutoML.tab_tuning") },
-                      { key: "stats", label: t("AutoML.tab_stats") }
+                      { key: "stats", label: t("AutoML.tab_stats") },
+                      { key: "history", label: t("Dashboard.menu_history") }
                     ].map((tab) => (
                       <button
                         key={tab.key}
@@ -1297,36 +1323,36 @@ export default function DashboardSPA({ params }: { params: any }) {
                             <span className="block text-2xl font-extrabold text-emerald-500">
                               {edaResults.num_duplicates ?? 0}
                             </span>
-                            <span className="text-xs text-slate-500 mt-0.5 block">Duplicados</span>
+                            <span className="text-xs text-slate-500 mt-0.5 block">{t("AutoML.eda_duplicates")}</span>
                           </div>
                           <div className="bg-slate-50 dark:bg-slate-950/40 rounded-xl p-3 text-center">
                             <span className="block text-2xl font-extrabold text-amber-500">
                               {Object.keys(edaResults.imputed_nulls ?? {}).length}
                             </span>
-                            <span className="text-xs text-slate-500 mt-0.5 block">Cols. con Nulos</span>
+                            <span className="text-xs text-slate-500 mt-0.5 block">{t("AutoML.eda_nulls")}</span>
                           </div>
                           <div className="bg-slate-50 dark:bg-slate-950/40 rounded-xl p-3 text-center">
                             <span className="block text-2xl font-extrabold text-rose-500">
                               {edaResults.multivariate_outliers ?? 0}
                             </span>
-                            <span className="text-xs text-slate-500 mt-0.5 block">Outliers Multivariados</span>
+                            <span className="text-xs text-slate-500 mt-0.5 block">{t("AutoML.eda_outliers")}</span>
                           </div>
                           <div className="bg-slate-50 dark:bg-slate-950/40 rounded-xl p-3 text-center">
                             <span className="block text-2xl font-extrabold text-blue-500">
                               {edaResults.transformed_cols?.length ?? 0}
                             </span>
-                            <span className="text-xs text-slate-500 mt-0.5 block">Cols. Transformadas</span>
+                            <span className="text-xs text-slate-500 mt-0.5 block">{t("AutoML.eda_transformed")}</span>
                           </div>
                         </div>
 
                         {Object.keys(edaResults.imputed_nulls ?? {}).length > 0 && (
                           <div className="mb-6">
-                            <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">Imputación de Nulos</h5>
+                            <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">{t("AutoML.eda_null_impute")}</h5>
                             <div className="overflow-x-auto">
                               <table className="w-full text-xs">
                                 <thead>
                                   <tr className="border-b border-slate-200 dark:border-slate-700">
-                                    {["Columna", "Cantidad", "Método"].map(h => (
+                                    {[t("AutoML.col_column"), t("AutoML.col_count"), t("AutoML.col_method")].map(h => (
                                       <th key={h} className="text-left py-2 px-2 text-slate-400 font-semibold">{h}</th>
                                     ))}
                                   </tr>
@@ -1347,12 +1373,12 @@ export default function DashboardSPA({ params }: { params: any }) {
 
                         {edaResults.descriptive_stats && (
                           <div>
-                            <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">Estadísticas Descriptivas</h5>
+                            <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">{t("AutoML.eda_desc_stats")}</h5>
                             <div className="overflow-x-auto">
                               <table className="w-full text-xs">
                                 <thead>
                                   <tr className="border-b border-slate-200 dark:border-slate-700">
-                                    {["Variable", "Media", "Std", "Mín", "Máx"].map(h => (
+                                    {[t("AutoML.col_var"), t("AutoML.col_mean"), t("AutoML.col_std"), t("AutoML.col_min"), t("AutoML.col_max")].map(h => (
                                       <th key={h} className="text-left py-2 px-2 text-slate-400 font-semibold">{h}</th>
                                     ))}
                                   </tr>
@@ -1380,7 +1406,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                         )}
                         {edaResults.interpretation && (
                           <div className="mt-6 p-4 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 rounded-xl">
-                            <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-2">Interpretación de Calidad y EDA</h5>
+                            <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-2">{t("AutoML.eda_interp")}</h5>
                             <p className="text-xs text-slate-600 dark:text-slate-350 leading-relaxed whitespace-pre-line">{edaResults.interpretation}</p>
                           </div>
                         )}
@@ -1428,7 +1454,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                           {modelResults.best_model && (
                             <div className="p-4 border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl">
                               <h5 className="font-bold text-sm text-emerald-700 dark:text-emerald-400 mb-3">
-                                🏆 Mejor Modelo: {modelResults.best_model}
+                                🏆 {t("AutoML.best_model")}: {modelResults.best_model}
                               </h5>
                               {modelResults.best_model_metrics && (
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
@@ -1462,7 +1488,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                           )}
                           {modelResults.interpretations && (
                             <div className="p-4 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 rounded-xl mt-4">
-                              <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-2">Interpretación del Entrenamiento</h5>
+                              <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-2">{t("AutoML.training_interp")}</h5>
                               <p className="text-xs text-slate-600 dark:text-slate-355 leading-relaxed whitespace-pre-line">{modelResults.interpretations}</p>
                             </div>
                           )}
@@ -1484,7 +1510,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                                   data={Object.entries(modelResults.cv_results).map(([name, scores]: any) => ({
                                     name,
                                     ...scores.reduce((acc: any, score: number, idx: number) => {
-                                      acc[`Fold ${idx + 1}`] = score;
+                                      acc[`${t("AutoML.fold_label")} ${idx + 1}`] = score;
                                       return acc;
                                     }, {})
                                   }))}
@@ -1496,20 +1522,20 @@ export default function DashboardSPA({ params }: { params: any }) {
                                   <Tooltip />
                                   <Legend />
                                   {Array.from({ length: Math.min(cvFolds, 5) }, (_, i) => (
-                                    <Bar key={`fold${i}`} dataKey={`Fold ${i + 1}`} fill={["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6"][i % 5]} radius={[4, 4, 0, 0]} />
+                                    <Bar key={`fold${i}`} dataKey={`${t("AutoML.fold_label")} ${i + 1}`} fill={["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6"][i % 5]} radius={[4, 4, 0, 0]} />
                                   ))}
                                 </BarChart>
                               </ResponsiveContainer>
                             </div>
                             {modelResults.cv_interpretation && (
                               <div className="p-4 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 rounded-xl mt-4">
-                                <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-2">Interpretación de Validación Cruzada</h5>
+                                <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-2">{t("AutoML.cv_interp")}</h5>
                                 <p className="text-xs text-slate-600 dark:text-slate-355 leading-relaxed whitespace-pre-line">{modelResults.cv_interpretation}</p>
                               </div>
                             )}
                           </div>
                         ) : (
-                          <p className="text-sm text-slate-500">No hay resultados de validación cruzada disponibles.</p>
+                          <p className="text-sm text-slate-500">{t("AutoML.no_cv")}</p>
                         )}
                       </div>
                     )}
@@ -1525,39 +1551,39 @@ export default function DashboardSPA({ params }: { params: any }) {
                             {/* Summary Cards */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                               <div className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950/30">
-                                <span className="text-xs font-semibold text-slate-500 block">Método</span>
+                                <span className="text-xs font-semibold text-slate-500 block">{t("AutoML.col_method")}</span>
                                 <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 uppercase">{modelResults.tuning_results.method}</span>
                               </div>
                               <div className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950/30">
-                                <span className="text-xs font-semibold text-slate-500 block">Tiempo (s)</span>
+                                <span className="text-xs font-semibold text-slate-500 block">{t("AutoML.col_time")}</span>
                                 <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">{modelResults.tuning_results.search_time.toFixed(2)}</span>
                               </div>
                               <div className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950/30">
-                                <span className="text-xs font-semibold text-slate-500 block">Antes</span>
+                                <span className="text-xs font-semibold text-slate-500 block">{t("AutoML.col_before")}</span>
                                 <span className="text-sm font-extrabold text-slate-700 dark:text-slate-300">{(modelResults.tuning_results.accuracy_before * 100).toFixed(2)}%</span>
                               </div>
                               <div className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950/30">
-                                <span className="text-xs font-semibold text-slate-500 block">Después</span>
+                                <span className="text-xs font-semibold text-slate-500 block">{t("AutoML.col_after")}</span>
                                 <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">{(modelResults.tuning_results.accuracy_after * 100).toFixed(2)}%</span>
                               </div>
                             </div>
                             
                             {/* Best Params */}
                             <div>
-                              <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">Mejores Parámetros</h5>
+                              <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">{t("AutoML.best_params")}</h5>
                               <pre className="text-[10px] whitespace-pre-wrap bg-slate-50 dark:bg-slate-950/30 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
                                 {JSON.stringify(modelResults.tuning_results.best_params, null, 2)}
                               </pre>
                             </div>
                             {modelResults.tuning_interpretation && (
                               <div className="p-4 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 rounded-xl mt-4">
-                                <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-2">Interpretación del Ajuste</h5>
+                                <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-2">{t("AutoML.tuning_interp")}</h5>
                                 <p className="text-xs text-slate-600 dark:text-slate-355 leading-relaxed whitespace-pre-line">{modelResults.tuning_interpretation}</p>
                               </div>
                             )}
                           </>
                         ) : (
-                          <p className="text-sm text-slate-500">No hay resultados de tuning disponibles.</p>
+                          <p className="text-sm text-slate-500">{t("AutoML.no_tuning")}</p>
                         )}
                       </div>
                     )}
@@ -1574,26 +1600,26 @@ export default function DashboardSPA({ params }: { params: any }) {
                           <div className="space-y-6">
                             {/* 1. Global Test (ANOVA/Friedman) */}
                             <div className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-950/20">
-                              <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">Test Global</h5>
+                              <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">{t("AutoML.stats_global")}</h5>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div>
-                                  <span className="text-xs font-semibold text-slate-500 block">Tipo de Test</span>
+                                  <span className="text-xs font-semibold text-slate-500 block">{t("AutoML.col_test")}</span>
                                   <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">{statsResults.test_type}</span>
                                 </div>
                                 <div>
-                                  <span className="text-xs font-semibold text-slate-500 block">Estadístico</span>
+                                  <span className="text-xs font-semibold text-slate-500 block">{t("AutoML.col_stat")}</span>
                                   <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">{statsResults.overall_stat?.toFixed(4) ?? "—"}</span>
                                 </div>
                                 <div>
-                                  <span className="text-xs font-semibold text-slate-500 block">Valor p</span>
+                                  <span className="text-xs font-semibold text-slate-500 block">{t("AutoML.col_pval")}</span>
                                   <span className={`text-sm font-extrabold ${statsResults.overall_pval < 0.05 ? "text-rose-600 dark:text-rose-400" : "text-slate-600 dark:text-slate-300"}`}>
                                     {statsResults.overall_pval?.toFixed(4) ?? "—"}
                                   </span>
                                 </div>
                                 <div>
-                                  <span className="text-xs font-semibold text-slate-500 block">Paramétrico</span>
+                                  <span className="text-xs font-semibold text-slate-500 block">{t("AutoML.col_parametric")}</span>
                                   <span className={`text-sm font-extrabold ${statsResults.use_parametric ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                                    {statsResults.use_parametric ? "Sí" : "No"}
+                                    {statsResults.use_parametric ? t("Common.yes") : t("Common.no")}
                                   </span>
                                 </div>
                               </div>
@@ -1602,7 +1628,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                             {/* 2. Assumptions (Shapiro-Wilk + Levene) */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-950/20">
-                                <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">Normalidad (Shapiro-Wilk)</h5>
+                                <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">{t("AutoML.stats_normality")}</h5>
                                 <div className="space-y-2 max-h-40 overflow-y-auto">
                                   {Object.entries(statsResults.shapiro_pvals ?? {}).map(([model, pval]: [string, any]) => (
                                     <div key={model} className="flex justify-between items-center">
@@ -1615,9 +1641,9 @@ export default function DashboardSPA({ params }: { params: any }) {
                                 </div>
                               </div>
                               <div className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-950/20">
-                                <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">Homocedasticidad (Levene)</h5>
+                                <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">{t("AutoML.stats_homo")}</h5>
                                 <div className="flex justify-between items-center">
-                                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Valor p</span>
+                                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{t("AutoML.col_pval")}</span>
                                   <span className={`text-xs font-bold ${statsResults.levene_pval < 0.05 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>
                                     {statsResults.levene_pval?.toFixed(4) ?? "—"}
                                   </span>
@@ -1628,12 +1654,12 @@ export default function DashboardSPA({ params }: { params: any }) {
                             {/* 3. Post-Hoc Results */}
                             {statsResults.posthoc_results && Object.keys(statsResults.posthoc_results).length > 0 && (
                               <div>
-                                <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">Resultados Post-Hoc (Tukey/Nemenyi)</h5>
+                                <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">{t("AutoML.stats_posthoc")}</h5>
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-xs">
                                     <thead>
                                       <tr className="border-b border-slate-200 dark:border-slate-700">
-                                        {["Comparación", "Diferencia", "Valor p", "Significativo"].map(h => (
+                                        {[t("AutoML.col_comp"), t("AutoML.col_diff"), t("AutoML.col_pval"), t("AutoML.col_sig")].map(h => (
                                           <th key={h} className="text-left py-2 px-2 text-slate-400 font-semibold">{h}</th>
                                         ))}
                                       </tr>
@@ -1662,12 +1688,12 @@ export default function DashboardSPA({ params }: { params: any }) {
                             {/* 4. Pairwise Comparisons (T-Student/Wilcoxon) */}
                             {statsResults.pairwise_comparisons && Object.keys(statsResults.pairwise_comparisons).length > 0 && (
                               <div>
-                                <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">Comparaciones Pareadas (Mejor vs Resto)</h5>
+                                <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">{t("AutoML.stats_pairwise")}</h5>
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-xs">
                                     <thead>
                                       <tr className="border-b border-slate-200 dark:border-slate-700">
-                                        {["Comparación", "Test", "Estadístico", "Valor p", "Significativo"].map(h => (
+                                        {[t("AutoML.col_comp"), t("AutoML.col_test"), t("AutoML.col_stat"), t("AutoML.col_pval"), t("AutoML.col_sig")].map(h => (
                                           <th key={h} className="text-left py-2 px-2 text-slate-400 font-semibold">{h}</th>
                                         ))}
                                       </tr>
@@ -1697,23 +1723,23 @@ export default function DashboardSPA({ params }: { params: any }) {
                             {/* 5. Wilcoxon Test */}
                             {statsResults.wilcoxon && (
                               <div>
-                                <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">Test de Wilcoxon (Clásico vs Híbrido)</h5>
+                                <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">{t("AutoML.stats_wilcoxon")}</h5>
                                 <div className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-950/20">
                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     <div>
-                                      <span className="text-xs font-semibold text-slate-500 block">Mejor Clásico</span>
+                                      <span className="text-xs font-semibold text-slate-500 block">{t("AutoML.col_best_classic")}</span>
                                       <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">{statsResults.wilcoxon.best_classic}</span>
                                     </div>
                                     <div>
-                                      <span className="text-xs font-semibold text-slate-500 block">Mejor Híbrido</span>
+                                      <span className="text-xs font-semibold text-slate-500 block">{t("AutoML.col_best_hybrid")}</span>
                                       <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">{statsResults.wilcoxon.best_hybrid}</span>
                                     </div>
                                     <div>
-                                      <span className="text-xs font-semibold text-slate-500 block">Estadístico</span>
+                                      <span className="text-xs font-semibold text-slate-500 block">{t("AutoML.col_stat")}</span>
                                       <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">{statsResults.wilcoxon.stat?.toFixed(4) ?? "—"}</span>
                                     </div>
                                     <div>
-                                      <span className="text-xs font-semibold text-slate-500 block">Valor p</span>
+                                      <span className="text-xs font-semibold text-slate-500 block">{t("AutoML.col_pval")}</span>
                                       <span className={`text-sm font-extrabold ${statsResults.wilcoxon.p_val < 0.05 ? "text-rose-600 dark:text-rose-400" : "text-slate-600 dark:text-slate-300"}`}>
                                         {statsResults.wilcoxon.p_val?.toFixed(4) ?? "—"}
                                       </span>
@@ -1726,7 +1752,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                             {/* 6. Bootstrap CI section */}
                             {bootstrapCiData && (
                               <div>
-                                <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-4">Intervalos de Confianza Bootstrap</h5>
+                                <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-4">{t("AutoML.stats_bootstrap")}</h5>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   {Object.entries(bootstrapCiData).map(([name, ci]: any) => (
                                     <div key={name} className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-950/30">
@@ -1734,7 +1760,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                                       <span className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 block">
                                         {`${(ci[0] * 100).toFixed(2)}% - ${(ci[1] * 100).toFixed(2)}%`}
                                       </span>
-                                      <span className="text-xs text-slate-500">Intervalo de confianza basado en remuestreo bootstrap (n=1000)</span>
+                                      <span className="text-xs text-slate-500">{t("AutoML.stats_bootstrap_desc")}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -1744,7 +1770,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                             {/* 7. Interpretations */}
                             {(statsResults.interpretations || modelResults.stats_interpretation) && (
                               <div className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950/20">
-                                <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">Interpretación</h5>
+                                <h5 className="font-bold text-sm text-slate-600 dark:text-slate-300 mb-3">{t("AutoML.stats_interp")}</h5>
                                 <div className="text-xs text-slate-600 dark:text-slate-300 whitespace-pre-line">
                                   {statsResults.interpretations || modelResults.stats_interpretation}
                                 </div>
@@ -1800,11 +1826,11 @@ export default function DashboardSPA({ params }: { params: any }) {
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h4 className="font-bold text-sm text-slate-400 uppercase tracking-wider">📜 Historial de Auditoría MLOps</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Registro de ejecuciones del pipeline de AutoML y métricas históricas.</p>
+                          <h4 className="font-bold text-sm text-slate-400 uppercase tracking-wider">📜 {t("History.title")}</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t("History.subtitle")}</p>
                         </div>
                         <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-lg">
-                          {experimentHistory.length} Experimentos Registrados
+                          {experimentHistory.length} {t("History.experiments_count")}
                         </span>
                       </div>
 
@@ -1813,7 +1839,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="border-b border-slate-200 dark:border-slate-700">
-                                {["ID","Fecha","Modelo Ganador","Accuracy","F1-Score","Estrategia Tuning"].map(h => (
+                                {[t("History.col_id"), t("History.col_date"), t("History.col_winner"), t("History.col_accuracy"), t("History.col_f1"), t("History.col_tuning")].map(h => (
                                   <th key={h} className="text-left py-2.5 px-3 text-slate-400 font-semibold">{h}</th>
                                 ))}
                               </tr>
@@ -1833,7 +1859,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                           </table>
                         </div>
                       ) : (
-                        <p className="text-xs text-slate-500 text-center py-6">No hay ejecuciones anteriores registradas en el historial.</p>
+                        <p className="text-xs text-slate-500 text-center py-6">{t("History.empty")}</p>
                       )}
                     </div>
                   )}
@@ -1851,10 +1877,10 @@ export default function DashboardSPA({ params }: { params: any }) {
                 <div>
                   <h3 className="font-extrabold text-lg text-slate-800 dark:text-white flex items-center gap-2">
                     <Cpu className="text-emerald-500" />
-                    Predicción Tabular en Vivo
+                    {t("TabularPredict.title")}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Ingrese variables agronómicas del cultivo para clasificar usando el mejor pipeline (.pkl).
+                    {t("TabularPredict.subtitle")}
                   </p>
                 </div>
 
@@ -1880,7 +1906,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                     disabled={predictingTabular}
                     className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-sm transition-transform active:scale-[0.98] shadow-lg shadow-emerald-500/20 mt-4"
                   >
-                    {predictingTabular ? "Clasificando..." : "Ejecutar Predicción"}
+                    {predictingTabular ? t("TabularPredict.running_btn") : t("TabularPredict.run_btn")}
                   </button>
                 </form>
               </div>
@@ -1895,8 +1921,8 @@ export default function DashboardSPA({ params }: { params: any }) {
                           <span className="text-xl">🏆</span>
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
-                            Modelo Ejecutado
+                           <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+                            {t("TabularPredict.model_used")}
                           </p>
                           <p className="text-lg font-extrabold text-slate-800 dark:text-white">
                             {tabularPredictionResult.model_name}
@@ -1908,24 +1934,24 @@ export default function DashboardSPA({ params }: { params: any }) {
                           <span className="block text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
                             {(tabularPredictionResult.confidence * 100).toFixed(2)}%
                           </span>
-                          <span className="text-xs text-slate-500 font-semibold">Nivel de Confianza</span>
-                        </div>
-                        <div className="text-right pl-4 border-l border-emerald-200 dark:border-emerald-800">
-                          <span className="block text-lg font-extrabold text-slate-900 dark:text-white">
-                            {tabularPredictionResult.prediction}
-                          </span>
-                          <span className="text-xs text-slate-500 font-semibold">Clase Predicha</span>
+                           <span className="text-xs text-slate-500 font-semibold">{t("TabularPredict.confidence")}</span>
+                         </div>
+                         <div className="text-right pl-4 border-l border-emerald-200 dark:border-emerald-800">
+                           <span className="block text-lg font-extrabold text-slate-900 dark:text-white">
+                             {tabularPredictionResult.prediction}
+                           </span>
+                           <span className="text-xs text-slate-500 font-semibold">{t("TabularPredict.predicted_class")}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-                      <strong>Interpretación Agronómica:</strong> {tabularPredictionResult.interpretation}
+                       <strong>{t("TabularPredict.agronomic_interp")}:</strong> {tabularPredictionResult.interpretation}
                     </div>
 
                     {tabularPredictionResult.probabilities && Object.keys(tabularPredictionResult.probabilities).length > 0 && (
                       <div className="space-y-3">
-                        <h4 className="font-bold text-sm text-slate-400 uppercase tracking-wider">Probabilidades por Clase</h4>
+                       <h4 className="font-bold text-sm text-slate-400 uppercase tracking-wider">{t("TabularPredict.class_probs")}</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                           {Object.entries(tabularPredictionResult.probabilities).map(([cls, prob]: any) => (
                             <div key={cls} className="p-3 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-950/30 text-center">
@@ -1940,11 +1966,11 @@ export default function DashboardSPA({ params }: { params: any }) {
                     )}
                   </div>
                 ) : (
-                  <div className="p-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-3">
+                   <div className="p-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-3">
                     <span className="text-4xl block">📊</span>
-                    <h4 className="text-base font-bold text-slate-700 dark:text-slate-300">Esperando ejecución</h4>
+                    <h4 className="text-base font-bold text-slate-700 dark:text-slate-300">{t("TabularPredict.waiting_title")}</h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                      Complete los valores agronómicos a la izquierda y presione "Ejecutar Predicción" para consultar la respuesta del modelo en tiempo real.
+                      {t("TabularPredict.waiting_desc")}
                     </p>
                   </div>
                 )}
@@ -1959,15 +1985,15 @@ export default function DashboardSPA({ params }: { params: any }) {
                 <div>
                   <h2 className="text-xl font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
                     <History className="text-emerald-500" />
-                    Historial de Experimentos y Auditoría MLOps
+                    {t("History.title")}
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Registro centralizado de todas las corridas de entrenamiento, modelos evaluados y métricas históricas.
+                    {t("History.subtitle")}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-semibold px-3 py-1.5 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-xl border border-emerald-300 dark:border-emerald-700/50">
-                    {experimentHistory.length} Experimentos Registrados
+                    {experimentHistory.length} {t("History.experiments_count")}
                   </span>
                 </div>
               </div>
@@ -1975,11 +2001,11 @@ export default function DashboardSPA({ params }: { params: any }) {
               {/* Tarjetas resumen del historial */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Total Corridas</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">{t("History.total_runs")}</span>
                   <span className="text-3xl font-extrabold text-slate-800 dark:text-white">{experimentHistory.length}</span>
                 </div>
                 <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Mejor Accuracy Registrado</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">{t("History.best_accuracy")}</span>
                   <span className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">
                     {experimentHistory.length > 0
                       ? `${(Math.max(...experimentHistory.map((h: any) => h.accuracy || 0)) * 100).toFixed(2)}%`
@@ -1987,7 +2013,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                   </span>
                 </div>
                 <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Último Modelo Ganador</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">{t("History.last_winner")}</span>
                   <span className="text-xl font-extrabold text-blue-600 dark:text-blue-400 truncate block">
                     {experimentHistory.length > 0 ? experimentHistory[0]?.best_model_name : "—"}
                   </span>
@@ -2001,7 +2027,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                     <table className="w-full text-xs border-collapse">
                       <thead>
                         <tr className="border-b border-slate-200 dark:border-slate-700">
-                          {["ID Run", "Fecha / Hora", "Modelo Ganador", "Accuracy", "F1-Score", "Estrategia Tuning"].map(h => (
+                          {[t("History.col_id"), t("History.col_date"), t("History.col_winner"), t("History.col_accuracy"), t("History.col_f1"), t("History.col_tuning")].map(h => (
                             <th key={h} className="text-left py-3 px-4 text-slate-400 font-bold uppercase tracking-wider">{h}</th>
                           ))}
                         </tr>
@@ -2027,8 +2053,8 @@ export default function DashboardSPA({ params }: { params: any }) {
                 ) : (
                   <div className="py-12 text-center space-y-2">
                     <span className="text-3xl block">📜</span>
-                    <p className="text-sm font-bold text-slate-600 dark:text-slate-400">No se registran corridas en el historial</p>
-                    <p className="text-xs text-slate-500">Ejecute el pipeline de AutoML para generar nuevos registros de entrenamiento.</p>
+                   <p className="text-sm font-bold text-slate-600 dark:text-slate-400">{t("History.empty")}</p>
+                    <p className="text-xs text-slate-500">{t("History.empty_desc")}</p>
                   </div>
                 )}
               </div>
