@@ -47,3 +47,14 @@ class TrainingConfig(BaseModel):
     cv_folds: int = 5
     alpha: float = 0.05
     tuning_method: str = "random"
+
+class TabularPredictRequest(BaseModel):
+    features: Dict[str, Union[float, int, str]]
+    lang: str = "es"
+
+class TabularPredictResponse(BaseModel):
+    prediction: Union[str, int, float]
+    confidence: float
+    probabilities: Dict[str, float]
+    model_name: str
+    interpretation: str

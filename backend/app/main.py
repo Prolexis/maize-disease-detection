@@ -37,17 +37,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Registro de rutas de la API
-app.include_router(auth.router, prefix="/api/auth", tags=["Autenticación"])
-app.include_router(dataset.router, prefix="/api/dataset", tags=["Dataset"])
-app.include_router(eda.router, prefix="/api/eda", tags=["Análisis Exploratorio (EDA)"])
-app.include_router(training.router, prefix="/api/training", tags=["Entrenamiento"])
-app.include_router(model.router, prefix="/api/model", tags=["Modelos"])
-app.include_router(stats.router, prefix="/api/stats", tags=["Pruebas Estadísticas"])
-app.include_router(reports.router, prefix="/api/reports", tags=["Reportes"])
-app.include_router(chat.router, prefix="/api/chat", tags=["Chatbot"])
+# Registro de rutas de la API (v1 y legacy /api/)
+for prefix_base in ["/api/v1", "/api"]:
+    app.include_router(auth.router, prefix=f"{prefix_base}/auth", tags=["Autenticación"])
+    app.include_router(dataset.router, prefix=f"{prefix_base}/dataset", tags=["Dataset"])
+    app.include_router(eda.router, prefix=f"{prefix_base}/eda", tags=["Análisis Exploratorio (EDA)"])
+    app.include_router(training.router, prefix=f"{prefix_base}/training", tags=["Entrenamiento"])
+    app.include_router(model.router, prefix=f"{prefix_base}/model", tags=["Modelos"])
+    app.include_router(stats.router, prefix=f"{prefix_base}/stats", tags=["Pruebas Estadísticas"])
+    app.include_router(reports.router, prefix=f"{prefix_base}/reports", tags=["Reportes"])
+    app.include_router(chat.router, prefix=f"{prefix_base}/chat", tags=["Chatbot"])
 
 # Registro de WebSocket de progreso de entrenamiento
+app.add_api_websocket_route("/api/v1/training/ws/{client_id}", websocket_endpoint)
 app.add_api_websocket_route("/api/training/ws/{client_id}", websocket_endpoint)
 
 @app.get("/")

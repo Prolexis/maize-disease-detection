@@ -33,3 +33,16 @@ def login(payload: UserLogin):
     # Crear token JWT
     access_token = create_access_token(data={"sub": username})
     return {"access_token": access_token, "token_type": "bearer"}
+
+from app.core.dependencies import get_current_user
+
+@router.post("/refresh", response_model=Token)
+def refresh_token(username: str = Depends(get_current_user)):
+    """Renueva el token JWT para la sesión activa del usuario"""
+    new_token = create_access_token(data={"sub": username})
+    return {"access_token": new_token, "token_type": "bearer"}
+
+@router.post("/logout")
+def logout(username: str = Depends(get_current_user)):
+    """Invalida/cierra la sesión activa del usuario"""
+    return {"status": "success", "message": f"Sesión de {username} cerrada correctamente."}

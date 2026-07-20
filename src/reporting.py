@@ -1296,9 +1296,9 @@ def generate_image_docx_report(image, predictions, uploaded_filename, consensus_
     for r in recs:
         doc.add_paragraph(f"- {r}")
     stats_head = {
-        'es': "Validación Estadística Robusta (Pruebas del Ing. Santos)",
-        'en': "Robust Statistical Validation (Eng. Santos Tests)",
-        'pt': "Validação Estatística Robusta (Testes do Eng. Santos)"
+        'es': "Validación Estadística Robusta",
+        'en': "Robust Statistical Validation",
+        'pt': "Validação Estatística Robusta"
     }.get(lang_key)
     
     doc.add_heading(stats_head, level=2)
@@ -2478,11 +2478,11 @@ def generate_image_pdf_report(image, predictions, uploaded_filename, consensus_r
             for tratamiento in details['tratamiento']:
                 pdf.normal_text(clean_text_for_pdf(tratamiento))
 
-    # 7.5. VALIDACIÓN ESTADÍSTICA ROBUSTA (ING. SANTOS)
+    # 7.5. VALIDACIÓN ESTADÍSTICA ROBUSTA
     pdf.chapter_title(clean_text_for_pdf({
-        'es': "VALIDACIÓN ESTADÍSTICA ROBUSTA (ING. SANTOS)",
-        'en': "ROBUST STATISTICAL VALIDATION (ENG. SANTOS)",
-        'pt': "VALIDAÇÃO ESTATÍSTICA ROBUSTA (ENG. SANTOS)"
+        'es': "VALIDACIÓN ESTADÍSTICA ROBUSTA",
+        'en': "ROBUST STATISTICAL VALIDATION",
+        'pt': "VALIDAÇÃO ESTATÍSTICA ROBUSTA"
     }.get(lang_key, "VALIDACIÓN ESTADÍSTICA ROBUSTA")), "[STATS]")
     
     stats_lines_dict = {

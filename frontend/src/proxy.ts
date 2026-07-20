@@ -1,27 +1,14 @@
-import { NextResponse } from 'next/server';
 import createMiddleware from 'next-intl/middleware';
+import { routing } from './i18n/routing';
 
-const intlMiddleware = createMiddleware({
-  // Locales soportados
-  locales: ['es', 'en', 'pt'],
-  // Locale por defecto — redirige / -> /es
-  defaultLocale: 'es',
-  // Siempre prefijar con el locale en la URL
-  localePrefix: 'always'
-});
+const intlMiddleware = createMiddleware(routing);
 
 export function proxy(request: any) {
-  try {
-    return intlMiddleware(request);
-  } catch (error) {
-    console.error("--> PROXY ERROR:", error);
-    return NextResponse.next();
-  }
+  return intlMiddleware(request);
 }
 
 export default proxy;
 
 export const config = {
-  // Aplicar el proxy en todas las rutas excepto las estáticas y de API
-  matcher: ['/((?!api|_next|_vercel|.*\\..*).*)', '/']
+  matcher: ['/', '/(es|en|pt)', '/(es|en|pt)/:path*']
 };

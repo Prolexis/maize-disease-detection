@@ -20,14 +20,15 @@ export default async function LocaleLayout({
   params
 }: {
   children: React.ReactNode;
-  params: Promise<{ locale: string }>;
+  params: any;
 }) {
-  const { locale } = await params;
+  const resolvedParams = typeof params?.then === 'function' ? await params : params;
+  const locale = resolvedParams?.locale || 'es';
   const messages = await getMessages();
   
   return (
     <html lang={locale} suppressHydrationWarning>
-      <body className={`${outfit.variable} font-sans min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-200`}>
+      <body suppressHydrationWarning className={`${outfit.variable} font-sans min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-200`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="maize-theme" disableTransitionOnChange>
           <NextIntlClientProvider messages={messages}>
             {children}
