@@ -23,7 +23,9 @@
     "submit": "INGRESAR",
     "remember": "Recordarme",
     "error": "Credenciales inválidas",
-    "branding_title": "Detector de Enfermedades en Hojas de Maíz",
+    "branding_line1": "Detector de",
+    "branding_highlight": "Enfermedades",
+    "branding_line2": "en Hojas de Maíz",
     "branding_subtitle": "Inteligencia Artificial para el monitoreo fitosanitario y optimización AutoML."
   },
   "Dashboard": {

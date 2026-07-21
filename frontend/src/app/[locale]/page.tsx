@@ -643,10 +643,10 @@ export default function DashboardSPA({ params }: { params: any }) {
             </div>
             <div>
               <h1 className="text-3xl font-extrabold tracking-tight uppercase mb-4 leading-none text-slate-800 dark:text-white">
-                Detector de <span className="text-emerald-600 dark:text-emerald-400">Enfermedades</span><br />en Hojas de Maíz
+                {t("Login.branding_line1")} <span className="text-emerald-600 dark:text-emerald-400">{t("Login.branding_highlight")}</span><br />{t("Login.branding_line2")}
               </h1>
               <p className="text-sm text-emerald-800/80 dark:text-emerald-200/80 max-w-sm mx-auto leading-relaxed">
-                Inteligencia Artificial para el monitoreo fitosanitario y optimización AutoML.
+                {t("Login.branding_subtitle")}
               </p>
             </div>
             

@@ -23,7 +23,9 @@
     "submit": "LOG IN",
     "remember": "Remember me",
     "error": "Invalid credentials",
-    "branding_title": "Maize Leaf Disease Detector",
+    "branding_line1": "Maize Leaf",
+    "branding_highlight": "Disease",
+    "branding_line2": "Detector",
     "branding_subtitle": "Artificial Intelligence for phytosanitary monitoring and AutoML optimization."
   },
   "Dashboard": {

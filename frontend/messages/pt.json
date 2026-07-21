@@ -23,7 +23,9 @@
     "submit": "ENTRAR",
     "remember": "Lembrar-me",
     "error": "Credenciais inválidas",
-    "branding_title": "Detector de Doenças em Folhas de Milho",
+    "branding_line1": "Detector de",
+    "branding_highlight": "Doenças",
+    "branding_line2": "em Folhas de Milho",
     "branding_subtitle": "Inteligência Artificial para monitoramento fitossanitário e otimização AutoML."
   },
   "Dashboard": {
