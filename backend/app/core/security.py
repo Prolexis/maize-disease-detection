@@ -3,7 +3,7 @@ import hashlib
 import os
 import jwt
 from datetime import datetime, timedelta
-from app.core.config import settings
+from .config import settings
 
 def get_password_hash(password: str) -> str:
     """Genera hash pbkdf2_sha256 seguro con sal aleatoria"""

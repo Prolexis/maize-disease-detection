@@ -1,15 +1,20 @@
 # -*- coding: utf-8 -*-
 import os
-os.environ["TF_USE_LEGACY_KERAS"] = "1"
+
 import streamlit as st
 import numpy as np
 import cv2
 from PIL import Image
 import tensorflow as tf
 from tensorflow.keras.models import load_model
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input as mobilenet_preprocess
-from tensorflow.keras.applications.resnet50 import preprocess_input as resnet_preprocess
-from tensorflow.keras.applications.efficientnet import preprocess_input as efficientnet_preprocess
+try:
+    from keras.applications.mobilenet_v2 import preprocess_input as mobilenet_preprocess
+    from keras.applications.resnet50 import preprocess_input as resnet_preprocess
+    from keras.applications.efficientnet import preprocess_input as efficientnet_preprocess
+except ImportError:
+    mobilenet_preprocess = tf.keras.applications.mobilenet_v2.preprocess_input
+    resnet_preprocess = tf.keras.applications.resnet50.preprocess_input
+    efficientnet_preprocess = tf.keras.applications.efficientnet.preprocess_input
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
@@ -1899,7 +1904,7 @@ def show_prediction_interface(models):
                         st.warning(f"""
                         **{translate_class(consensus_diagnosis)}**
 
-                        **{t_rep['sub_text_report'].split(' ')[1] if 't_rep' in locals() else 'Info'}:** {info['description']}
+                        **Información:** {info['description']}
 
                         **Recomendaciones:** {info['recommendations']}
 
@@ -3245,8 +3250,8 @@ def check_login():
                 # Autenticación segura: consulta DB SQLite + verificación bcrypt
                 _auth_ok = False
                 try:
-                    from app.core.database import get_db_connection as _get_db
-                    from app.core.security import verify_password as _verify_pwd
+                    from backend.app.core.database import get_db_connection as _get_db
+                    from backend.app.core.security import verify_password as _verify_pwd
                     _conn_auth = _get_db()
                     _cur_auth = _conn_auth.cursor()
                     _cur_auth.execute("SELECT password FROM users WHERE username = ?", (username,))
@@ -3710,6 +3715,23 @@ def show_automl_panel():
             st.session_state.xlsx_report = xlsx_report
             st.session_state.docx_report = docx_report
             st.session_state.pdf_report = pdf_report
+            # Persistir experimento en la DB SQLite de MLOps
+            try:
+                from backend.app.core.database import get_db_connection as _get_db
+                _conn_exp = _get_db()
+                _cur_exp = _conn_exp.cursor()
+                _rdate = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                _best_name = best_model_name if 'best_model_name' in locals() else list(results.keys())[0]
+                _best_acc = float(results[_best_name]['accuracy'])
+                _best_f1 = float(results[_best_name]['f1-score'])
+                _cur_exp.execute("""
+                    INSERT INTO experiments (run_date, dataset_hash, best_model_name, accuracy, f1_score, split_ratio, seed, cv_folds, alpha, tuning_method)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (_rdate, "streamlit_run", _best_name, _best_acc, _best_f1, train_ratio, seed, cv_folds, alpha, tuning_method))
+                _conn_exp.commit()
+                _conn_exp.close()
+            except Exception as _expe:
+                pass
             
             st.success(t("pipeline_completed_success"))
 
@@ -3720,14 +3742,20 @@ def show_automl_panel():
         
         col_d1, col_d2, col_d3 = st.columns(3)
         with col_d1:
-            with open(st.session_state.pdf_report, "rb") as f:
-                st.download_button(t("download_pdf"), f.read(), file_name="reporte_fitosanitario_automl.pdf", mime="application/pdf", use_container_width=True)
+            pdf_path = st.session_state.get('pdf_report')
+            if pdf_path and os.path.exists(pdf_path):
+                with open(pdf_path, "rb") as f:
+                    st.download_button(t("download_pdf"), f.read(), file_name="reporte_fitosanitario_automl.pdf", mime="application/pdf", use_container_width=True)
         with col_d2:
-            with open(st.session_state.docx_report, "rb") as f:
-                st.download_button(t("download_docx"), f.read(), file_name="reporte_fitosanitario_automl.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+            docx_path = st.session_state.get('docx_report')
+            if docx_path and os.path.exists(docx_path):
+                with open(docx_path, "rb") as f:
+                    st.download_button(t("download_docx"), f.read(), file_name="reporte_fitosanitario_automl.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
         with col_d3:
-            with open(st.session_state.xlsx_report, "rb") as f:
-                st.download_button(t("download_xlsx"), f.read(), file_name="reporte_fitosanitario_automl.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            xlsx_path = st.session_state.get('xlsx_report')
+            if xlsx_path and os.path.exists(xlsx_path):
+                with open(xlsx_path, "rb") as f:
+                    st.download_button(t("download_xlsx"), f.read(), file_name="reporte_fitosanitario_automl.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
                 
         # Mostrar fases con tabs
         tab_eda, tab_train, tab_cv, tab_tuning, tab_stats, tab_history = st.tabs([
@@ -3920,7 +3948,7 @@ def show_automl_panel():
             st.markdown(hist_title)
             try:
                 import sqlite3 as _sqlite3
-                from app.core.config import settings as _settings
+                from backend.app.core.config import settings as _settings
                 _db_path = _settings.DATABASE_URL.replace("sqlite:///", "")
                 _conn = _sqlite3.connect(_db_path)
                 _conn.row_factory = _sqlite3.Row
@@ -4284,7 +4312,7 @@ def main():
                     st.rerun()
             
             # Área de chat
-            chat_container = st.container(height=320)
+            chat_container = st.container(height=320)  # type: ignore
             with chat_container:
                 if len(st.session_state.chat_history) == 0:
                     welcome_title = "¡Hola! Soy MaizIA." if st.session_state.lang == 'es' else ("Hello! I am MaizIA." if st.session_state.lang == 'en' else "Olá! Eu sou MaizIA.")

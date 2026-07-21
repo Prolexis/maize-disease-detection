@@ -3,18 +3,23 @@ import sys
 import os
 from pathlib import Path
 
-# Add the project root directory to sys.path so we can import from 'src'
-project_root = Path(__file__).resolve().parent.parent.parent  # backend/app/main.py -> backend -> parent (maize-disease-detection)
-sys.path.insert(0, str(project_root))
+# Add both backend and project root directories to sys.path
+backend_dir = Path(__file__).resolve().parent.parent
+project_root = backend_dir.parent
+
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-from app.core.config import settings
-from app.core.database import init_db
-from app.routers import auth, dataset, eda, training, model, stats, reports, chat
-from app.websockets.training_ws import websocket_endpoint
+from .core.config import settings
+from .core.database import init_db
+from .routers import auth, dataset, eda, training, model, stats, reports, chat
+from .websockets.training_ws import websocket_endpoint
 
 app = FastAPI(
     title="Maize Disease Detector & AutoML API",

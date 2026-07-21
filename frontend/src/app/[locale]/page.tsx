@@ -86,6 +86,9 @@ export default function DashboardSPA({ params }: { params: any }) {
       if (res.ok) {
         const data = await res.json();
         setTabularPredictionResult(data);
+      } else {
+        const errData = await res.json().catch(() => ({ detail: "Error al predecir" }));
+        alert(errData.detail || "Error al realizar la predicción tabular");
       }
     } catch (err) {
       console.error("Error predicting tabular:", err);
@@ -350,6 +353,8 @@ export default function DashboardSPA({ params }: { params: any }) {
     }
   };
 
+
+
   // --- Image report download handler ---
   const handleDownloadImageReport = async (reportType: string) => {
     try {
@@ -367,7 +372,11 @@ export default function DashboardSPA({ params }: { params: any }) {
       a.download = `reporte_diagnostico.${reportType}`;
       document.body.appendChild(a);
       a.click();
-      a.remove();
+      try {
+        if (a.parentNode) {
+          a.parentNode.removeChild(a);
+        }
+      } catch (e) {}
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading image report:', error);
@@ -400,40 +409,90 @@ export default function DashboardSPA({ params }: { params: any }) {
     }
   };
 
-  // --- AutoML Run Pipeline (WebSocket integration) ---
+  // --- AutoML Run Pipeline (WebSocket & Polling Fallback) ---
   const handleRunAutoML = async () => {
     setIsTraining(true);
-    setTrainingProgress(0);
-    setTrainingStatus("Iniciando...");
-    
-    // Generar un ID de cliente aleatorio
+    setTrainingProgress(10);
+    setTrainingStatus("Iniciando pipeline de entrenamiento...");
+
     const clientId = Math.random().toString(36).substring(7);
-    
-    // Conectar WebSocket de progreso
-    const ws = new WebSocket(`ws://localhost:8000/api/training/ws/${clientId}`);
-    
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "progress") {
-        setTrainingProgress(data.percent);
-        setTrainingStatus(data.message);
-      } else if (data.type === "completed") {
-        setTrainingProgress(100);
-        setTrainingStatus(data.message);
-        setIsTraining(false);
-        ws.close();
-        // Cargar los resultados de entrenamiento y descriptivos
-        fetchAutoMLResults();
-      } else if (data.type === "error") {
-        setTrainingStatus(data.message);
-        setIsTraining(false);
-        ws.close();
-      }
+    const wsProtocol = typeof window !== "undefined" && window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsHost = typeof window !== "undefined" && window.location.hostname ? window.location.hostname : "localhost";
+    const wsUrl = `${wsProtocol}//${wsHost}:8000/api/v1/training/ws/${clientId}`;
+
+    let isCompleted = false;
+    let pollInterval: any = null;
+
+    const finishSuccess = (msg: string) => {
+      if (isCompleted) return;
+      isCompleted = true;
+      if (pollInterval) clearInterval(pollInterval);
+      setTrainingProgress(100);
+      setTrainingStatus(msg || "¡Entrenamiento completado!");
+      setIsTraining(false);
+      fetchAutoMLResults();
     };
-    
-    // Lanzar el trigger HTTP para iniciar entrenamiento en segundo plano
+
+    const finishError = (msg: string) => {
+      if (isCompleted) return;
+      isCompleted = true;
+      if (pollInterval) clearInterval(pollInterval);
+      setTrainingStatus(`Error: ${msg}`);
+      setIsTraining(false);
+      alert(msg);
+    };
+
     try {
-      await fetch(`${apiBase}/training/train?client_id=${clientId}`, {
+      const ws = new WebSocket(wsUrl);
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "progress") {
+            setTrainingProgress(data.percent);
+            setTrainingStatus(data.message);
+          } else if (data.type === "completed") {
+            finishSuccess(data.message);
+            ws.close();
+          } else if (data.type === "error") {
+            finishError(data.message);
+            ws.close();
+          }
+        } catch (err) {
+          console.error("Error al procesar mensaje WS:", err);
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.warn("WebSocket error, activando respaldo HTTP polling:", err);
+      };
+
+      ws.onclose = () => {
+        if (!isCompleted) {
+          console.log("WebSocket cerrado antes de finalizar.");
+        }
+      };
+
+      // Configurar Sondeo de Respaldo (Polling) cada 2 segundos por si el WS se desconecta
+      pollInterval = setInterval(async () => {
+        if (isCompleted) return;
+        try {
+          const resLatest = await fetch(`${apiBase}/training/latest?lang=${locale}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
+          if (resLatest.ok) {
+            const latestData = await resLatest.json();
+            if (latestData && latestData.best_model) {
+              finishSuccess("Pipeline completado exitosamente");
+            }
+          }
+        } catch (pe) {
+          console.warn("Error en polling de respaldo:", pe);
+        }
+      }, 2500);
+
+      // Trigger HTTP para iniciar ejecución en FastAPI backend
+      const res = await fetch(`${apiBase}/training/train?client_id=${clientId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -447,9 +506,14 @@ export default function DashboardSPA({ params }: { params: any }) {
           tuning_method: tuningMethod
         })
       });
-    } catch (e) {
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ detail: "Error al iniciar el entrenamiento" }));
+        finishError(errData.detail || "Error al iniciar la ejecución del pipeline en el servidor");
+      }
+    } catch (e: any) {
       console.error(e);
-      setIsTraining(false);
+      finishError(e.message || "Error al comunicarse con el servidor");
     }
   };
 
@@ -471,7 +535,11 @@ export default function DashboardSPA({ params }: { params: any }) {
       a.download = `reporte_fitosanitario_automl.${reportType}`;
       document.body.appendChild(a);
       a.click();
-      a.remove();
+      try {
+        if (a.parentNode) {
+          a.parentNode.removeChild(a);
+        }
+      } catch (e) {}
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading report:', error);
@@ -575,10 +643,10 @@ export default function DashboardSPA({ params }: { params: any }) {
             </div>
             <div>
               <h1 className="text-3xl font-extrabold tracking-tight uppercase mb-4 leading-none text-slate-800 dark:text-white">
-                {t("Login.branding_title").split(" ").slice(0, 1).join(" ")}<br />de <span className="text-emerald-600 dark:text-emerald-400">{t("Login.branding_title").split(" ").slice(2, 3).join(" ")}</span><br />{t("Login.branding_title").split(" ").slice(3).join(" ")}
+                Detector de <span className="text-emerald-600 dark:text-emerald-400">Enfermedades</span><br />en Hojas de Maíz
               </h1>
               <p className="text-sm text-emerald-800/80 dark:text-emerald-200/80 max-w-sm mx-auto leading-relaxed">
-                {t("Login.branding_subtitle")}
+                Inteligencia Artificial para el monitoreo fitosanitario y optimización AutoML.
               </p>
             </div>
             
@@ -1293,8 +1361,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                       { key: "models", label: t("AutoML.tab_models") },
                       { key: "cv", label: t("AutoML.tab_cv") },
                       { key: "tuning", label: t("AutoML.tab_tuning") },
-                      { key: "stats", label: t("AutoML.tab_stats") },
-                      { key: "history", label: t("Dashboard.menu_history") }
+                      { key: "stats", label: t("AutoML.tab_stats") }
                     ].map((tab) => (
                       <button
                         key={tab.key}
@@ -1821,48 +1888,7 @@ export default function DashboardSPA({ params }: { params: any }) {
                     </div>
                   </div>
 
-                  {/* History Tab */}
-                  {activeAutomlTab === "history" && (
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-bold text-sm text-slate-400 uppercase tracking-wider">📜 {t("History.title")}</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t("History.subtitle")}</p>
-                        </div>
-                        <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-lg">
-                          {experimentHistory.length} {t("History.experiments_count")}
-                        </span>
-                      </div>
 
-                      {experimentHistory.length > 0 ? (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="border-b border-slate-200 dark:border-slate-700">
-                                {[t("History.col_id"), t("History.col_date"), t("History.col_winner"), t("History.col_accuracy"), t("History.col_f1"), t("History.col_tuning")].map(h => (
-                                  <th key={h} className="text-left py-2.5 px-3 text-slate-400 font-semibold">{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {experimentHistory.map((exp: any) => (
-                                <tr key={exp.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                                  <td className="py-2.5 px-3 font-mono text-slate-500">#{exp.id}</td>
-                                  <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">{exp.run_date}</td>
-                                  <td className="py-2.5 px-3 font-semibold text-emerald-600 dark:text-emerald-400">{exp.best_model_name}</td>
-                                  <td className="py-2.5 px-3 font-bold text-slate-800 dark:text-white">{(exp.accuracy * 100).toFixed(2)}%</td>
-                                  <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">{exp.f1_score.toFixed(4)}</td>
-                                  <td className="py-2.5 px-3 text-slate-500 uppercase text-[10px] font-bold tracking-wider">{exp.tuning_method}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-slate-500 text-center py-6">{t("History.empty")}</p>
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
               

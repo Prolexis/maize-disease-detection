@@ -142,7 +142,13 @@
     "col_comp": "Comparação",
     "col_diff": "Diferença",
     "col_sig": "Significativo",
-    "stats_pairwise": "Comparações Par a Par (Melhor vs Resto)"
+    "stats_pairwise": "Comparações Par a Par (Melhor vs Resto)",
+    "stats_wilcoxon": "Teste de Wilcoxon (Modelos Clássicos vs Híbrido)",
+    "col_best_classic": "Melhor Clássico",
+    "col_best_hybrid": "Melhor Híbrido",
+    "stats_bootstrap": "Intervalos de Confiança Bootstrap (95% IC)",
+    "stats_bootstrap_desc": "Reamostragem empírica de 1000 iterações",
+    "stats_interp": "Interpretação Estatística"
   },
   "Chatbot": {
     "title": "MaizIA Assistente",

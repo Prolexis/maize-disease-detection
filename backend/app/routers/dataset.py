@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
-from app.core.dependencies import get_current_user
-from app.services import dataset_service
+from ..core.dependencies import get_current_user
+from ..services import dataset_service
 
 router = APIRouter()
 

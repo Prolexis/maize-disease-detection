@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
-os.environ["TF_USE_LEGACY_KERAS"] = "1"
+
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from fastapi.responses import FileResponse
 import os
@@ -9,11 +9,17 @@ import numpy as np
 import cv2
 from PIL import Image
 import io
-from app.core.dependencies import get_current_user
+from ..core.dependencies import get_current_user
 from src.export_c_header import export_model_to_c_header
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input as mobilenet_preprocess
-from tensorflow.keras.applications.resnet50 import preprocess_input as resnet_preprocess
-from tensorflow.keras.applications.efficientnet import preprocess_input as efficientnet_preprocess
+try:
+    from keras.applications.mobilenet_v2 import preprocess_input as mobilenet_preprocess
+    from keras.applications.resnet50 import preprocess_input as resnet_preprocess
+    from keras.applications.efficientnet import preprocess_input as efficientnet_preprocess
+except ImportError:
+    import tensorflow as tf # type: ignore
+    mobilenet_preprocess = tf.keras.applications.mobilenet_v2.preprocess_input
+    resnet_preprocess = tf.keras.applications.resnet50.preprocess_input
+    efficientnet_preprocess = tf.keras.applications.efficientnet.preprocess_input
 
 router = APIRouter()
 
@@ -343,12 +349,50 @@ def predict_tabular_endpoint(
     
     try:
         import pandas as pd
-        features = payload.get("features", payload)
-        if not isinstance(features, dict):
-            features = payload
+        raw_features = payload.get("features", payload)
+        if not isinstance(raw_features, dict):
+            raw_features = payload
             
-        df_single = pd.DataFrame([features])
+        key_map = {
+            "temperature": "temperatura",
+            "humidity": "humedad",
+            "ph_level": "ph_suelo",
+            "ph": "ph_suelo",
+            "nitrogen_level": "nitrogeno",
+            "nitrogen": "nitrogeno",
+            "phosphorus": "fosforo",
+            "potassium": "potasio",
+            "rainfall_mm": "lluvia_mm",
+            "rainfall": "lluvia_mm",
+            "variety": "variedad"
+        }
         
+        normalized = {}
+        for k, v in raw_features.items():
+            norm_k = key_map.get(str(k).lower().strip(), k)
+            normalized[norm_k] = v
+            
+        expected_cols = getattr(pipeline, "feature_names_in_", None)
+        if expected_cols is not None:
+            for col in expected_cols:
+                if col not in normalized:
+                    if "variedad" in col:
+                        normalized[col] = "Híbrido A"
+                    elif "ph" in col:
+                        normalized[col] = 6.5
+                    elif "humedad" in col:
+                        normalized[col] = 78.0
+                    elif "temp" in col:
+                        normalized[col] = 24.5
+                    elif "lluvia" in col:
+                        normalized[col] = 120.0
+                    else:
+                        normalized[col] = 50.0
+
+            df_single = pd.DataFrame([normalized])[list(expected_cols)]
+        else:
+            df_single = pd.DataFrame([normalized])
+
         pred = pipeline.predict(df_single)[0]
         
         probs_dict = {}

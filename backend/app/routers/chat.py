@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from fastapi import APIRouter, Depends, HTTPException
-from app.core.dependencies import get_current_user
-from app.models.schemas import ChatRequest, ChatResponse
+from ..core.dependencies import get_current_user
+from ..models.schemas import ChatRequest, ChatResponse
 from src.chatbot import get_chatbot_response
 
 router = APIRouter()

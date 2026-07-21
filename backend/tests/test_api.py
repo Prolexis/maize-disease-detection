@@ -9,7 +9,9 @@ project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from backend.app.main import app
+from backend.app.core.database import init_db
 
+init_db()
 client = TestClient(app)
 
 def test_root_endpoint():
@@ -20,7 +22,7 @@ def test_root_endpoint():
     assert "version" in data
 
 def test_auth_login():
-    response = client.post("/api/v1/auth/login", json={"username": "admin", "password": "password123"})
+    response = client.post("/api/v1/auth/login", json={"username": "admin", "password": "admin123"})
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
@@ -32,7 +34,7 @@ def test_unauthorized_access():
 
 def test_model_metadata_authorized():
     # Login first
-    login_resp = client.post("/api/v1/auth/login", json={"username": "admin", "password": "password123"})
+    login_resp = client.post("/api/v1/auth/login", json={"username": "admin", "password": "admin123"})
     token = login_resp.json()["access_token"]
     
     headers = {"Authorization": f"Bearer {token}"}

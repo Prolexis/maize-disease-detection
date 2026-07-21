@@ -2,9 +2,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 import pandas as pd
 import os
-from app.core.dependencies import get_current_user
-from app.models.schemas import EdaResponse
-from app.services import eda_service
+from ..core.dependencies import get_current_user
+from ..models.schemas import EdaResponse
+from ..services import eda_service
 
 router = APIRouter()
 

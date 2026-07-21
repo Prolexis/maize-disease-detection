@@ -1,5 +1,5 @@
 from fastapi import Header, Query, HTTPException, status
-from app.core.security import decode_access_token
+from .security import decode_access_token
 
 def get_current_user(
     authorization: str = Header(None),

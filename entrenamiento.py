@@ -5,23 +5,45 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import classification_report, confusion_matrix, precision_recall_curve, auc, roc_curve
 from sklearn.preprocessing import label_binarize
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+try:
+    from keras.preprocessing.image import ImageDataGenerator
+except ImportError:
+    import tensorflow as tf # type: ignore
+    ImageDataGenerator = tf.keras.preprocessing.image.ImageDataGenerator
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import GlobalAveragePooling2D, Dense, Dropout
-from tensorflow.keras.applications import MobileNetV2, ResNet50, EfficientNetB0
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input as mobilenet_pre
-from tensorflow.keras.applications.resnet50 import preprocess_input as resnet_pre
-from tensorflow.keras.applications.efficientnet import preprocess_input as efficientnet_pre
+try:
+    from keras.applications import MobileNetV2, ResNet50, EfficientNetB0
+    from keras.applications.mobilenet_v2 import preprocess_input as mobilenet_pre
+    from keras.applications.resnet50 import preprocess_input as resnet_pre
+    from keras.applications.efficientnet import preprocess_input as efficientnet_pre
+except ImportError:
+    import tensorflow as tf # type: ignore
+    MobileNetV2 = tf.keras.applications.MobileNetV2
+    ResNet50 = tf.keras.applications.ResNet50
+    EfficientNetB0 = tf.keras.applications.EfficientNetB0
+    mobilenet_pre = tf.keras.applications.mobilenet_v2.preprocess_input
+    resnet_pre = tf.keras.applications.resnet50.preprocess_input
+    efficientnet_pre = tf.keras.applications.efficientnet.preprocess_input
 from tensorflow.keras.optimizers import AdamW
 from tensorflow.keras.optimizers.schedules import CosineDecay
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from tensorflow.keras.utils import plot_model
-from google.colab import drive
+try:
+    from keras.utils import plot_model
+except ImportError:
+    import tensorflow as tf # type: ignore
+    plot_model = tf.keras.utils.plot_model
+
+try:
+    from google.colab import drive # type: ignore
+except ImportError:
+    drive = None
 
 # ------------------------
 # 📂 Rutas y configuración general
 # ------------------------
-drive.mount('/content/drive')
+if drive is not None:
+    drive.mount('/content/drive')
 base_path = "/content/drive/MyDrive/maize-leaf-disease"
 train_dir = f"{base_path}/Data2/train"
 val_dir = f"{base_path}/Data2/val"

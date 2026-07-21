@@ -9,9 +9,12 @@ const messagesMap: Record<string, any> = {
   pt: ptMessages
 };
 
-export default getRequestConfig(async (params) => {
-  const reqLocale = await (params as any).requestLocale;
-  const locale = (reqLocale && ['es', 'en', 'pt'].includes(reqLocale)) ? reqLocale : 'es';
+export default getRequestConfig(async ({ requestLocale }) => {
+  let locale = await requestLocale;
+
+  if (!locale || !['es', 'en', 'pt'].includes(locale)) {
+    locale = 'es';
+  }
 
   return {
     locale,

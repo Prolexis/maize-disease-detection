@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 from fastapi import APIRouter, Depends, BackgroundTasks, status
-from app.core.dependencies import get_current_user
-from app.models.schemas import TrainingConfig
-from app.jobs.job_manager import run_training_pipeline_async, LATEST_RUN_RESULT
-from app.core.database import get_db_connection
+from ..core.dependencies import get_current_user
+from ..models.schemas import TrainingConfig
+from ..jobs.job_manager import run_training_pipeline_async, LATEST_RUN_RESULT
+from ..core.database import get_db_connection
 
 router = APIRouter()
 

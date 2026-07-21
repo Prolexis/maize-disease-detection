@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 from fastapi import APIRouter, HTTPException, Depends, status
-from app.models.schemas import UserLogin, Token
-from app.core.database import get_db_connection
-from app.core.security import verify_password, create_access_token
+from ..models.schemas import UserLogin, Token
+from ..core.database import get_db_connection
+from ..core.security import verify_password, create_access_token
 
 router = APIRouter()
 
@@ -34,7 +34,7 @@ def login(payload: UserLogin):
     access_token = create_access_token(data={"sub": username})
     return {"access_token": access_token, "token_type": "bearer"}
 
-from app.core.dependencies import get_current_user
+from ..core.dependencies import get_current_user
 
 @router.post("/refresh", response_model=Token)
 def refresh_token(username: str = Depends(get_current_user)):

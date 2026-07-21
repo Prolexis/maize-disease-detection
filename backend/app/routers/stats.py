@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.core.dependencies import get_current_user
-from app.jobs.job_manager import LATEST_RUN_RESULT
-from app.models.schemas import StatsResponse
+from ..core.dependencies import get_current_user
+from ..jobs.job_manager import LATEST_RUN_RESULT
+from ..models.schemas import StatsResponse
 
 router = APIRouter()
 
@@ -12,7 +12,7 @@ def get_statistical_results(lang: str = "es", username: str = Depends(get_curren
     import os
     import json
     
-    from app.routers.model import resolve_path
+    from .model import resolve_path
     latest_path = resolve_path("models/latest_results.json")
     if not os.path.exists(latest_path):
         raise HTTPException(

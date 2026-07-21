@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 import os
-from app.core.dependencies import get_current_user
+from ..core.dependencies import get_current_user
 
 router = APIRouter()
 

@@ -6,8 +6,8 @@ from datetime import datetime
 import sqlite3
 import pandas as pd
 
-from app.websockets.training_ws import ws_manager
-from app.core.database import get_db_connection
+from ..websockets.training_ws import ws_manager
+from ..core.database import get_db_connection
 from src.eda import clean_data, get_descriptive_stats
 from src.training import train_and_evaluate_all, save_best_model, interpret_training
 from src.cross_validation import run_cross_validation
@@ -315,6 +315,31 @@ async def run_training_pipeline_async(client_id: str, config: dict):
         results_to_save = {k: v for k, v in LATEST_RUN_RESULT.items() if k not in ("pdf_report", "docx_report", "xlsx_report")}
         with open("models/latest_results.json", "w", encoding="utf-8") as f:
             _json.dump(results_to_save, f, ensure_ascii=False, indent=2, default=str)
+        
+        # Registra el experimento en la base de datos SQLite (MLOps History)
+        try:
+            conn_db = get_db_connection()
+            cur_db = conn_db.cursor()
+            run_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cur_db.execute("""
+                INSERT INTO experiments (run_date, dataset_hash, best_model_name, accuracy, f1_score, split_ratio, seed, cv_folds, alpha, tuning_method)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                run_date,
+                dataset_hash[:10] if dataset_hash else "default",
+                best_model_name,
+                float(best_res['accuracy']),
+                float(best_res['f1-score']),
+                split_ratio,
+                seed,
+                cv_folds,
+                alpha,
+                tuning_method
+            ))
+            conn_db.commit()
+            conn_db.close()
+        except Exception as _dbe:
+            print("Warning DB experiment record insert failed:", _dbe)
         
         # Enviar completado
         await ws_manager.send_personal_message({
